@@ -36,15 +36,17 @@ export class MoneyDevKit {
     this.client = createORPCClient(link)
 
     this.node = new MdkNode({
-      network: options.nodeOptions?.network ?? 'signet',
+      network: options.nodeOptions?.network ?? 'regtest',
       mdkApiKey: options.accessToken,
       vssUrl: options.nodeOptions?.vssUrl ?? 'http://localhost:9999/vss',
-      esploraUrl: options.nodeOptions?.esploraUrl ?? 'https://mutinynet.com/api',
-      rgsUrl: options.nodeOptions?.rgsUrl ?? 'https://rgs.mutinynet.com/snapshot',
+      esploraUrl:
+        options.nodeOptions?.esploraUrl ?? 'http://localhost:8080/regtest/api',
+      rgsUrl:
+        options.nodeOptions?.rgsUrl ?? 'https://rgs.mutinynet.com/snapshot',
       mnemonic: options.mnemonic,
       lspNodeId:
         options.nodeOptions?.lspNodeId ??
-        '02b0c0afa258b50a2b82c0eaca70e869d7d723e28ab94d276532b776f704e22c60',
+        '0205db38c5866320078d1f74060c1592c7a1de4168fe19daa8d4d83d4f629b7941',
       lspAddress: options.nodeOptions?.lspAddress ?? 'localhost:9735',
     })
   }
