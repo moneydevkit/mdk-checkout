@@ -7,6 +7,8 @@ import {
   payInvoice as payInvoiceImpl,
 } from './actions'
 
+export type { CreateCheckoutParams } from './actions'
+
 export async function getCheckout(...args: Parameters<typeof getCheckoutImpl>) {
   return getCheckoutImpl(...args)
 }

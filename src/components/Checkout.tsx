@@ -8,6 +8,7 @@ import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
 import UnconfirmedCheckout from './checkout/UnconfirmedCheckout'
 import { getCheckout } from '../server/actions'
+import { MdkCheckoutProvider } from '../providers'
 
 export interface CheckoutProps {
   id: string
@@ -57,7 +58,7 @@ function CheckoutLayout({ title, description, children }: CheckoutLayoutProps) {
   )
 }
 
-export function Checkout({ id, onSuccess, title, description }: CheckoutProps) {
+function CheckoutInternal({ id, onSuccess, title, description }: CheckoutProps) {
   const { data: checkout } = useQuery({
     queryKey: ['mdk-checkout', id],
     queryFn: () => getCheckout(id),
@@ -150,6 +151,14 @@ export function Checkout({ id, onSuccess, title, description }: CheckoutProps) {
         })()}
       </div>
     </div>
+  )
+}
+
+export function Checkout(props: CheckoutProps) {
+  return (
+    <MdkCheckoutProvider>
+      <CheckoutInternal {...props} />
+    </MdkCheckoutProvider>
   )
 }
 

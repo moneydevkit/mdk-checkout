@@ -28,12 +28,25 @@ export async function confirmCheckout(confirm: ConfirmCheckout) {
   return pendingPaymentCheckout
 }
 
-export async function createCheckout(prompt: string) {
+export interface CreateCheckoutParams {
+  prompt: string
+  amount?: number
+  currency?: 'USD' | 'SAT'
+  metadata?: Record<string, any>
+}
+
+export async function createCheckout(params: CreateCheckoutParams | string) {
   const mdk = getMoneyDevKit()
+
+  // Support legacy string parameter for backward compatibility
+  const config = typeof params === 'string'
+    ? { prompt: params, amount: 200, currency: 'USD' as const }
+    : { amount: 200, currency: 'USD' as const, ...params }
+
   const checkout = await mdk.checkouts.create({
-    amount: 200,
-    currency: 'USD',
-    metadata: { prompt },
+    amount: config.amount,
+    currency: config.currency,
+    metadata: { prompt: config.prompt, ...config.metadata },
   })
 
   if (checkout.status === 'CONFIRMED') {
