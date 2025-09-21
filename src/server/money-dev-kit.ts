@@ -1,8 +1,34 @@
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { ContractRouterClient } from '@orpc/contract'
+import { createRequire } from 'module'
+
 import { contract } from '@moneydevkit/api-contract'
-import { MdkNode } from '@moneydevkit/lightning-js'
+
+type LightningModule = typeof import('@moneydevkit/lightning-js')
+type LightningNodeConstructor = LightningModule['MdkNode']
+type LightningNodeInstance = InstanceType<LightningNodeConstructor>
+type LightningNodeOptions = ConstructorParameters<LightningNodeConstructor>[0]
+
+declare const __non_webpack_require__: NodeRequire | undefined
+
+const moduleSpecifier = '@moneydevkit/lightning-js'
+
+let cachedLightningModule: LightningModule | undefined
+
+const loadLightningModule = (): LightningModule => {
+  // Resolve the native binding at runtime to keep Next.js bundlers from trying to bundle it.
+  if (!cachedLightningModule) {
+    const runtimeRequire =
+      typeof __non_webpack_require__ === 'function'
+        ? __non_webpack_require__
+        : createRequire(import.meta.url)
+
+    cachedLightningModule = runtimeRequire(moduleSpecifier) as LightningModule
+  }
+
+  return cachedLightningModule
+}
 
 const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 3000
 const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 3000
@@ -12,18 +38,18 @@ export interface MoneyDevKitOptions {
   mnemonic: string
   baseUrl?: string
   nodeOptions?: {
-    network?: ConstructorParameters<typeof MdkNode>[0]['network']
-    vssUrl?: string
-    esploraUrl?: string
-    rgsUrl?: string
-    lspNodeId?: string
-    lspAddress?: string
+    network?: LightningNodeOptions['network']
+    vssUrl?: LightningNodeOptions['vssUrl']
+    esploraUrl?: LightningNodeOptions['esploraUrl']
+    rgsUrl?: LightningNodeOptions['rgsUrl']
+    lspNodeId?: LightningNodeOptions['lspNodeId']
+    lspAddress?: LightningNodeOptions['lspAddress']
   }
 }
 
 export class MoneyDevKit {
   private client: ContractRouterClient<typeof contract>
-  private node: MdkNode
+  private node: LightningNodeInstance
 
   constructor(options: MoneyDevKitOptions) {
     const link = new RPCLink({
@@ -34,6 +60,8 @@ export class MoneyDevKit {
     })
 
     this.client = createORPCClient(link)
+
+    const { MdkNode } = loadLightningModule()
 
     this.node = new MdkNode({
       network: options.nodeOptions?.network ?? 'regtest',

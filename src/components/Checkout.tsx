@@ -103,7 +103,7 @@ export function Checkout({ id, onSuccess, title, description }: CheckoutProps) {
   })()
 
   return (
-    <div className="flex justify-center min-h-screen p-4 pt-8">
+    <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
       <div className="w-full max-w-md">
         {(() => {
           switch (checkout.status) {

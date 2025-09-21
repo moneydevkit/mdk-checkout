@@ -25,5 +25,9 @@ export interface MdkCheckoutProviderProps {
 export function MdkCheckoutProvider({ children, queryClient }: MdkCheckoutProviderProps) {
   const [client] = useState(() => queryClient ?? new ReactQueryClient(DEFAULT_QUERY_CLIENT_CONFIG))
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={client}>
+      <div className="mdk-checkout">{children}</div>
+    </QueryClientProvider>
+  )
 }
