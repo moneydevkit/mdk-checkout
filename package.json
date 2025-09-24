@@ -1,6 +1,6 @@
 {
   "name": "mdk-checkout",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "description": "Money Dev Kit checkout components and server helpers for Next.js.",
   "type": "module",
   "main": "./dist/index.js",
@@ -16,7 +16,7 @@
       "import": "./dist/server/index.js",
       "default": "./dist/server/index.js"
     },
-    "./globals.css": "./dist/globals.css",
+    "./mdk-styles.css": "./dist/mdk-styles.css",
     "./package.json": "./package.json",
     "./server/runtime": {
       "types": "./dist/server/runtime.d.ts",
@@ -33,7 +33,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && postcss src/globals.css -o dist/globals.css",
+    "build": "tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "pack:local": "npm pack"

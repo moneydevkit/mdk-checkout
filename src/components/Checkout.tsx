@@ -3,18 +3,21 @@
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import '../mdk-styles.css'
+import { MdkCheckoutProvider } from '../providers'
+import { getCheckout, createCheckout, type CreateCheckoutParams } from '../server/actions'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
 import UnconfirmedCheckout from './checkout/UnconfirmedCheckout'
-import { getCheckout } from '../server/actions'
-import { MdkCheckoutProvider } from '../providers'
 
 export interface CheckoutProps {
-  id: string
+  id?: string
   onSuccess?: (checkout: CheckoutType) => void
   title?: string
   description?: string
+  // New: creation parameters for when no id is provided
+  createParams?: CreateCheckoutParams
 }
 
 const PENDING_PAYMENT_REFETCH_INTERVAL_MS = 1000
@@ -58,10 +61,23 @@ function CheckoutLayout({ title, description, children }: CheckoutLayoutProps) {
   )
 }
 
-function CheckoutInternal({ id, onSuccess, title, description }: CheckoutProps) {
+function CheckoutInternal({ id, createParams, onSuccess, title, description }: CheckoutProps) {
+  // First, create checkout if needed (when createParams provided but no id)
+  const { data: createdCheckout, error: createError } = useQuery({
+    queryKey: ['mdk-create-checkout', createParams],
+    queryFn: () => createCheckout(createParams!),
+    enabled: !id && !!createParams,
+    staleTime: Infinity, // Don't refetch creation
+  })
+
+  // Use the provided id or the id from the created checkout
+  const checkoutId = id || createdCheckout?.id
+
+  // Then fetch/poll the checkout
   const { data: checkout } = useQuery({
-    queryKey: ['mdk-checkout', id],
-    queryFn: () => getCheckout(id),
+    queryKey: ['mdk-checkout', checkoutId],
+    queryFn: () => getCheckout(checkoutId!),
+    enabled: !!checkoutId,
     refetchInterval: ({ state: { data } }) => {
       if (data?.status === 'PENDING_PAYMENT') {
         return PENDING_PAYMENT_REFETCH_INTERVAL_MS
@@ -70,6 +86,40 @@ function CheckoutInternal({ id, onSuccess, title, description }: CheckoutProps) 
     },
     refetchIntervalInBackground: true,
   })
+
+  // Check for successUrl in checkout metadata
+  const successUrl = checkout?.userMetadata?.successUrl
+
+  // Default onSuccess behavior: redirect to successUrl or /success
+  const handleSuccess = onSuccess || (() => {
+    window.location.href = successUrl || '/success'
+  })
+
+  // Handle creation errors
+  if (createError) {
+    return (
+      <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
+        <div className="w-full max-w-md">
+          <CheckoutLayout title="Error" description="Failed to create checkout">
+            <div className="text-center">
+              <div className="text-red-400 mb-4">
+                <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-gray-300 mb-4">Unable to create checkout session</p>
+              <button
+                onClick={() => window.history.back()}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+          </CheckoutLayout>
+        </div>
+      </div>
+    )
+  }
 
   if (!checkout) {
     return (
@@ -134,7 +184,7 @@ function CheckoutInternal({ id, onSuccess, title, description }: CheckoutProps) 
                 <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
                   <PaymentReceivedCheckout
                     checkout={checkout as Extract<CheckoutType, { status: 'PAYMENT_RECEIVED' }>}
-                    onSuccess={onSuccess}
+                    onSuccess={handleSuccess}
                   />
                 </CheckoutLayout>
               )
