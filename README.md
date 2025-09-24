@@ -68,15 +68,14 @@ Create a dynamic route to handle checkout pages:
 'use client'
 
 import { Checkout } from 'mdk-checkout'
+import { use } from 'react'
 
-export default async function CheckoutPage({ params }) {
-  const { id } = await params
+export default function CheckoutPage({ params }) {
+  const { id } = use(params)
 
   return (
     <Checkout
       id={id}
-      title="Your App Name"
-      description="Complete your purchase"
     />
   )
 }
