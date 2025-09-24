@@ -74,7 +74,7 @@ export class MoneyDevKit {
       mnemonic: options.mnemonic,
       lspNodeId:
         options.nodeOptions?.lspNodeId ??
-        "037d8c0df1184bea6fec81d24a2a72cce91326a12a5320e62cd7097b0cd458519e",
+        "03551403456026918f130d88ce39f8ee79e2bfbdf8de7384532cc0ab0e1b212fbc",
       lspAddress: options.nodeOptions?.lspAddress ?? "localhost:9735",
     });
   }
