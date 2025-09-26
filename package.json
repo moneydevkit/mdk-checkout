@@ -1,6 +1,6 @@
 {
   "name": "mdk-checkout",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Money Dev Kit checkout components and server helpers for Next.js.",
   "type": "module",
   "main": "./dist/index.js",
