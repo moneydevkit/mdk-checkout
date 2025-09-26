@@ -2,11 +2,9 @@
 
 import type { Checkout } from '@moneydevkit/api-contract'
 
-type PaymentReceivedCheckoutType = Extract<Checkout, { status: 'PAYMENT_RECEIVED' }>
-
 export interface PaymentReceivedCheckoutProps {
-  checkout: PaymentReceivedCheckoutType
-  onSuccess?: (checkout: PaymentReceivedCheckoutType) => void
+  checkout: Checkout
+  onSuccess?: (checkout: Checkout) => void
 }
 
 export default function PaymentReceivedCheckout({ checkout, onSuccess }: PaymentReceivedCheckoutProps) {

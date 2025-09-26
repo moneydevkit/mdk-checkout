@@ -2,6 +2,8 @@
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import { getMoneyDevKit } from './mdk'
+import { markPaymentReceived, hasPaymentBeenReceived } from './payment-state'
+import { DEFAULT_LSP_NODE_ID } from '../constants'
 
 export async function getCheckout(checkoutId: string) {
   const mdk = getMoneyDevKit()
@@ -33,20 +35,30 @@ export interface CreateCheckoutParams {
   amount?: number
   currency?: 'USD' | 'SAT'
   metadata?: Record<string, any>
+  lspNodeId?: string
 }
 
 export async function createCheckout(params: CreateCheckoutParams | string) {
-  const mdk = getMoneyDevKit()
-
   // Support legacy string parameter for backward compatibility
-  const config = typeof params === 'string'
-    ? { prompt: params, amount: 200, currency: 'USD' as const }
-    : { amount: 200, currency: 'USD' as const, ...params }
+  const normalized: CreateCheckoutParams = typeof params === 'string'
+    ? { prompt: params }
+    : params
+
+  const amount = normalized.amount ?? 200
+  const currency = normalized.currency ?? 'USD'
+  const metadataOverrides = normalized.metadata ?? {}
+  const lspNodeId = normalized.lspNodeId ?? DEFAULT_LSP_NODE_ID
+
+  const mdk = getMoneyDevKit({
+    nodeOptions: {
+      lspNodeId,
+    },
+  })
 
   const checkout = await mdk.checkouts.create({
-    amount: config.amount,
-    currency: config.currency,
-    metadata: { prompt: config.prompt, ...config.metadata },
+    amount,
+    currency,
+    metadata: { prompt: normalized.prompt, ...metadataOverrides },
   })
 
   if (checkout.status === 'CONFIRMED') {
@@ -80,5 +92,15 @@ export async function payInvoice(paymentHash: string, amountSats: number) {
     ],
   })
 
+  markPaymentReceived(paymentHash)
+
   return result
+}
+
+export async function paymentHasBeenReceived(paymentHash: string) {
+  if (!paymentHash) {
+    return false
+  }
+
+  return hasPaymentBeenReceived(paymentHash)
 }

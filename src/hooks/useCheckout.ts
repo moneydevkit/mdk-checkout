@@ -3,10 +3,13 @@
 import { useState, useCallback } from 'react'
 import type { CreateCheckoutParams } from '../server/actions'
 import { createCheckout } from '../server/actions'
+import { DEFAULT_LSP_NODE_ID } from '../constants'
 
 export interface UseCheckoutOptions {
   /** Path to the checkout page (defaults to '/checkout') */
   checkoutPath?: string
+  /** Override the Lightning Service Provider node id */
+  lspNodeId?: string
   /** Called when navigation fails */
   onError?: (error: Error) => void
   /** Called after successful checkout completion */
@@ -22,6 +25,7 @@ export interface CheckoutResult {
 export function useCheckout(options: UseCheckoutOptions = {}) {
   const {
     checkoutPath = '/checkout',
+    lspNodeId = DEFAULT_LSP_NODE_ID,
     onError,
     onSuccess
   } = options
@@ -33,7 +37,10 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
       setIsNavigating(true)
 
       // Create checkout via API and get ID
-      const checkout = await createCheckout(params)
+      const checkout = await createCheckout({
+        ...params,
+        lspNodeId: params.lspNodeId ?? lspNodeId,
+      })
 
       // Navigate to the specific checkout page
       window.location.href = `${checkoutPath}/${checkout.id}`
@@ -46,7 +53,7 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
         console.error('Checkout creation failed:', err)
       }
     }
-  }, [checkoutPath, onError])
+  }, [checkoutPath, lspNodeId, onError])
 
   const handleSuccess = useCallback((result: CheckoutResult) => {
     if (onSuccess) {

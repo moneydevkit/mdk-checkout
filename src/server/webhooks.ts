@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getMoneyDevKit } from "./mdk";
+import { markPaymentReceived } from "./payment-state";
 
 const webhookSchema = z.object({
   event: z.enum(["incoming-payment"]),
@@ -15,12 +16,20 @@ async function handleIncomingPayment() {
     return;
   }
 
-  await mdk.checkouts.paymentReceived({
-    payments: payments.map((payment) => ({
-      paymentHash: payment.paymentHash,
-      amountSats: payment.amount,
-    })),
+  payments.forEach((payment) => {
+    markPaymentReceived(payment.paymentHash);
   });
+
+  try {
+    await mdk.checkouts.paymentReceived({
+      payments: payments.map((payment) => ({
+        paymentHash: payment.paymentHash,
+        amountSats: payment.amount,
+      })),
+    });
+  } catch (error) {
+    console.warn('Failed to notify MoneyDevKit checkout about received payments. Will rely on local state and retry on next webhook.', error);
+  }
 }
 
 export async function handleMdkWebhook(request: Request): Promise<Response> {

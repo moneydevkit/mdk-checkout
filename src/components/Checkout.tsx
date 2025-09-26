@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import '../mdk-styles.css'
 import { MdkCheckoutProvider } from '../providers'
-import { getCheckout, createCheckout, type CreateCheckoutParams } from '../server/actions'
+import { getCheckout, createCheckout, paymentHasBeenReceived, type CreateCheckoutParams } from '../server/actions'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
@@ -19,8 +19,6 @@ export interface CheckoutProps {
   // New: creation parameters for when no id is provided
   createParams?: CreateCheckoutParams
 }
-
-const PENDING_PAYMENT_REFETCH_INTERVAL_MS = 1000
 
 interface CheckoutLayoutProps {
   title?: string
@@ -73,19 +71,34 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
   // Use the provided id or the id from the created checkout
   const checkoutId = id || createdCheckout?.id
 
-  // Then fetch/poll the checkout
+  // Then fetch the checkout details once
   const { data: checkout } = useQuery({
     queryKey: ['mdk-checkout', checkoutId],
     queryFn: () => getCheckout(checkoutId!),
     enabled: !!checkoutId,
+    staleTime: Infinity,
+  })
+
+  const paymentHash = checkout?.invoice?.paymentHash ?? null
+  const initialPaymentReceived =
+    checkout?.status === 'PAYMENT_RECEIVED' ||
+    (checkout?.invoice?.amountSatsReceived ?? 0) > 0
+
+  const { data: paymentReceivedFromWebhook } = useQuery({
+    queryKey: ['mdk-payment-received', paymentHash ?? 'none'],
+    queryFn: () => paymentHasBeenReceived(paymentHash!),
+    enabled: !!paymentHash && !initialPaymentReceived,
     refetchInterval: ({ state: { data } }) => {
-      if (data?.status === 'PENDING_PAYMENT') {
-        return PENDING_PAYMENT_REFETCH_INTERVAL_MS
+      if (data) {
+        return false
       }
-      return false
+      return 1000
     },
     refetchIntervalInBackground: true,
+    staleTime: 1000,
   })
+
+  const paymentReceived = initialPaymentReceived || !!paymentReceivedFromWebhook
 
   // Check for successUrl in checkout metadata
   const successUrl = checkout?.userMetadata?.successUrl
@@ -131,13 +144,14 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
 
   const resolvedTitle = (() => {
     if (title) return title
+    if (paymentReceived) {
+      return 'Payment Successful!'
+    }
     switch (checkout.status) {
       case 'UNCONFIRMED':
         return 'Checkout'
       case 'PENDING_PAYMENT':
         return 'ImageMint'
-      case 'PAYMENT_RECEIVED':
-        return 'Payment Successful!'
       case 'EXPIRED':
         return 'Checkout Expired'
       default:
@@ -147,6 +161,9 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
 
   const resolvedDescription = (() => {
     if (description) return description
+    if (paymentReceived) {
+      return undefined
+    }
     if (checkout.status === 'PENDING_PAYMENT') {
       return checkout.userMetadata?.prompt ? `'${checkout.userMetadata.prompt}'` : undefined
     }
@@ -157,6 +174,14 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
     <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
       <div className="w-full max-w-md">
         {(() => {
+          if (paymentReceived) {
+            return (
+              <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
+                <PaymentReceivedCheckout checkout={checkout} onSuccess={handleSuccess} />
+              </CheckoutLayout>
+            )
+          }
+
           switch (checkout.status) {
             case 'UNCONFIRMED':
               return (
@@ -177,15 +202,6 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
               return (
                 <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
                   <PendingPaymentCheckout checkout={checkout as Extract<CheckoutType, { status: 'PENDING_PAYMENT' }>} />
-                </CheckoutLayout>
-              )
-            case 'PAYMENT_RECEIVED':
-              return (
-                <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
-                  <PaymentReceivedCheckout
-                    checkout={checkout as Extract<CheckoutType, { status: 'PAYMENT_RECEIVED' }>}
-                    onSuccess={handleSuccess}
-                  />
                 </CheckoutLayout>
               )
             case 'EXPIRED':

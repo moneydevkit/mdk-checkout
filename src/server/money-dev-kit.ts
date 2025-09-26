@@ -5,6 +5,8 @@ import { createRequire } from 'module'
 
 import { contract } from '@moneydevkit/api-contract'
 
+import { DEFAULT_LSP_NODE_ID } from '../constants'
+
 type LightningModule = typeof import('@moneydevkit/lightning-js')
 type LightningNodeConstructor = LightningModule['MdkNode']
 type LightningNodeInstance = InstanceType<LightningNodeConstructor>
@@ -74,7 +76,7 @@ export class MoneyDevKit {
       mnemonic: options.mnemonic,
       lspNodeId:
         options.nodeOptions?.lspNodeId ??
-        "03551403456026918f130d88ce39f8ee79e2bfbdf8de7384532cc0ab0e1b212fbc",
+        DEFAULT_LSP_NODE_ID,
       lspAddress: options.nodeOptions?.lspAddress ?? "localhost:9735",
     });
   }
