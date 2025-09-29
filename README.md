@@ -1,31 +1,24 @@
 # mdk-checkout
 
-Money Dev Kit checkout components, providers, and server helpers for embedding Lightning-based checkout flows into Next.js applications.
+Money Dev Kit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
 
-## Installation & Setup
+It spins up a serverless Lightning node on demand, so invoices are created and settled just in time. Funds stay under your control the entire way. MoneyDevKit.com never takes custody of your sats or dollars.
 
-Before using this library, you need to:
+## Setup
+1. **Create a Money Dev Kit account** at [moneydevkit.com](https://moneydevkit.com) and grab your `api_key`, `webhook_key`, and mnemonic.
+2. **Install the SDK** in your project:
+   ```bash
+   npm install mdk-checkout
+   ```
+3. **Add required secrets** to `.env` (or similar):
+   ```env
+   MDK_ACCESS_TOKEN=your_api_key_here
+   MDK_WEBHOOK_SECRET=your_webhook_key_here
+   MDK_MNEMONIC=your_mnemonic_here
+   ```
 
-1. **Get API credentials**: Go to [moneydevkit.com](https://moneydevkit.com), create an account, and obtain your `api_key` and `webhook_key`.
-
-2. **Install the package**:
-```bash
-npm install mdk-checkout
-```
-
-3. **Configure environment variables** in your `.env` file:
-```env
-MDK_ACCESS_TOKEN=your_api_key_here
-MDK_WEBHOOK_SECRET=your_webhook_key_here
-MDK_MNEMONIC=your_mnemonic_here
-```
-
-## Quick Start
-
-### 1. Use the `useCheckout` Hook
-
-The easiest way to integrate checkout is with the `useCheckout` hook:
-
+## Quick Start (Next.js App Router)
+### 1. Trigger a checkout from any client component
 ```jsx
 // app/page.js
 'use client'
@@ -37,63 +30,41 @@ export default function HomePage() {
 
   const handlePurchase = () => {
     navigate({
-      prompt: "Custom AI image generation",
-      amount: 500,        // Amount in cents (USD) or sats
-      currency: "USD",    // or "SAT"
+      prompt: 'Describe the purchase shown to the buyer',
+      amount: 500,         // 500 USD cents or Bitcoin sats
+      currency: 'USD',     // or 'SAT'
       metadata: {
-        type: "image_generation",
-        customField: "value",
-        successUrl: "/joke/basic"  // Custom redirect after successful payment
+        type: 'my_type',
+        customField: 'internal reference for this checkout',
+        successUrl: '/checkout/success'
       }
     })
   }
 
   return (
-    <button
-      onClick={handlePurchase}
-      disabled={isNavigating}
-    >
-      {isNavigating ? 'Creating checkout...' : 'Buy Now'}
+    <button onClick={handlePurchase} disabled={isNavigating}>
+      {isNavigating ? 'Creating checkout…' : 'Buy Now'}
     </button>
   )
 }
 ```
 
-### 2. Create Checkout Page
-
-Create a dynamic route to handle checkout pages:
-
+### 2. Render the hosted checkout page
 ```jsx
 // app/checkout/[id]/page.js
 'use client'
 
 import { Checkout } from 'mdk-checkout'
-import { use } from 'react'
 
 export default function CheckoutPage({ params }) {
-  const { id } = use(params)
-
-  return (
-    <Checkout
-      id={id}
-    />
-  )
+  return <Checkout id={params.id} />
 }
 ```
 
-### 3. Handle Webhooks
-
-Create a webhook endpoint to receive payment notifications:
-
+### 3. Receive payment webhooks
 ```js
 // app/api/webhooks/mdk/route.js
 export { POST } from 'mdk-checkout/server/webhooks'
 ```
 
-## Environment Variables
-
-Required environment variables:
-
-- `MDK_ACCESS_TOKEN` - Your Money Dev Kit API key
-- `MDK_WEBHOOK_SECRET` - Your webhook secret key
-- `MDK_MNEMONIC` - Your wallet mnemonic (optional)
+You now have a complete Lightning checkout loop: the button creates a session, the dynamic route renders it, and the webhook endpoint signals your Lightning node to claim paid invoices.
