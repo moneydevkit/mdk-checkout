@@ -52,12 +52,14 @@ export default function HomePage() {
 ### 2. Render the hosted checkout page
 ```jsx
 // app/checkout/[id]/page.js
-'use client'
-
-import { Checkout } from 'mdk-checkout'
+"use client";
+import { Checkout } from "mdk-checkout";
+import { use } from "react";
 
 export default function CheckoutPage({ params }) {
-  return <Checkout id={params.id} />
+  const { id } = use(params);
+
+  return <Checkout id={id} />;
 }
 ```
 
