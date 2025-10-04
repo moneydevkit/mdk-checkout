@@ -1,9 +1,9 @@
 'use server'
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
-import { getMoneyDevKit } from './mdk'
-import { markPaymentReceived, hasPaymentBeenReceived } from './payment-state'
 import { DEFAULT_LSP_NODE_ID } from '../constants'
+import { getMoneyDevKit } from './mdk'
+import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 
 export async function getCheckout(checkoutId: string) {
   const mdk = getMoneyDevKit()
@@ -101,6 +101,6 @@ export async function paymentHasBeenReceived(paymentHash: string) {
   if (!paymentHash) {
     return false
   }
-
+  console.log('Checking payment received for', paymentHash)
   return hasPaymentBeenReceived(paymentHash)
 }
