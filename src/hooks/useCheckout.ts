@@ -10,6 +10,16 @@ export interface UseCheckoutOptions {
   checkoutPath?: string
   /** Override the Lightning Service Provider node id */
   lspNodeId?: string
+  /** Override the Lightning network (e.g. mainnet, signet, regtest) */
+  network?: string
+  /** Override the Vector Service Server URL */
+  vssUrl?: string
+  /** Override the Esplora backend URL */
+  esploraUrl?: string
+  /** Override the Rapid Gossip Sync snapshot URL */
+  rgsUrl?: string
+  /** Override the Lightning Service Provider address */
+  lspAddress?: string
   /** Called when navigation fails */
   onError?: (error: Error) => void
   /** Called after successful checkout completion */
@@ -26,6 +36,11 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
   const {
     checkoutPath = '/checkout',
     lspNodeId = DEFAULT_LSP_NODE_ID,
+    network,
+    vssUrl,
+    esploraUrl,
+    rgsUrl,
+    lspAddress,
     onError,
     onSuccess
   } = options
@@ -40,6 +55,11 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
       const checkout = await createCheckout({
         ...params,
         lspNodeId: params.lspNodeId ?? lspNodeId,
+        network: params.network ?? network,
+        vssUrl: params.vssUrl ?? vssUrl,
+        esploraUrl: params.esploraUrl ?? esploraUrl,
+        rgsUrl: params.rgsUrl ?? rgsUrl,
+        lspAddress: params.lspAddress ?? lspAddress,
       })
 
       // Navigate to the specific checkout page
@@ -53,7 +73,16 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
         console.error('Checkout creation failed:', err)
       }
     }
-  }, [checkoutPath, lspNodeId, onError])
+  }, [
+    checkoutPath,
+    lspNodeId,
+    network,
+    vssUrl,
+    esploraUrl,
+    rgsUrl,
+    lspAddress,
+    onError,
+  ])
 
   const handleSuccess = useCallback((result: CheckoutResult) => {
     if (onSuccess) {
