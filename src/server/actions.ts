@@ -38,6 +38,7 @@ export interface CreateCheckoutParams {
   amount?: number
   currency?: 'USD' | 'SAT'
   metadata?: Record<string, any>
+  baseUrl?: string
   lspNodeId?: string
   network?: NodeOptions['network']
   vssUrl?: NodeOptions['vssUrl']
@@ -56,6 +57,7 @@ export async function createCheckout(params: CreateCheckoutParams | string) {
   const currency = normalized.currency ?? 'USD'
   const metadataOverrides = normalized.metadata ?? {}
   const lspNodeId = normalized.lspNodeId ?? DEFAULT_LSP_NODE_ID
+  const baseUrl = normalized.baseUrl
 
   const nodeOptions: NodeOptions = {
     lspNodeId,
@@ -82,6 +84,7 @@ export async function createCheckout(params: CreateCheckoutParams | string) {
   }
 
   const mdk = getMoneyDevKit({
+    baseUrl,
     nodeOptions,
   })
 

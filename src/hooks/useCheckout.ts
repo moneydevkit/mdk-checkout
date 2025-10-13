@@ -8,6 +8,8 @@ import { DEFAULT_LSP_NODE_ID } from '../constants'
 export interface UseCheckoutOptions {
   /** Path to the checkout page (defaults to '/checkout') */
   checkoutPath?: string
+  /** Override the backend API base URL */
+  baseUrl?: string
   /** Override the Lightning Service Provider node id */
   lspNodeId?: string
   /** Override the Lightning network (e.g. mainnet, signet, regtest) */
@@ -35,6 +37,7 @@ export interface CheckoutResult {
 export function useCheckout(options: UseCheckoutOptions = {}) {
   const {
     checkoutPath = '/checkout',
+    baseUrl,
     lspNodeId = DEFAULT_LSP_NODE_ID,
     network,
     vssUrl,
@@ -60,6 +63,7 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
         esploraUrl: params.esploraUrl ?? esploraUrl,
         rgsUrl: params.rgsUrl ?? rgsUrl,
         lspAddress: params.lspAddress ?? lspAddress,
+        baseUrl: params.baseUrl ?? baseUrl,
       })
 
       // Navigate to the specific checkout page
@@ -81,6 +85,7 @@ export function useCheckout(options: UseCheckoutOptions = {}) {
     esploraUrl,
     rgsUrl,
     lspAddress,
+    baseUrl,
     onError,
   ])
 
