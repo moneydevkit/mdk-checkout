@@ -27,13 +27,18 @@
       "types": "./dist/server/webhooks.d.ts",
       "import": "./dist/server/webhooks.js",
       "default": "./dist/server/webhooks.js"
+    },
+    "./next-plugin": {
+      "types": "./dist/next-plugin.d.ts",
+      "import": "./dist/next-plugin.js",
+      "default": "./dist/next-plugin.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css",
+    "build": "tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css && node scripts/copy-lightning-entry.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "pack:local": "npm pack"

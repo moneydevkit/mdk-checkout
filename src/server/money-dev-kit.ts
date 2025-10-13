@@ -14,9 +14,24 @@ type LightningNodeOptions = ConstructorParameters<LightningNodeConstructor>[0]
 
 declare const __non_webpack_require__: NodeRequire | undefined
 
-const moduleSpecifier = '@moneydevkit/lightning-js'
-
 let cachedLightningModule: LightningModule | undefined
+
+const ensureLightningModuleForTracing = () => {
+  try {
+    const runtimeRequire =
+      typeof __non_webpack_require__ === 'function'
+        ? __non_webpack_require__
+        : typeof require !== 'undefined'
+          ? require
+          : createRequire(import.meta.url)
+
+    runtimeRequire('@moneydevkit/lightning-js')
+  } catch {
+    // Ignore resolution errors here; the module will be required lazily below.
+  }
+}
+
+ensureLightningModuleForTracing()
 
 const loadLightningModule = (): LightningModule => {
   // Resolve the native binding at runtime to keep Next.js bundlers from trying to bundle it.
@@ -28,7 +43,7 @@ const loadLightningModule = (): LightningModule => {
           ? require
           : createRequire(import.meta.url)
 
-    cachedLightningModule = runtimeRequire(moduleSpecifier) as LightningModule
+    cachedLightningModule = runtimeRequire('./lightning-entry.cjs') as LightningModule
   }
 
   return cachedLightningModule
