@@ -32,12 +32,21 @@ const OPTIONAL_LIGHTNING_PACKAGES = [
 
 let cachedLightningModule: LightningModule | undefined
 
-const getRuntimeRequire = () =>
-  typeof __non_webpack_require__ === 'function'
-    ? __non_webpack_require__
-    : typeof require !== 'undefined'
-      ? require
-      : createRequire(import.meta.url)
+const getRuntimeRequire = () => {
+  if (typeof __non_webpack_require__ === 'function') {
+    return __non_webpack_require__
+  }
+
+  try {
+    return createRequire(import.meta.url)
+  } catch (error) {
+    if (typeof require === 'function') {
+      return require
+    }
+
+    throw error
+  }
+}
 
 const ensureLightningPackagesForTracing = () => {
   const runtimeRequire = getRuntimeRequire()
