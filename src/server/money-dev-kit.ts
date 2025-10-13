@@ -14,17 +14,52 @@ type LightningNodeOptions = ConstructorParameters<LightningNodeConstructor>[0]
 
 declare const __non_webpack_require__: NodeRequire | undefined
 
+const OPTIONAL_LIGHTNING_PACKAGES = [
+  '@moneydevkit/lightning-js-linux-x64-gnu',
+  '@moneydevkit/lightning-js-linux-x64-musl',
+  '@moneydevkit/lightning-js-linux-arm64-gnu',
+  '@moneydevkit/lightning-js-linux-arm64-musl',
+  '@moneydevkit/lightning-js-linux-arm-gnueabihf',
+  '@moneydevkit/lightning-js-android-arm64',
+  '@moneydevkit/lightning-js-android-arm-eabi',
+  '@moneydevkit/lightning-js-win32-x64-msvc',
+  '@moneydevkit/lightning-js-win32-ia32-msvc',
+  '@moneydevkit/lightning-js-win32-arm64-msvc',
+  '@moneydevkit/lightning-js-darwin-x64',
+  '@moneydevkit/lightning-js-darwin-arm64',
+  '@moneydevkit/lightning-js-freebsd-x64',
+]
+
 let cachedLightningModule: LightningModule | undefined
+
+const getRuntimeRequire = () =>
+  typeof __non_webpack_require__ === 'function'
+    ? __non_webpack_require__
+    : typeof require !== 'undefined'
+      ? require
+      : createRequire(import.meta.url)
+
+const ensureLightningPackagesForTracing = () => {
+  const runtimeRequire = getRuntimeRequire()
+  const specifiers = ['@moneydevkit/lightning-js', ...OPTIONAL_LIGHTNING_PACKAGES]
+
+  for (const specifier of specifiers) {
+    try {
+      if (typeof runtimeRequire.resolve === 'function') {
+        runtimeRequire.resolve(specifier)
+      }
+    } catch {
+      // Ignore resolution errors; only needed to hint bundlers about the dependency graph.
+    }
+  }
+}
+
+ensureLightningPackagesForTracing()
 
 const loadLightningModule = (): LightningModule => {
   // Resolve the native binding at runtime to keep Next.js bundlers from trying to bundle it.
   if (!cachedLightningModule) {
-    const runtimeRequire =
-      typeof __non_webpack_require__ === 'function'
-        ? __non_webpack_require__
-        : typeof require !== 'undefined'
-          ? require
-          : createRequire(import.meta.url)
+    const runtimeRequire = getRuntimeRequire()
 
     cachedLightningModule = runtimeRequire('@moneydevkit/lightning-js') as LightningModule
   }
