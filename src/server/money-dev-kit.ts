@@ -24,7 +24,9 @@ const loadLightningModule = (): LightningModule => {
     const runtimeRequire =
       typeof __non_webpack_require__ === 'function'
         ? __non_webpack_require__
-        : createRequire(import.meta.url)
+        : typeof require !== 'undefined'
+          ? require
+          : createRequire(import.meta.url)
 
     cachedLightningModule = runtimeRequire(moduleSpecifier) as LightningModule
   }
