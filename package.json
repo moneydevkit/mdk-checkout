@@ -38,7 +38,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css && node scripts/copy-lightning-entry.mjs",
+    "build": "rm -rf dist && tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "pack:local": "npm pack"

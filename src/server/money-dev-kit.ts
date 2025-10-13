@@ -16,23 +16,6 @@ declare const __non_webpack_require__: NodeRequire | undefined
 
 let cachedLightningModule: LightningModule | undefined
 
-const ensureLightningModuleForTracing = () => {
-  try {
-    const runtimeRequire =
-      typeof __non_webpack_require__ === 'function'
-        ? __non_webpack_require__
-        : typeof require !== 'undefined'
-          ? require
-          : createRequire(import.meta.url)
-
-    runtimeRequire('@moneydevkit/lightning-js')
-  } catch {
-    // Ignore resolution errors here; the module will be required lazily below.
-  }
-}
-
-ensureLightningModuleForTracing()
-
 const loadLightningModule = (): LightningModule => {
   // Resolve the native binding at runtime to keep Next.js bundlers from trying to bundle it.
   if (!cachedLightningModule) {
@@ -43,7 +26,7 @@ const loadLightningModule = (): LightningModule => {
           ? require
           : createRequire(import.meta.url)
 
-    cachedLightningModule = runtimeRequire('./lightning-entry.cjs') as LightningModule
+    cachedLightningModule = runtimeRequire('@moneydevkit/lightning-js') as LightningModule
   }
 
   return cachedLightningModule
