@@ -24,10 +24,32 @@ export interface ResolveMoneyDevKitOptions {
 }
 
 function readEnv(): ResolveMoneyDevKitOptions {
+  const nodeOptions: MoneyDevKitOptions['nodeOptions'] = {}
+
+  if (process.env.MDK_NETWORK) {
+    nodeOptions.network = process.env.MDK_NETWORK as any
+  }
+  if (process.env.MDK_VSS_URL) {
+    nodeOptions.vssUrl = process.env.MDK_VSS_URL
+  }
+  if (process.env.MDK_ESPLORA_URL) {
+    nodeOptions.esploraUrl = process.env.MDK_ESPLORA_URL
+  }
+  if (process.env.MDK_RGS_URL) {
+    nodeOptions.rgsUrl = process.env.MDK_RGS_URL
+  }
+  if (process.env.MDK_LSP_NODE_ID) {
+    nodeOptions.lspNodeId = process.env.MDK_LSP_NODE_ID
+  }
+  if (process.env.MDK_LSP_ADDRESS) {
+    nodeOptions.lspAddress = process.env.MDK_LSP_ADDRESS
+  }
+
   return {
     accessToken: process.env.MDK_ACCESS_TOKEN,
     mnemonic: process.env.MDK_MNEMONIC,
     baseUrl: process.env.MDK_API_BASE_URL,
+    nodeOptions: Object.keys(nodeOptions).length > 0 ? nodeOptions : undefined,
   }
 }
 
@@ -53,11 +75,17 @@ export function resolveMoneyDevKitOptions(
     )
   }
 
+  // Merge nodeOptions: env vars as defaults, overrides take precedence
+  const nodeOptions: MoneyDevKitOptions['nodeOptions'] = {
+    ...env.nodeOptions,
+    ...overrides.nodeOptions,
+  }
+
   return {
     accessToken,
     mnemonic,
     baseUrl: overrides.baseUrl ?? env.baseUrl,
-    nodeOptions: overrides.nodeOptions,
+    nodeOptions: Object.keys(nodeOptions).length > 0 ? nodeOptions : undefined,
   }
 }
 

@@ -110,18 +110,18 @@ export class MoneyDevKit {
     const { MdkNode } = loadLightningModule()
 
     this.node = new MdkNode({
-      network: options.nodeOptions?.network ?? "regtest",
+      network: options.nodeOptions?.network ?? "signet",
       mdkApiKey: options.accessToken,
       vssUrl: options.nodeOptions?.vssUrl ?? "https://vss.staging.moneydevkit.com/vss",
       esploraUrl:
-        options.nodeOptions?.esploraUrl ?? "http://localhost:8080/regtest/api",
+        options.nodeOptions?.esploraUrl ?? "https://mutinynet.com/api",
       rgsUrl:
         options.nodeOptions?.rgsUrl ?? "https://rgs.mutinynet.com/snapshot",
       mnemonic: options.mnemonic,
       lspNodeId:
         options.nodeOptions?.lspNodeId ??
         DEFAULT_LSP_NODE_ID,
-      lspAddress: options.nodeOptions?.lspAddress ?? "localhost:9735",
+      lspAddress: options.nodeOptions?.lspAddress ?? "3.21.138.98:9735",
     });
   }
 
