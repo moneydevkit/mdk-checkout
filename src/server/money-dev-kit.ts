@@ -112,7 +112,7 @@ export class MoneyDevKit {
     this.node = new MdkNode({
       network: options.nodeOptions?.network ?? "regtest",
       mdkApiKey: options.accessToken,
-      vssUrl: options.nodeOptions?.vssUrl ?? "http://localhost:9999/vss",
+      vssUrl: options.nodeOptions?.vssUrl ?? "https://vss.staging.moneydevkit.com/vss",
       esploraUrl:
         options.nodeOptions?.esploraUrl ?? "http://localhost:8080/regtest/api",
       rgsUrl:
