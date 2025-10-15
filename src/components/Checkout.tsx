@@ -2,14 +2,16 @@
 
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import '../mdk-styles.css'
 import { MdkCheckoutProvider } from '../providers'
-import { getCheckout, createCheckout, paymentHasBeenReceived, type CreateCheckoutParams } from '../server/actions'
+import { getCheckout, createCheckout, type CreateCheckoutParams } from '../server/actions'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
 import UnconfirmedCheckout from './checkout/UnconfirmedCheckout'
+
+const POLLING_STATUSES = new Set<CheckoutType['status']>(['UNCONFIRMED', 'CONFIRMED', 'PENDING_PAYMENT'])
 
 export interface CheckoutProps {
   id?: string
@@ -71,34 +73,62 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
   // Use the provided id or the id from the created checkout
   const checkoutId = id || createdCheckout?.id
 
-  // Then fetch the checkout details once
+  const [isWindowVisible, setIsWindowVisible] = useState(() => {
+    if (typeof document === 'undefined') {
+      return true
+    }
+    return document.visibilityState === 'visible'
+  })
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return
+    }
+
+    const handleVisibility = () => {
+      setIsWindowVisible(document.visibilityState === 'visible')
+    }
+
+    const handlePageHide = () => {
+      setIsWindowVisible(false)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [])
+
+  // Fetch the checkout and keep polling until it reaches a terminal state.
   const { data: checkout } = useQuery({
     queryKey: ['mdk-checkout', checkoutId],
     queryFn: () => getCheckout(checkoutId!),
     enabled: !!checkoutId,
-    staleTime: Infinity,
-  })
-
-  const paymentHash = checkout?.invoice?.paymentHash ?? null
-  const initialPaymentReceived =
-    checkout?.status === 'PAYMENT_RECEIVED' ||
-    (checkout?.invoice?.amountSatsReceived ?? 0) > 0
-
-  const { data: paymentReceivedFromWebhook } = useQuery({
-    queryKey: ['mdk-payment-received', paymentHash ?? 'none'],
-    queryFn: () => paymentHasBeenReceived(paymentHash!),
-    enabled: !!paymentHash && !initialPaymentReceived,
     refetchInterval: ({ state: { data } }) => {
-      if (data) {
+      if (!isWindowVisible) {
         return false
       }
+
+      if (!data) {
+        return 1000
+      }
+
+      const invoiceSettled = (data.invoice?.amountSatsReceived ?? 0) > 0
+
+      if (!POLLING_STATUSES.has(data.status) || invoiceSettled) {
+        return false
+      }
+
       return 1000
     },
-    refetchIntervalInBackground: true,
-    staleTime: 1000,
   })
 
-  const paymentReceived = initialPaymentReceived || !!paymentReceivedFromWebhook
+  const paymentReceived =
+    checkout?.status === 'PAYMENT_RECEIVED' ||
+    (checkout?.invoice?.amountSatsReceived ?? 0) > 0
 
   // Check for successUrl in checkout metadata
   const successUrl = checkout?.userMetadata?.successUrl
