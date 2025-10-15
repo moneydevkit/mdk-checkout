@@ -14,23 +14,28 @@ export async function getCheckout(checkoutId: string) {
 }
 
 export async function confirmCheckout(confirm: ConfirmCheckout) {
-  const mdk = getMoneyDevKit()
-  const confirmedCheckout = await mdk.checkouts.confirm(confirm)
+  try {
+    const mdk = getMoneyDevKit()
+    const confirmedCheckout = await mdk.checkouts.confirm(confirm)
 
-  const invoice = confirmedCheckout.invoiceScid
-    ? mdk.invoices.createWithScid(confirmedCheckout.invoiceScid, confirmedCheckout.invoiceAmountSats)
-    : mdk.invoices.create(confirmedCheckout.invoiceAmountSats)
+    const invoice = confirmedCheckout.invoiceScid
+      ? mdk.invoices.createWithScid(confirmedCheckout.invoiceScid, confirmedCheckout.invoiceAmountSats)
+      : mdk.invoices.create(confirmedCheckout.invoiceAmountSats)
 
-  const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
-    paymentHash: invoice.paymentHash,
-    invoice: invoice.invoice,
-    invoiceExpiresAt: invoice.expiresAt,
-    checkoutId: confirmedCheckout.id,
-    nodeId: mdk.getNodeId(),
-    scid: invoice.scid,
-  })
+    const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
+      paymentHash: invoice.paymentHash,
+      invoice: invoice.invoice,
+      invoiceExpiresAt: invoice.expiresAt,
+      checkoutId: confirmedCheckout.id,
+      nodeId: mdk.getNodeId(),
+      scid: invoice.scid,
+    })
 
-  return pendingPaymentCheckout
+    return pendingPaymentCheckout
+  } catch (error) {
+    console.error('[MDK] Failed to confirm checkout:', error)
+    throw error
+  }
 }
 
 export interface CreateCheckoutParams {
@@ -83,35 +88,40 @@ export async function createCheckout(params: CreateCheckoutParams | string) {
     nodeOptions.lspAddress = normalized.lspAddress
   }
 
-  const mdk = getMoneyDevKit({
-    baseUrl,
-    nodeOptions,
-  })
-
-  const checkout = await mdk.checkouts.create({
-    amount,
-    currency,
-    metadata: { prompt: normalized.prompt, ...metadataOverrides },
-  })
-
-  if (checkout.status === 'CONFIRMED') {
-    const invoice = checkout.invoiceScid
-      ? mdk.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
-      : mdk.invoices.create(checkout.invoiceAmountSats)
-
-    const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
-      paymentHash: invoice.paymentHash,
-      invoice: invoice.invoice,
-      invoiceExpiresAt: invoice.expiresAt,
-      checkoutId: checkout.id,
-      nodeId: mdk.getNodeId(),
-      scid: invoice.scid,
+  try {
+    const mdk = getMoneyDevKit({
+      baseUrl,
+      nodeOptions,
     })
 
-    return pendingPaymentCheckout
-  }
+    const checkout = await mdk.checkouts.create({
+      amount,
+      currency,
+      metadata: { prompt: normalized.prompt, ...metadataOverrides },
+    })
 
-  return checkout
+    if (checkout.status === 'CONFIRMED') {
+      const invoice = checkout.invoiceScid
+        ? mdk.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
+        : mdk.invoices.create(checkout.invoiceAmountSats)
+
+      const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
+        paymentHash: invoice.paymentHash,
+        invoice: invoice.invoice,
+        invoiceExpiresAt: invoice.expiresAt,
+        checkoutId: checkout.id,
+        nodeId: mdk.getNodeId(),
+        scid: invoice.scid,
+      })
+
+      return pendingPaymentCheckout
+    }
+
+    return checkout
+  } catch (error) {
+    console.error('[MDK] Failed to create checkout:', error)
+    throw error
+  }
 }
 
 export async function payInvoice(paymentHash: string, amountSats: number) {
