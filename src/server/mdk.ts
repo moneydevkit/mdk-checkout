@@ -95,6 +95,20 @@ export function getMoneyDevKit(options: ResolveMoneyDevKitOptions = {}) {
   const signature = serializeOptions(resolved)
 
   if (!state.instance || state.optionsSignature !== signature) {
+    // Cleanup old instance if credentials have changed
+    if (state.instance && state.optionsSignature !== signature) {
+      console.log('[MoneyDevKit] Configuration changed, reinitializing...')
+      try {
+        // Call shutdown if available (for future-proofing)
+        if (typeof (state.instance as any).shutdown === 'function') {
+          (state.instance as any).shutdown()
+        }
+      } catch (error) {
+        console.warn('[MoneyDevKit] Error during cleanup:', error)
+      }
+    }
+
+    console.log('[MoneyDevKit] Initializing new instance')
     state.instance = new MoneyDevKit(resolved)
     state.optionsSignature = signature
   }

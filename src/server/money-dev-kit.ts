@@ -126,14 +126,29 @@ export class MoneyDevKit {
   }
 
   getNodeId() {
-    return this.node.getNodeId()
+    try {
+      return this.node.getNodeId()
+    } catch (error) {
+      console.error('[MoneyDevKit] Failed to get node ID:', error)
+      throw new Error(
+        `Failed to get Lightning node ID: ${error instanceof Error ? error.message : 'ConnectionFailed'}. ` +
+        'This may indicate the Lightning node failed to initialize properly. ' +
+        'Please verify your MDK_MNEMONIC and MDK_ACCESS_TOKEN are correct.'
+      )
+    }
   }
 
   receivePayments() {
-    return this.node.receivePayment(
-      RECEIVE_PAYMENTS_MIN_THRESHOLD_MS,
-      RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS,
-    )
+    try {
+      return this.node.receivePayment(
+        RECEIVE_PAYMENTS_MIN_THRESHOLD_MS,
+        RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS,
+      )
+    } catch (error) {
+      console.error('[MoneyDevKit] Failed to receive payments:', error)
+      // Return empty array instead of throwing to prevent webhook failures
+      return []
+    }
   }
 
   get invoices() {
@@ -142,31 +157,50 @@ export class MoneyDevKit {
         const expirySecs = 15 * 60
         const description = 'mdk invoice'
 
-        const invoice =
-          amountSats === null
-            ? this.node.getVariableAmountJitInvoice(description, expirySecs)
-            : this.node.getInvoice(amountSats * 1000, description, expirySecs)
+        try {
+          const invoice =
+            amountSats === null
+              ? this.node.getVariableAmountJitInvoice(description, expirySecs)
+              : this.node.getInvoice(amountSats * 1000, description, expirySecs)
 
-        return {
-          invoice: invoice.bolt11,
-          paymentHash: invoice.paymentHash,
-          scid: invoice.scid,
-          expiresAt: new Date(invoice.expiresAt * 1000),
+          return {
+            invoice: invoice.bolt11,
+            paymentHash: invoice.paymentHash,
+            scid: invoice.scid,
+            expiresAt: new Date(invoice.expiresAt * 1000),
+          }
+        } catch (error) {
+          console.error('[MoneyDevKit] Failed to create invoice:', error)
+          throw new Error(
+            `Failed to create invoice: ${error instanceof Error ? error.message : 'ConnectionFailed'}. ` +
+            'This may be due to network connectivity issues, incorrect configuration, or service unavailability. ' +
+            'Please verify your MDK_MNEMONIC, MDK_ACCESS_TOKEN, and network settings.'
+          )
         }
       },
       createWithScid: (scid: string, amountSats: number | null) => {
         const expirySecs = 15 * 60
         const description = 'mdk invoice'
-        const invoice =
-          amountSats === null
-            ? this.node.getVariableAmountJitInvoiceWithScid(scid, description, expirySecs)
-            : this.node.getInvoiceWithScid(scid, amountSats * 1000, description, expirySecs)
+        
+        try {
+          const invoice =
+            amountSats === null
+              ? this.node.getVariableAmountJitInvoiceWithScid(scid, description, expirySecs)
+              : this.node.getInvoiceWithScid(scid, amountSats * 1000, description, expirySecs)
 
-        return {
-          invoice: invoice.bolt11,
-          paymentHash: invoice.paymentHash,
-          scid: invoice.scid,
-          expiresAt: new Date(invoice.expiresAt * 1000),
+          return {
+            invoice: invoice.bolt11,
+            paymentHash: invoice.paymentHash,
+            scid: invoice.scid,
+            expiresAt: new Date(invoice.expiresAt * 1000),
+          }
+        } catch (error) {
+          console.error('[MoneyDevKit] Failed to create invoice with SCID:', error)
+          throw new Error(
+            `Failed to create invoice with SCID: ${error instanceof Error ? error.message : 'ConnectionFailed'}. ` +
+            'This may be due to network connectivity issues, incorrect configuration, or service unavailability. ' +
+            'Please verify your MDK_MNEMONIC, MDK_ACCESS_TOKEN, and network settings.'
+          )
         }
       },
     }

@@ -9,26 +9,31 @@ const webhookSchema = z.object({
 });
 
 async function handleIncomingPayment() {
-  const mdk = getMoneyDevKit();
-  const payments = mdk.receivePayments();
-
-  if (payments.length === 0) {
-    return;
-  }
-
-  payments.forEach((payment) => {
-    markPaymentReceived(payment.paymentHash);
-  });
-
   try {
-    await mdk.checkouts.paymentReceived({
-      payments: payments.map((payment) => ({
-        paymentHash: payment.paymentHash,
-        amountSats: payment.amount,
-      })),
+    const mdk = getMoneyDevKit();
+    const payments = mdk.receivePayments();
+
+    if (payments.length === 0) {
+      return;
+    }
+
+    payments.forEach((payment) => {
+      markPaymentReceived(payment.paymentHash);
     });
+
+    try {
+      await mdk.checkouts.paymentReceived({
+        payments: payments.map((payment) => ({
+          paymentHash: payment.paymentHash,
+          amountSats: payment.amount,
+        })),
+      });
+    } catch (error) {
+      console.warn('[MDK Webhook] Failed to notify MoneyDevKit checkout about received payments. Will rely on local state and retry on next webhook.', error);
+    }
   } catch (error) {
-    console.warn('Failed to notify MoneyDevKit checkout about received payments. Will rely on local state and retry on next webhook.', error);
+    console.error('[MDK Webhook] Failed to handle incoming payment webhook:', error);
+    // Don't rethrow - we don't want to fail the webhook if there are temporary connection issues
   }
 }
 
