@@ -1,13 +1,8 @@
 'use server'
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
-import { DEFAULT_LSP_NODE_ID } from '../constants'
 import { getMoneyDevKit } from './mdk'
-import type { MoneyDevKitOptions } from './money-dev-kit'
-import { log } from './logging'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
-
-type NodeOptions = NonNullable<MoneyDevKitOptions['nodeOptions']>
 
 export async function getCheckout(checkoutId: string) {
   const mdk = getMoneyDevKit()
@@ -39,13 +34,6 @@ export interface CreateCheckoutParams {
   amount?: number
   currency?: 'USD' | 'SAT'
   metadata?: Record<string, any>
-  baseUrl?: string
-  lspNodeId?: string
-  network?: NodeOptions['network']
-  vssUrl?: NodeOptions['vssUrl']
-  esploraUrl?: NodeOptions['esploraUrl']
-  rgsUrl?: NodeOptions['rgsUrl']
-  lspAddress?: NodeOptions['lspAddress']
 }
 
 export async function createCheckout(params: CreateCheckoutParams | string) {
@@ -57,37 +45,8 @@ export async function createCheckout(params: CreateCheckoutParams | string) {
   const amount = normalized.amount ?? 200
   const currency = normalized.currency ?? 'USD'
   const metadataOverrides = normalized.metadata ?? {}
-  const lspNodeId = normalized.lspNodeId ?? DEFAULT_LSP_NODE_ID
-  const baseUrl = normalized.baseUrl
 
-  const nodeOptions: NodeOptions = {
-    lspNodeId,
-  }
-
-  if (normalized.network !== undefined) {
-    nodeOptions.network = normalized.network
-  }
-
-  if (normalized.vssUrl !== undefined) {
-    nodeOptions.vssUrl = normalized.vssUrl
-  }
-
-  if (normalized.esploraUrl !== undefined) {
-    nodeOptions.esploraUrl = normalized.esploraUrl
-  }
-
-  if (normalized.rgsUrl !== undefined) {
-    nodeOptions.rgsUrl = normalized.rgsUrl
-  }
-
-  if (normalized.lspAddress !== undefined) {
-    nodeOptions.lspAddress = normalized.lspAddress
-  }
-
-  const mdk = getMoneyDevKit({
-    baseUrl,
-    nodeOptions,
-  })
+  const mdk = getMoneyDevKit()
 
   const checkout = await mdk.checkouts.create({
     amount,
@@ -135,6 +94,6 @@ export async function paymentHasBeenReceived(paymentHash: string) {
   if (!paymentHash) {
     return false
   }
-  log('Checking payment received for', paymentHash)
+  console.log('Checking payment received for', paymentHash)
   return hasPaymentBeenReceived(paymentHash)
 }
