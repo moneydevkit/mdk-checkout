@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { getMoneyDevKit } from "./mdk";
 import { markPaymentReceived } from "./payment-state";
+import { validateWebhookSignature, WebhookSignatureError } from "./webhook-signatures";
 
 const webhookSchema = z.object({
   event: z.enum(["incoming-payment"]),
@@ -34,7 +35,33 @@ async function handleIncomingPayment() {
 
 export async function handleMdkWebhook(request: Request): Promise<Response> {
   try {
-    const body = await request.json();
+    // Get webhook secret from environment
+    const webhookSecret = process.env.MDK_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error('MDK_WEBHOOK_SECRET is not configured');
+      return new Response("Webhook secret not configured", { status: 500 });
+    }
+
+    // Get the signature header
+    const signatureHeader = request.headers.get('X-MDK-Signature');
+    
+    // Read the body as text for signature validation
+    const bodyText = await request.text();
+    
+    // Validate the webhook signature
+    try {
+      validateWebhookSignature(webhookSecret, signatureHeader, bodyText);
+    } catch (error) {
+      if (error instanceof WebhookSignatureError) {
+        console.error('Webhook signature validation failed:', error.message);
+        return new Response("Invalid signature", { status: 401 });
+      }
+      throw error;
+    }
+
+    // Parse the validated body
+    const body = JSON.parse(bodyText);
     const parsed = webhookSchema.parse(body);
 
     if (parsed.event === "incoming-payment") {
