@@ -28,6 +28,11 @@
       "import": "./dist/server/webhooks.js",
       "default": "./dist/server/webhooks.js"
     },
+    "./server/pay_bolt_12": {
+      "types": "./dist/server/pay_bolt_12.d.ts",
+      "import": "./dist/server/pay_bolt_12.js",
+      "default": "./dist/server/pay_bolt_12.js"
+    },
     "./next-plugin": {
       "types": "./dist/next-plugin.d.ts",
       "import": "./dist/next-plugin.js",
