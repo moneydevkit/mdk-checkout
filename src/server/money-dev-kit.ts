@@ -7,6 +7,16 @@ import { contract } from '@moneydevkit/api-contract'
 
 import { DEFAULT_LSP_NODE_ID } from '../constants'
 
+import { Agent, setGlobalDispatcher } from 'undici'
+
+setGlobalDispatcher(
+  new Agent({
+    keepAliveTimeout: 0,
+    keepAliveTimeoutThreshold: 0,
+  })
+);
+
+
 type LightningModule = typeof import('@moneydevkit/lightning-js')
 type LightningNodeConstructor = LightningModule['MdkNode']
 type LightningNodeInstance = InstanceType<LightningNodeConstructor>
