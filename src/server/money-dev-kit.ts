@@ -164,16 +164,16 @@ export class MoneyDevKit {
         const invoice =
           amountSats === null
             ? this.node.getVariableAmountJitInvoiceWithScid(
-                scid,
-                description,
-                expirySecs
-              )
+              scid,
+              description,
+              expirySecs
+            )
             : this.node.getInvoiceWithScid(
-                scid,
-                amountSats * 1000,
-                description,
-                expirySecs
-              );
+              scid,
+              amountSats * 1000,
+              description,
+              expirySecs
+            );
 
         return {
           invoice: invoice.bolt11,
