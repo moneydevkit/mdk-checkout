@@ -11,8 +11,8 @@ import { Agent, setGlobalDispatcher } from 'undici'
 
 setGlobalDispatcher(
   new Agent({
-    keepAliveTimeout: 0,
-    keepAliveTimeoutThreshold: 0,
+    keepAliveTimeout: 1,
+    keepAliveTimeoutThreshold: 1,
   })
 );
 
