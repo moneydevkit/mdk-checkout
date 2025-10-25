@@ -86,8 +86,8 @@ const loadLightningModule = (): LightningModule => {
   return cachedLightningModule
 }
 
-const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 5000
-const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 5000
+const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 3000
+const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 3000
 
 export interface MoneyDevKitOptions {
   accessToken: string
