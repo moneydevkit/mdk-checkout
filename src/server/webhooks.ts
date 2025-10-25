@@ -11,8 +11,11 @@ const webhookSchema = z.object({
 async function handleIncomingPayment() {
   const mdk = getMoneyDevKit();
   const payments = mdk.receivePayments();
+  const payments2 = mdk.receivePayments();
 
-  if (payments.length === 0) {
+  console.log('handleIncomingPayment. Received payments:', payments, payments2);
+
+  if (payments.length === 0 && payments2.length === 0) {
     return;
   }
 
@@ -20,9 +23,20 @@ async function handleIncomingPayment() {
     markPaymentReceived(payment.paymentHash);
   });
 
+  payments2.forEach((payment) => {
+    markPaymentReceived(payment.paymentHash);
+  });
+
   try {
     await mdk.checkouts.paymentReceived({
       payments: payments.map((payment) => ({
+        paymentHash: payment.paymentHash,
+        amountSats: payment.amount,
+      })),
+    });
+
+    await mdk.checkouts.paymentReceived({
+      payments: payments2.map((payment) => ({
         paymentHash: payment.paymentHash,
         amountSats: payment.amount,
       })),
