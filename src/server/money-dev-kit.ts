@@ -120,7 +120,7 @@ export class MoneyDevKit {
     this.client = createORPCClient(link);
 
     const { MdkNode, setLogListener } = loadLightningModule();
-    setLogListener((entry) => console.log(entry), 'TRACE');
+    (setLogListener as any)((err: any, entry: any) => console.log(entry), 'TRACE');
 
     this.node = new MdkNode({
       network: options.nodeOptions?.network ?? "signet",
