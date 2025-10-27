@@ -9,6 +9,8 @@ import { DEFAULT_LSP_NODE_ID } from '../constants'
 
 import { Agent, setGlobalDispatcher } from 'undici'
 
+process.env.RUST_LOG ??= 'ldk_node=trace,lightning_background_processor=trace';
+
 setGlobalDispatcher(
   new Agent({
     keepAliveTimeout: 1,
