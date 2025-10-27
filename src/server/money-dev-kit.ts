@@ -119,7 +119,8 @@ export class MoneyDevKit {
 
     this.client = createORPCClient(link);
 
-    const { MdkNode } = loadLightningModule();
+    const { MdkNode, setLogListener } = loadLightningModule();
+    setLogListener((entry) => console.log(entry), 'TRACE');
 
     this.node = new MdkNode({
       network: options.nodeOptions?.network ?? "signet",
@@ -135,6 +136,8 @@ export class MoneyDevKit {
       lspNodeId: options.nodeOptions?.lspNodeId ?? DEFAULT_LSP_NODE_ID,
       lspAddress: options.nodeOptions?.lspAddress ?? "3.21.138.98:9735",
     });
+
+
   }
 
   getNodeId() {
