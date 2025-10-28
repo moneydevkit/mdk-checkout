@@ -49,29 +49,6 @@ export default function HomePage() {
 }
 ```
 
-#### Configure the embedded Lightning node
-
-`useCheckout` and `createCheckout` accept overrides for the on-demand Lightning node. Any values you omit fall back to Money Dev Kit defaults.
-
-```ts
-const { navigate } = useCheckout({
-  lspNodeId: '02abc...',
-  network: 'signet',
-  vssUrl: 'https://example.com/vss',
-  esploraUrl: 'https://example.com/esplora',
-  rgsUrl: 'https://example.com/rgs',
-  lspAddress: 'localhost:9735',
-})
-
-navigate({
-  prompt: 'Describe the purchase',
-  amount: 500,
-  currency: 'USD',
-  // You can also override per-call if needed
-  network: 'regtest',
-})
-```
-
 ### 2. Render the hosted checkout page
 ```jsx
 // app/checkout/[id]/page.js
@@ -90,6 +67,14 @@ export default function CheckoutPage({ params }) {
 ```js
 // app/api/webhooks/mdk/route.js
 export { POST } from 'mdk-checkout/server/webhooks'
+```
+
+### 4. Configure Next.js
+```js
+// next.config.js / next.config.mjs
+import withMdkCheckout from 'mdk-checkout/next-plugin'
+
+export default withMdkCheckout({})
 ```
 
 You now have a complete Lightning checkout loop: the button creates a session, the dynamic route renders it, and the webhook endpoint signals your Lightning node to claim paid invoices.

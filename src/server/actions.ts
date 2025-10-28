@@ -4,6 +4,7 @@ import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import { DEFAULT_LSP_NODE_ID } from '../constants'
 import { getMoneyDevKit } from './mdk'
 import type { MoneyDevKitOptions } from './money-dev-kit'
+import { log } from './logging'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 
 type NodeOptions = NonNullable<MoneyDevKitOptions['nodeOptions']>
@@ -134,6 +135,6 @@ export async function paymentHasBeenReceived(paymentHash: string) {
   if (!paymentHash) {
     return false
   }
-  console.log('Checking payment received for', paymentHash)
+  log('Checking payment received for', paymentHash)
   return hasPaymentBeenReceived(paymentHash)
 }

@@ -1,3 +1,5 @@
+import { log } from './logging'
+
 const globalKey = Symbol.for('mdk-checkout:payment-state')
 
 type PaymentState = {
@@ -26,9 +28,9 @@ export function markPaymentReceived(paymentHash: string) {
 
 export function hasPaymentBeenReceived(paymentHash: string): boolean {
   if (!paymentHash) return false
-  console.log('hasPaymentBeenReceived. Checking payment received for', paymentHash)
+  log('hasPaymentBeenReceived. Checking payment received for', paymentHash)
   const state = getGlobalPaymentState()
-  console.log('hasPaymentBeenReceived. Current received payments:', Array.from(state.receivedPaymentHashes))
+  log('hasPaymentBeenReceived. Current received payments:', Array.from(state.receivedPaymentHashes))
   return state.receivedPaymentHashes.has(paymentHash)
 }
 

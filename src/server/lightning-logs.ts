@@ -1,6 +1,10 @@
 type LightningLogEntry = unknown
 type LightningLogHandler = (entry: LightningLogEntry) => void
 
+import { isLoggingEnabled, log, warn } from './logging'
+
+const loggingEnabled = isLoggingEnabled()
+
 const LOG_GROUP_SIZE =
   Number.parseInt(process.env.MDK_LIGHTNING_LOG_GROUP_SIZE ?? '', 10) || 6
 const LOG_GROUP_FLUSH_INTERVAL_MS =
@@ -9,19 +13,18 @@ const LOG_MAX_LINE_BYTES = 256 * 1024
 const LOG_MAX_SUM_BYTES = 1024 * 1024
 
 class LightningLogAggregator {
-  private buffer: string[] = []
+  private buffer: unknown[] = []
   private bufferedBytes = 0
   private flushTimer: NodeJS.Timeout | null = null
 
   add(entry: LightningLogEntry) {
-    const serialized = this.serialize(entry)
+    const { value, serialized } = this.prepare(entry)
     const bytes = Buffer.byteLength(serialized, 'utf8')
 
     if (bytes >= LOG_MAX_LINE_BYTES) {
       this.flush()
-      console.log(
+      log(
         JSON.stringify({
-          source: 'mdk-lightning',
           truncated: true,
           preview: serialized.slice(0, LOG_MAX_LINE_BYTES - 100),
         }),
@@ -33,7 +36,7 @@ class LightningLogAggregator {
       this.flush()
     }
 
-    this.buffer.push(serialized)
+    this.buffer.push(value)
     this.bufferedBytes += bytes
 
     if (this.buffer.length >= LOG_GROUP_SIZE || this.bufferedBytes >= LOG_MAX_LINE_BYTES) {
@@ -48,12 +51,9 @@ class LightningLogAggregator {
       return
     }
 
-    const payload = {
-      source: 'mdk-lightning',
-      entries: this.buffer,
+    for (const entry of this.buffer) {
+      log(JSON.stringify(entry))
     }
-
-    console.log(JSON.stringify(payload))
 
     this.buffer = []
     this.bufferedBytes = 0
@@ -84,26 +84,54 @@ class LightningLogAggregator {
     this.flushTimer = null
   }
 
-  private serialize(entry: LightningLogEntry) {
-    const value = this.normalise(entry)
+  private prepare(entry: LightningLogEntry) {
+    const normalised = this.normalise(entry)
+    const coerced = this.coerce(normalised)
+    const { value, serialized } = this.ensureSerializable(coerced)
 
+    return { value, serialized }
+  }
+
+  private ensureSerializable(value: unknown) {
     if (typeof value === 'string') {
-      return value
+      return { value, serialized: value }
     }
 
-    if (Buffer.isBuffer(value)) {
-      return value.toString('utf8')
+    try {
+      return { value, serialized: JSON.stringify(value) }
+    } catch (error) {
+      const fallback = `[lightning-log] Failed to stringify entry: ${String(error)}`
+      return { value: fallback, serialized: fallback }
     }
+  }
 
+  private coerce(value: unknown): unknown {
     if (value == null) {
       return ''
     }
 
-    try {
-      return JSON.stringify(value)
-    } catch (error) {
-      return `[lightning-log] Failed to stringify entry: ${String(error)}`
+    if (Buffer.isBuffer(value)) {
+      return this.coerce(value.toString('utf8'))
     }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          return JSON.parse(trimmed)
+        } catch {
+          return value
+        }
+      }
+
+      return value
+    }
+
+    return value
   }
 
   private normalise(entry: LightningLogEntry): unknown {
@@ -128,10 +156,18 @@ class LightningLogAggregator {
 const lightningLogAggregator = new LightningLogAggregator()
 
 export const lightningLogHandler: LightningLogHandler = (entry) => {
+  if (!loggingEnabled) {
+    return
+  }
+
   lightningLogAggregator.add(entry)
 }
 
 export const lightningLogErrorHandler = (error: unknown) => {
+  if (!loggingEnabled) {
+    return
+  }
+
   const payload =
     error instanceof Error
       ? {
@@ -160,7 +196,7 @@ const registerAggregatorFlush = (() => {
       try {
         lightningLogAggregator.flush()
       } catch (error) {
-        console.warn('MoneyDevKit lightning log flush failed', error)
+        warn('MoneyDevKit lightning log flush failed', error)
       }
     }
 
@@ -171,4 +207,6 @@ const registerAggregatorFlush = (() => {
   }
 })()
 
-registerAggregatorFlush()
+if (loggingEnabled) {
+  registerAggregatorFlush()
+}
