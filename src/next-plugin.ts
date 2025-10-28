@@ -22,6 +22,7 @@ type NextWebpack = (
 
 export interface NextConfigOverrides {
   serverExternalPackages?: string[]
+  outputFileTracingIncludes?: Record<string, string[]>
   webpack?: NextWebpack
   [key: string]: unknown
 }
@@ -42,6 +43,8 @@ const binaryPackages = [
   '@moneydevkit/lightning-js-darwin-arm64',
   '@moneydevkit/lightning-js-freebsd-x64',
 ]
+
+const tracingGlobs = ['./node_modules/@moneydevkit/lightning-js/**']
 
 const mergeUnique = (source: string[] | undefined, items: string[]): string[] => {
   const existing = new Set(source ?? [])
@@ -92,6 +95,9 @@ export function withMdkCheckout<T extends NextConfigOverrides>(config: T = {} as
     ...binaryPackages,
   ])
 
+  const outputFileTracingIncludes = { ...(config.outputFileTracingIncludes ?? {}) }
+  outputFileTracingIncludes['*'] = mergeUnique(outputFileTracingIncludes['*'], tracingGlobs)
+
   const existingWebpack = config.webpack
 
   const webpack: NextWebpack = (webpackConfig, context) => {
@@ -117,6 +123,7 @@ export function withMdkCheckout<T extends NextConfigOverrides>(config: T = {} as
   return {
     ...config,
     serverExternalPackages,
+    outputFileTracingIncludes,
     webpack,
   }
 }
