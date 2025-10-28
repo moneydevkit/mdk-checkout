@@ -13,18 +13,19 @@ const LOG_MAX_LINE_BYTES = 256 * 1024
 const LOG_MAX_SUM_BYTES = 1024 * 1024
 
 class LightningLogAggregator {
-  private buffer: unknown[] = []
+  private buffer: string[] = []
   private bufferedBytes = 0
   private flushTimer: NodeJS.Timeout | null = null
 
   add(entry: LightningLogEntry) {
-    const { value, serialized } = this.prepare(entry)
+    const serialized = this.prepare(entry)
     const bytes = Buffer.byteLength(serialized, 'utf8')
 
     if (bytes >= LOG_MAX_LINE_BYTES) {
       this.flush()
       log(
         JSON.stringify({
+          source: 'mdk-lightning',
           truncated: true,
           preview: serialized.slice(0, LOG_MAX_LINE_BYTES - 100),
         }),
@@ -36,7 +37,7 @@ class LightningLogAggregator {
       this.flush()
     }
 
-    this.buffer.push(value)
+    this.buffer.push(serialized)
     this.bufferedBytes += bytes
 
     if (this.buffer.length >= LOG_GROUP_SIZE || this.bufferedBytes >= LOG_MAX_LINE_BYTES) {
@@ -51,9 +52,12 @@ class LightningLogAggregator {
       return
     }
 
-    for (const entry of this.buffer) {
-      log(JSON.stringify(entry))
+    const payload = {
+      source: 'mdk-lightning',
+      entries: this.buffer,
     }
+
+    log(JSON.stringify(payload))
 
     this.buffer = []
     this.bufferedBytes = 0
@@ -87,21 +91,20 @@ class LightningLogAggregator {
   private prepare(entry: LightningLogEntry) {
     const normalised = this.normalise(entry)
     const coerced = this.coerce(normalised)
-    const { value, serialized } = this.ensureSerializable(coerced)
 
-    return { value, serialized }
+    return this.ensureSerializable(coerced)
   }
 
   private ensureSerializable(value: unknown) {
     if (typeof value === 'string') {
-      return { value, serialized: value }
+      return value
     }
 
     try {
-      return { value, serialized: JSON.stringify(value) }
+      return JSON.stringify(value)
     } catch (error) {
       const fallback = `[lightning-log] Failed to stringify entry: ${String(error)}`
-      return { value: fallback, serialized: fallback }
+      return fallback
     }
   }
 
