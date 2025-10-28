@@ -2,8 +2,6 @@
 
 Money Dev Kit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
 
-It spins up a serverless Lightning node on demand, so invoices are created and settled just in time. Funds stay under your control the entire way. MoneyDevKit.com never takes custody of your sats or dollars.
-
 ## Setup
 1. **Create a Money Dev Kit account** at [moneydevkit.com](https://moneydevkit.com) and grab your `api_key`, `webhook_key`, and mnemonic.
 2. **Install the SDK** in your project:
