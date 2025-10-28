@@ -2,7 +2,7 @@ type LightningLogEntry = unknown
 type LightningLogHandler = (entry: LightningLogEntry) => void
 
 const LOG_GROUP_SIZE =
-  Number.parseInt(process.env.MDK_LIGHTNING_LOG_GROUP_SIZE ?? '', 10) || 5
+  Number.parseInt(process.env.MDK_LIGHTNING_LOG_GROUP_SIZE ?? '', 10) || 6
 const LOG_GROUP_FLUSH_INTERVAL_MS =
   Number.parseInt(process.env.MDK_LIGHTNING_LOG_GROUP_INTERVAL_MS ?? '', 10) || 250
 const LOG_MAX_LINE_BYTES = 256 * 1024
@@ -135,15 +135,15 @@ export const lightningLogErrorHandler = (error: unknown) => {
   const payload =
     error instanceof Error
       ? {
-          level: 'error',
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        }
+        level: 'error',
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      }
       : {
-          level: 'error',
-          error,
-        }
+        level: 'error',
+        error,
+      }
 
   lightningLogAggregator.add(payload)
 }
