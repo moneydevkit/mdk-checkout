@@ -8,6 +8,7 @@ import { contract } from '@moneydevkit/api-contract'
 import { DEFAULT_LSP_NODE_ID } from '../constants'
 
 import { Agent, setGlobalDispatcher } from 'undici'
+import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 
 process.env.RUST_LOG ??= 'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug';
 
@@ -120,7 +121,14 @@ export class MoneyDevKit {
     this.client = createORPCClient(link);
 
     const { MdkNode, setLogListener } = loadLightningModule();
-    (setLogListener as any)((err: any, entry: any) => console.log(entry), 'TRACE');
+    (setLogListener as any)((err: unknown, entry: unknown) => {
+      if (err) {
+        lightningLogErrorHandler(err)
+        return
+      }
+
+      lightningLogHandler(entry)
+    }, 'TRACE');
 
     this.node = new MdkNode({
       network: options.nodeOptions?.network ?? "signet",
