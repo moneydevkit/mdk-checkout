@@ -44,7 +44,10 @@ const binaryPackages = [
   '@moneydevkit/lightning-js-freebsd-x64',
 ]
 
-const tracingGlobs = ['./node_modules/@moneydevkit/lightning-js/**']
+const tracingGlobs = [
+  './node_modules/@moneydevkit/lightning-js/**',
+  './node_modules/@moneydevkit/lightning-js-*/**',
+]
 
 const mergeUnique = (source: string[] | undefined, items: string[]): string[] => {
   const existing = new Set(source ?? [])
