@@ -5,7 +5,7 @@ import { createRequire } from 'module'
 
 import { contract } from '@moneydevkit/api-contract'
 
-import { DEFAULT_LSP_NODE_ID } from '../constants'
+import { DEFAULT_MDK_BASE_URL, DEFAULT_MDK_NODE_OPTIONS } from './mdk'
 
 import { Agent, setGlobalDispatcher } from 'undici'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
@@ -112,7 +112,7 @@ export class MoneyDevKit {
 
   constructor(options: MoneyDevKitOptions) {
     const link = new RPCLink({
-      url: options.baseUrl || "http://localhost:3900/rpc",
+      url: options.baseUrl || DEFAULT_MDK_BASE_URL,
       headers: () => ({
         "x-api-key": options.accessToken,
       }),
@@ -131,18 +131,19 @@ export class MoneyDevKit {
     }, 'TRACE');
 
     this.node = new MdkNode({
-      network: options.nodeOptions?.network ?? "signet",
+      network: options.nodeOptions?.network ?? DEFAULT_MDK_NODE_OPTIONS.network!,
       mdkApiKey: options.accessToken,
       vssUrl:
-        options.nodeOptions?.vssUrl ??
-        "https://vss.staging.moneydevkit.com/vss",
+        options.nodeOptions?.vssUrl ?? DEFAULT_MDK_NODE_OPTIONS.vssUrl!,
       esploraUrl:
-        options.nodeOptions?.esploraUrl ?? "https://mutinynet.com/api",
+        options.nodeOptions?.esploraUrl ?? DEFAULT_MDK_NODE_OPTIONS.esploraUrl!,
       rgsUrl:
-        options.nodeOptions?.rgsUrl ?? "https://rgs.mutinynet.com/snapshot",
+        options.nodeOptions?.rgsUrl ?? DEFAULT_MDK_NODE_OPTIONS.rgsUrl!,
       mnemonic: options.mnemonic,
-      lspNodeId: options.nodeOptions?.lspNodeId ?? DEFAULT_LSP_NODE_ID,
-      lspAddress: options.nodeOptions?.lspAddress ?? "3.21.138.98:9735",
+      lspNodeId:
+        options.nodeOptions?.lspNodeId ?? DEFAULT_MDK_NODE_OPTIONS.lspNodeId!,
+      lspAddress:
+        options.nodeOptions?.lspAddress ?? DEFAULT_MDK_NODE_OPTIONS.lspAddress!,
     });
 
 

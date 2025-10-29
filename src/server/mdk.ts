@@ -8,6 +8,19 @@ type GlobalWithMdk = typeof globalThis & {
   }
 }
 
+type NodeOptions = NonNullable<MoneyDevKitOptions['nodeOptions']>
+
+export const DEFAULT_MDK_BASE_URL = 'https://staging.moneydevkit.com/rpc'
+
+export const DEFAULT_MDK_NODE_OPTIONS: NodeOptions = {
+  network: 'signet',
+  vssUrl: 'https://vss.staging.moneydevkit.com/vss',
+  esploraUrl: 'https://mutinynet.com/api',
+  rgsUrl: 'https://rgs.mutinynet.com/snapshot',
+  lspNodeId: '03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd',
+  lspAddress: '3.21.138.98:9735',
+}
+
 function getGlobalState() {
   const globalObject = globalThis as GlobalWithMdk
   if (!globalObject[globalKey]) {
@@ -16,14 +29,14 @@ function getGlobalState() {
   return globalObject[globalKey]!
 }
 
-export interface ResolveMoneyDevKitOptions {
+type EnvConfig = {
   accessToken?: string
   mnemonic?: string
   baseUrl?: string
   nodeOptions?: MoneyDevKitOptions['nodeOptions']
 }
 
-function readEnv(): ResolveMoneyDevKitOptions {
+function readEnv(): EnvConfig {
   const nodeOptions: MoneyDevKitOptions['nodeOptions'] = {}
 
   if (process.env.MDK_NETWORK) {
@@ -62,36 +75,30 @@ function serializeOptions(options: MoneyDevKitOptions) {
   })
 }
 
-export function resolveMoneyDevKitOptions(
-  overrides: ResolveMoneyDevKitOptions = {},
-): MoneyDevKitOptions {
+export function resolveMoneyDevKitOptions(): MoneyDevKitOptions {
   const env = readEnv()
-  const accessToken = overrides.accessToken ?? env.accessToken
-  const mnemonic = overrides.mnemonic ?? env.mnemonic
+  const { accessToken, mnemonic, baseUrl, nodeOptions } = env
 
   if (!accessToken || !mnemonic) {
     throw new Error(
-      'MoneyDevKit requires MDK_ACCESS_TOKEN and MDK_MNEMONIC to be configured. Provide them via environment variables or pass them explicitly to resolveMoneyDevKitOptions().',
+      'MoneyDevKit requires MDK_ACCESS_TOKEN and MDK_MNEMONIC environment variables to be configured.',
     )
-  }
-
-  // Merge nodeOptions: env vars as defaults, overrides take precedence
-  const nodeOptions: MoneyDevKitOptions['nodeOptions'] = {
-    ...env.nodeOptions,
-    ...overrides.nodeOptions,
   }
 
   return {
     accessToken,
     mnemonic,
-    baseUrl: overrides.baseUrl ?? env.baseUrl,
-    nodeOptions: Object.keys(nodeOptions).length > 0 ? nodeOptions : undefined,
+    baseUrl,
+    nodeOptions: {
+      ...DEFAULT_MDK_NODE_OPTIONS,
+      ...nodeOptions,
+    },
   }
 }
 
-export function getMoneyDevKit(options: ResolveMoneyDevKitOptions = {}) {
+export function getMoneyDevKit() {
   const state = getGlobalState()
-  const resolved = resolveMoneyDevKitOptions(options)
+  const resolved = resolveMoneyDevKitOptions()
   const signature = serializeOptions(resolved)
 
   if (!state.instance || state.optionsSignature !== signature) {
