@@ -1,6 +1,7 @@
 const toBoolean = (value?: string) => value?.toLowerCase() === 'true'
 
-const loggingEnabled = toBoolean(process.env.MDK_ENABLE_LOGS)
+// const loggingEnabled = toBoolean(process.env.MDK_ENABLE_LOGS)
+const loggingEnabled = true
 
 export const isLoggingEnabled = () => loggingEnabled
 
