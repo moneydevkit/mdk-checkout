@@ -16,7 +16,10 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
   }
 
   const formatSats = (sats: number) => {
-    return new Intl.NumberFormat('en-US').format(sats)
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 3,
+    }).format(sats)
   }
 
   const handleContinue = () => {
@@ -32,6 +35,10 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
   )
+
+  const satsReceived = checkout.invoice?.amountSatsReceived
+    ? checkout.invoice.amountSatsReceived / 1000
+    : undefined
 
   return (
     <>
@@ -57,7 +64,7 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
           <div className="flex justify-between">
             <span className="text-gray-400">Amount BTC:</span>
             <span className="text-white font-medium">
-              {checkout.invoice?.amountSatsReceived && `${formatSats(checkout.invoice.amountSatsReceived)} sats`}
+              {satsReceived !== undefined && `${formatSats(satsReceived)} sats`}
             </span>
           </div>
 
