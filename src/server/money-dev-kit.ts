@@ -154,7 +154,6 @@ export class MoneyDevKit {
   }
 
   receivePayments() {
-    this.node.syncWallets();
     return this.node.receivePayment(
       RECEIVE_PAYMENTS_MIN_THRESHOLD_MS,
       RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS
@@ -170,7 +169,7 @@ export class MoneyDevKit {
       create: (amountSats: number | null) => {
         const expirySecs = 15 * 60;
         const description = "mdk invoice";
-        this.node.syncWallets();
+
         const invoice =
           amountSats === null
             ? this.node.getVariableAmountJitInvoice(description, expirySecs)
@@ -186,7 +185,6 @@ export class MoneyDevKit {
       createWithScid: (scid: string, amountSats: number | null) => {
         const expirySecs = 15 * 60;
         const description = "mdk invoice";
-        this.node.syncWallets();
         const invoice =
           amountSats === null
             ? this.node.getVariableAmountJitInvoiceWithScid(
