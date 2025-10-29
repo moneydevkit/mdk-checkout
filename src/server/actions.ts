@@ -2,6 +2,7 @@
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import { getMoneyDevKit } from './mdk'
+import { log } from './logging'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 
 export async function getCheckout(checkoutId: string) {
@@ -94,6 +95,6 @@ export async function paymentHasBeenReceived(paymentHash: string) {
   if (!paymentHash) {
     return false
   }
-  console.log('Checking payment received for', paymentHash)
+  log('Checking payment received for', paymentHash)
   return hasPaymentBeenReceived(paymentHash)
 }
