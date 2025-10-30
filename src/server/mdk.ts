@@ -1,5 +1,3 @@
-'use server'
-
 import { MoneyDevKit, type MoneyDevKitOptions } from './money-dev-kit'
 
 const globalKey = Symbol.for('mdk-checkout:money-dev-kit')
