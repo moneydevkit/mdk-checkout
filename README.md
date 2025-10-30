@@ -61,10 +61,10 @@ export default function CheckoutPage({ params }) {
 }
 ```
 
-### 3. Receive payment webhooks
+### 3. Expose the unified Money Dev Kit endpoint
 ```js
-// app/api/webhooks/mdk/route.js
-export { POST } from 'mdk-checkout/server/webhooks'
+// app/api/mdk/route.js
+export { POST } from 'mdk-checkout/server/route'
 ```
 
 ### 4. Configure Next.js

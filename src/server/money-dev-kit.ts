@@ -164,6 +164,14 @@ export class MoneyDevKit {
     return this.node.payBolt12Offer(bolt12);
   }
 
+  syncWallets() {
+    return this.node.syncWallets();
+  }
+
+  async getBalance() {
+    return this.node.getBalance();
+  }
+
   get invoices() {
     return {
       create: (amountSats: number | null) => {

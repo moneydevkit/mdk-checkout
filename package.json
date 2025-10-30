@@ -23,15 +23,10 @@
       "import": "./dist/server/runtime.js",
       "default": "./dist/server/runtime.js"
     },
-    "./server/webhooks": {
-      "types": "./dist/server/webhooks.d.ts",
-      "import": "./dist/server/webhooks.js",
-      "default": "./dist/server/webhooks.js"
-    },
-    "./server/pay_bolt_12": {
-      "types": "./dist/server/pay_bolt_12.d.ts",
-      "import": "./dist/server/pay_bolt_12.js",
-      "default": "./dist/server/pay_bolt_12.js"
+    "./server/route": {
+      "types": "./dist/server/route.d.ts",
+      "import": "./dist/server/route.js",
+      "default": "./dist/server/route.js"
     },
     "./next-plugin": {
       "types": "./dist/next-plugin.d.ts",
@@ -46,6 +41,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.json && postcss src/mdk-styles.css -o dist/mdk-styles.css",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test --experimental-loader ./tests/test-loader.mjs tests/route.test.js",
     "pack:local": "npm pack"
   },
   "peerDependencies": {
@@ -56,7 +52,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@moneydevkit/api-contract": "^0.1.10",
-    "@moneydevkit/lightning-js": "^0.1.33",
+    "@moneydevkit/lightning-js": "^0.1.34",
     "@orpc/client": "1.3.0",
     "@orpc/contract": "1.3.0",
     "@radix-ui/react-checkbox": "^1.3.2",

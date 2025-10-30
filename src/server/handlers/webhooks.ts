@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { getMoneyDevKit } from "./mdk";
-import { warn } from "./logging";
-import { markPaymentReceived } from "./payment-state";
+import { warn } from "../logging";
+import { getMoneyDevKit } from "../mdk";
+import { markPaymentReceived } from "../payment-state";
 
 const webhookSchema = z.object({
   event: z.enum(["incoming-payment"]),
@@ -29,7 +29,10 @@ async function handleIncomingPayment() {
       })),
     });
   } catch (error) {
-    warn('Failed to notify MoneyDevKit checkout about received payments. Will rely on local state and retry on next webhook.', error);
+    warn(
+      "Failed to notify MoneyDevKit checkout about received payments. Will rely on local state and retry on next webhook.",
+      error,
+    );
   }
 }
 
@@ -49,6 +52,3 @@ export async function handleMdkWebhook(request: Request): Promise<Response> {
   }
 }
 
-export async function POST(request: Request) {
-  return handleMdkWebhook(request);
-}
