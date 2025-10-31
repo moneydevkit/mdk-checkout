@@ -1,8 +1,8 @@
 'use server'
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
-import { getMoneyDevKit } from './mdk'
 import { log } from './logging'
+import { getMoneyDevKit } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 
 export async function getCheckout(checkoutId: string) {
@@ -37,22 +37,17 @@ export interface CreateCheckoutParams {
   metadata?: Record<string, any>
 }
 
-export async function createCheckout(params: CreateCheckoutParams | string) {
-  // Support legacy string parameter for backward compatibility
-  const normalized: CreateCheckoutParams = typeof params === 'string'
-    ? { prompt: params }
-    : params
-
-  const amount = normalized.amount ?? 200
-  const currency = normalized.currency ?? 'USD'
-  const metadataOverrides = normalized.metadata ?? {}
+export async function createCheckout(params: CreateCheckoutParams) {
+  const amount = params.amount ?? 200
+  const currency = params.currency ?? 'USD'
+  const metadataOverrides = params.metadata ?? {}
 
   const mdk = getMoneyDevKit()
 
   const checkout = await mdk.checkouts.create({
     amount,
     currency,
-    metadata: { prompt: normalized.prompt, ...metadataOverrides },
+    metadata: { prompt: params.prompt, ...metadataOverrides },
   })
 
   if (checkout.status === 'CONFIRMED') {
