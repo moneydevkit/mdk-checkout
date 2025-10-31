@@ -7,6 +7,8 @@ import { handleMdkWebhook } from "./handlers/webhooks";
 
 type RouteHandler = (request: Request) => Promise<Response>;
 
+const WEBHOOK_SECRET_HEADER = "x-moneydevkit-webhook-secret";
+
 const routeSchema = z.enum(["webhook", "webhooks", "pay_bolt_12", "balance", "ping"]);
 export type UnifiedRoute = z.infer<typeof routeSchema>;
 
@@ -29,6 +31,23 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function validateWebhookSecret(request: Request): Response | null {
+  const expectedSecret = process.env.MDK_WEBHOOK_SECRET;
+
+  if (!expectedSecret) {
+    console.error("MDK_WEBHOOK_SECRET environment variable is not configured.");
+    return jsonResponse(500, { error: "Webhook secret is not configured." });
+  }
+
+  const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER);
+
+  if (!providedSecret || providedSecret !== expectedSecret) {
+    return jsonResponse(401, { error: "Unauthorized" });
+  }
+
+  return null;
 }
 
 export function __setHandlerForTest(route: UnifiedRoute, handler: RouteHandler | null) {
@@ -69,6 +88,12 @@ async function resolveRoute(request: Request): Promise<UnifiedRoute | null> {
 }
 
 export async function POST(request: Request) {
+  const authError = validateWebhookSecret(request);
+
+  if (authError) {
+    return authError;
+  }
+
   const route = await resolveRoute(request);
 
   if (!route) {
