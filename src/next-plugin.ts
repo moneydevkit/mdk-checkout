@@ -24,6 +24,7 @@ export interface NextConfigOverrides {
   serverExternalPackages?: string[]
   outputFileTracingIncludes?: Record<string, string[]>
   webpack?: NextWebpack
+  turbopack?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -123,11 +124,14 @@ export function withMdkCheckout<T extends NextConfigOverrides>(config: T = {} as
     return applyLightning(undefined)
   }
 
+  const turbopack = config.turbopack ?? {}
+
   return {
     ...config,
     serverExternalPackages,
     outputFileTracingIncludes,
     webpack,
+    turbopack,
   }
 }
 
