@@ -38,7 +38,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/copy-styles.mjs",
+    "build": "rm -rf dist && tsc -p tsconfig.json && npm run copy-css",
+    "copy-css": "node scripts/copy-styles.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test --experimental-loader ./tests/test-loader.mjs tests/route.test.js",
@@ -59,9 +60,7 @@
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.5",
-    "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
-    "@radix-ui/react-switch": "^1.2.5",
     "@tanstack/react-query": "^5.79.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
