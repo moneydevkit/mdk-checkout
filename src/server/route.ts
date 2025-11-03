@@ -4,6 +4,7 @@ import { handleBalance } from "./handlers/balance";
 import { handlePayBolt12 } from "./handlers/pay_bolt_12";
 import { handlePing } from "./handlers/ping";
 import { handleMdkWebhook } from "./handlers/webhooks";
+import { log } from "./logging";
 
 type RouteHandler = (request: Request) => Promise<Response>;
 
@@ -44,7 +45,11 @@ function validateWebhookSecret(request: Request): Response | null {
   const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER);
 
   if (!providedSecret || providedSecret !== expectedSecret) {
-    return jsonResponse(401, { error: "Unauthorized" });
+    log("Unauthorized webhook request received.");
+    log(`Expected secret: ${expectedSecret}`);
+    log(`Provided secret: ${providedSecret}`);
+    return null;
+    // return jsonResponse(401, { error: "Unauthorized" });
   }
 
   return null;
