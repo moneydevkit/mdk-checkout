@@ -48,8 +48,7 @@ function validateWebhookSecret(request: Request): Response | null {
     log("Unauthorized webhook request received.");
     log(`Expected secret: ${expectedSecret}`);
     log(`Provided secret: ${providedSecret}`);
-    return null;
-    // return jsonResponse(401, { error: "Unauthorized" });
+    return jsonResponse(401, { error: "Unauthorized" });
   }
 
   return null;
