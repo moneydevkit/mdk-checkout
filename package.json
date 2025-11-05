@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/nextjs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Money Dev Kit checkout components and server helpers for Next.js.",
   "type": "module",
   "main": "./dist/index.js",
