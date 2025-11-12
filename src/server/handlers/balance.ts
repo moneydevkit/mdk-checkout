@@ -1,4 +1,4 @@
-import { getMoneyDevKit } from "../mdk";
+import { createMoneyDevKitNode } from "../mdk";
 
 function jsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload ?? null), {
@@ -9,12 +9,11 @@ function jsonResponse(status: number, payload: unknown) {
 
 export async function handleBalance(_request: Request): Promise<Response> {
   try {
-    const mdk = getMoneyDevKit();
-    const balance = await mdk.getBalance();
+    const node = createMoneyDevKitNode();
+    const balance = await node.getBalance();
     return jsonResponse(200, balance);
   } catch (error) {
     console.error(error);
     return jsonResponse(500, { error: "Internal Server Error" });
   }
 }
-

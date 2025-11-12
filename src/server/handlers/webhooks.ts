@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { warn } from "../logging";
-import { getMoneyDevKit } from "../mdk";
+import { createMoneyDevKitClient, createMoneyDevKitNode } from "../mdk";
 import { markPaymentReceived } from "../payment-state";
 
 const webhookSchema = z.object({
@@ -10,8 +10,9 @@ const webhookSchema = z.object({
 });
 
 async function handleIncomingPayment() {
-  const mdk = getMoneyDevKit();
-  const payments = mdk.receivePayments();
+  const node = createMoneyDevKitNode();
+  const client = createMoneyDevKitClient();
+  const payments = node.receivePayments();
 
   if (payments.length === 0) {
     return;
@@ -22,7 +23,7 @@ async function handleIncomingPayment() {
   });
 
   try {
-    await mdk.checkouts.paymentReceived({
+    await client.checkouts.paymentReceived({
       payments: payments.map((payment) => ({
         paymentHash: payment.paymentHash,
         amountSats: payment.amount,
@@ -51,4 +52,3 @@ export async function handleMdkWebhook(request: Request): Promise<Response> {
     return new Response("Internal Server Error", { status: 500 });
   }
 }
-
