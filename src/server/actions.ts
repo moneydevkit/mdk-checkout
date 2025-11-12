@@ -2,28 +2,29 @@
 
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import { log } from './logging'
-import { getMoneyDevKit } from './mdk'
+import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 
 export async function getCheckout(checkoutId: string) {
-  const mdk = getMoneyDevKit()
-  return await mdk.checkouts.get({ id: checkoutId })
+  const client = createMoneyDevKitClient()
+  return await client.checkouts.get({ id: checkoutId })
 }
 
 export async function confirmCheckout(confirm: ConfirmCheckout) {
-  const mdk = getMoneyDevKit()
-  const confirmedCheckout = await mdk.checkouts.confirm(confirm)
+  const client = createMoneyDevKitClient()
+  const node = createMoneyDevKitNode()
+  const confirmedCheckout = await client.checkouts.confirm(confirm)
 
   const invoice = confirmedCheckout.invoiceScid
-    ? mdk.invoices.createWithScid(confirmedCheckout.invoiceScid, confirmedCheckout.invoiceAmountSats)
-    : mdk.invoices.create(confirmedCheckout.invoiceAmountSats)
+    ? node.invoices.createWithScid(confirmedCheckout.invoiceScid, confirmedCheckout.invoiceAmountSats)
+    : node.invoices.create(confirmedCheckout.invoiceAmountSats)
 
-  const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
+  const pendingPaymentCheckout = await client.checkouts.registerInvoice({
     paymentHash: invoice.paymentHash,
     invoice: invoice.invoice,
     invoiceExpiresAt: invoice.expiresAt,
     checkoutId: confirmedCheckout.id,
-    nodeId: mdk.getNodeId(),
+    nodeId: node.id,
     scid: invoice.scid,
   })
 
@@ -42,25 +43,29 @@ export async function createCheckout(params: CreateCheckoutParams) {
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
 
-  const mdk = getMoneyDevKit()
+  const client = createMoneyDevKitClient()
+  const node = createMoneyDevKitNode()
 
-  const checkout = await mdk.checkouts.create({
+  const checkout = await client.checkouts.create(
+    {
     amount,
     currency,
     metadata: { prompt: params.prompt, ...metadataOverrides },
-  })
+    },
+    node.id,
+  )
 
   if (checkout.status === 'CONFIRMED') {
     const invoice = checkout.invoiceScid
-      ? mdk.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
-      : mdk.invoices.create(checkout.invoiceAmountSats)
+      ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
+      : node.invoices.create(checkout.invoiceAmountSats)
 
-    const pendingPaymentCheckout = await mdk.checkouts.registerInvoice({
+    const pendingPaymentCheckout = await client.checkouts.registerInvoice({
       paymentHash: invoice.paymentHash,
       invoice: invoice.invoice,
       invoiceExpiresAt: invoice.expiresAt,
       checkoutId: checkout.id,
-      nodeId: mdk.getNodeId(),
+      nodeId: node.id,
       scid: invoice.scid,
     })
 
@@ -71,8 +76,8 @@ export async function createCheckout(params: CreateCheckoutParams) {
 }
 
 export async function payInvoice(paymentHash: string, amountSats: number) {
-  const mdk = getMoneyDevKit()
-  const result = await mdk.checkouts.paymentReceived({
+  const client = createMoneyDevKitClient()
+  const result = await client.checkouts.paymentReceived({
     payments: [
       {
         paymentHash,

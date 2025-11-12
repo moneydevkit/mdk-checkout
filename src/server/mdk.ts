@@ -1,33 +1,7 @@
-import { MoneyDevKit, type MoneyDevKitOptions } from './money-dev-kit'
-
-const globalKey = Symbol.for('mdk-checkout:money-dev-kit')
-type GlobalWithMdk = typeof globalThis & {
-  [globalKey]?: {
-    instance: MoneyDevKit | null
-    optionsSignature: string | null
-  }
-}
-
-type NodeOptions = NonNullable<MoneyDevKitOptions['nodeOptions']>
-
-export const DEFAULT_MDK_BASE_URL = 'https://staging.moneydevkit.com/rpc'
-
-export const DEFAULT_MDK_NODE_OPTIONS: NodeOptions = {
-  network: 'signet',
-  vssUrl: 'https://vss.staging.moneydevkit.com/vss',
-  esploraUrl: 'https://mutinynet.com/api',
-  rgsUrl: 'https://rgs.mutinynet.com/snapshot',
-  lspNodeId: '03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd',
-  lspAddress: '3.21.20.82:9735',
-}
-
-function getGlobalState() {
-  const globalObject = globalThis as GlobalWithMdk
-  if (!globalObject[globalKey]) {
-    globalObject[globalKey] = { instance: null, optionsSignature: null }
-  }
-  return globalObject[globalKey]!
-}
+import { MoneyDevKitNode } from './lightning-node'
+import { MoneyDevKitClient } from './mdk-client'
+import { DEFAULT_MDK_BASE_URL, DEFAULT_MDK_NODE_OPTIONS } from './mdk-config'
+import type { MoneyDevKitOptions } from './money-dev-kit'
 
 type EnvConfig = {
   accessToken?: string
@@ -66,15 +40,6 @@ function readEnv(): EnvConfig {
   }
 }
 
-function serializeOptions(options: MoneyDevKitOptions) {
-  const { accessToken, mnemonic, ...rest } = options
-  return JSON.stringify({
-    accessToken,
-    mnemonic,
-    ...rest,
-  })
-}
-
 export function resolveMoneyDevKitOptions(): MoneyDevKitOptions {
   const env = readEnv()
   const { accessToken, mnemonic, baseUrl, nodeOptions } = env
@@ -85,28 +50,36 @@ export function resolveMoneyDevKitOptions(): MoneyDevKitOptions {
     )
   }
 
+  const overrides = nodeOptions ?? {}
+  const mergedNodeOptions: MoneyDevKitOptions['nodeOptions'] = {
+    ...DEFAULT_MDK_NODE_OPTIONS,
+    ...overrides,
+  }
+
+  const network = mergedNodeOptions.network ?? DEFAULT_MDK_NODE_OPTIONS.network
+  mergedNodeOptions.network = network
+
   return {
     accessToken,
     mnemonic,
     baseUrl,
-    nodeOptions: {
-      ...DEFAULT_MDK_NODE_OPTIONS,
-      ...nodeOptions,
-    },
+    nodeOptions: mergedNodeOptions,
   }
 }
 
-export function getMoneyDevKit() {
-  const state = getGlobalState()
+export function createMoneyDevKitClient() {
   const resolved = resolveMoneyDevKitOptions()
-  const signature = serializeOptions(resolved)
-
-  if (!state.instance || state.optionsSignature !== signature) {
-    state.instance = new MoneyDevKit(resolved)
-    state.optionsSignature = signature
-  }
-
-  return state.instance
+  return new MoneyDevKitClient({
+    accessToken: resolved.accessToken,
+    baseUrl: resolved.baseUrl ?? DEFAULT_MDK_BASE_URL,
+  })
 }
 
-export { MoneyDevKit }
+export function createMoneyDevKitNode() {
+  const resolved = resolveMoneyDevKitOptions()
+  return new MoneyDevKitNode({
+    accessToken: resolved.accessToken,
+    mnemonic: resolved.mnemonic,
+    nodeOptions: resolved.nodeOptions,
+  })
+}
