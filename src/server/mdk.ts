@@ -82,7 +82,7 @@ export function createMoneyDevKitClient() {
   const resolved = resolveMoneyDevKitOptions()
   return new MoneyDevKitClient({
     accessToken: resolved.accessToken,
-    baseUrl: resolved.baseUrl ?? DEFAULT_MDK_BASE_URL,
+    baseUrl: resolved.baseUrl ?? MAINNET_MDK_BASE_URL,
   })
 }
 
