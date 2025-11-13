@@ -1,6 +1,6 @@
 import { createRequire } from 'module'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
-import { DEFAULT_MDK_NODE_OPTIONS } from './mdk-config'
+import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
 import './undici-dispatcher'
 
 process.env.RUST_LOG ??=
@@ -103,15 +103,18 @@ export class MoneyDevKitNode {
         lightningLogHandler(entry)
       }, 'TRACE')
 
+    const network = options.nodeOptions?.network ?? MAINNET_MDK_NODE_OPTIONS.network!
+    const defaultNodeOptions = network === 'signet' ? SIGNET_MDK_NODE_OPTIONS : MAINNET_MDK_NODE_OPTIONS
+
     this.node = new MdkNode({
-      network: options.nodeOptions?.network ?? DEFAULT_MDK_NODE_OPTIONS.network!,
+      network,
       mdkApiKey: options.accessToken,
-      vssUrl: options.nodeOptions?.vssUrl ?? DEFAULT_MDK_NODE_OPTIONS.vssUrl!,
-      esploraUrl: options.nodeOptions?.esploraUrl ?? DEFAULT_MDK_NODE_OPTIONS.esploraUrl!,
-      rgsUrl: options.nodeOptions?.rgsUrl ?? DEFAULT_MDK_NODE_OPTIONS.rgsUrl!,
+      vssUrl: options.nodeOptions?.vssUrl ?? defaultNodeOptions.vssUrl!,
+      esploraUrl: options.nodeOptions?.esploraUrl ?? defaultNodeOptions.esploraUrl!,
+      rgsUrl: options.nodeOptions?.rgsUrl ?? defaultNodeOptions.rgsUrl!,
       mnemonic: options.mnemonic,
-      lspNodeId: options.nodeOptions?.lspNodeId ?? DEFAULT_MDK_NODE_OPTIONS.lspNodeId!,
-      lspAddress: options.nodeOptions?.lspAddress ?? DEFAULT_MDK_NODE_OPTIONS.lspAddress!,
+      lspNodeId: options.nodeOptions?.lspNodeId ?? defaultNodeOptions.lspNodeId!,
+      lspAddress: options.nodeOptions?.lspAddress ?? defaultNodeOptions.lspAddress!,
     })
   }
 
