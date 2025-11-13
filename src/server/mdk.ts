@@ -1,6 +1,11 @@
 import { MoneyDevKitNode } from './lightning-node'
 import { MoneyDevKitClient } from './mdk-client'
-import { DEFAULT_MDK_BASE_URL, DEFAULT_MDK_NODE_OPTIONS } from './mdk-config'
+import {
+  MAINNET_MDK_BASE_URL,
+  MAINNET_MDK_NODE_OPTIONS,
+  SIGNET_MDK_BASE_URL,
+  SIGNET_MDK_NODE_OPTIONS,
+} from './mdk-config'
 import type { MoneyDevKitOptions } from './money-dev-kit'
 
 type EnvConfig = {
@@ -51,18 +56,24 @@ export function resolveMoneyDevKitOptions(): MoneyDevKitOptions {
   }
 
   const overrides = nodeOptions ?? {}
+  const networkOverride = overrides.network ?? MAINNET_MDK_NODE_OPTIONS.network
+  const defaultNodeOptions =
+    networkOverride === 'signet' ? SIGNET_MDK_NODE_OPTIONS : MAINNET_MDK_NODE_OPTIONS
   const mergedNodeOptions: MoneyDevKitOptions['nodeOptions'] = {
-    ...DEFAULT_MDK_NODE_OPTIONS,
+    ...defaultNodeOptions,
     ...overrides,
   }
 
-  const network = mergedNodeOptions.network ?? DEFAULT_MDK_NODE_OPTIONS.network
+  const network = mergedNodeOptions.network ?? defaultNodeOptions.network
   mergedNodeOptions.network = network
+
+  const resolvedBaseUrl =
+    baseUrl ?? (network === 'signet' ? SIGNET_MDK_BASE_URL : MAINNET_MDK_BASE_URL)
 
   return {
     accessToken,
     mnemonic,
-    baseUrl,
+    baseUrl: resolvedBaseUrl,
     nodeOptions: mergedNodeOptions,
   }
 }
