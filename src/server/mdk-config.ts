@@ -6,5 +6,5 @@ export const DEFAULT_MDK_NODE_OPTIONS = {
   esploraUrl: 'https://mutinynet.com/api',
   rgsUrl: 'https://rgs.mutinynet.com/snapshot',
   lspNodeId: '03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd',
-  lspAddress: '3.21.20.82:9735',
+  lspAddress: 'lsp.staging.moneydevkit.com:9735',
 } as const
