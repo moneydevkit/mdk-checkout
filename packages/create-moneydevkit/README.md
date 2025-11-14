@@ -18,6 +18,31 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 3. Polls until the dashboard authorises the device, then provisions an API key + webhook secret, and generates a mnemonic locally via `@moneydevkit/lightning-js`.
 4. Shows an env diff, writes `.env.local` (or a user-specified file), and optionally copies secrets to the clipboard.
 
+### Running headlessly (for LLMs/automation)
+
+If you already have dashboard credentials, you can obtain a Better Auth session cookie and pass it to the CLI so the whole flow runs without opening a browser:
+
+```bash
+# 1. Sign in and capture the session cookie
+SESSION_COOKIE=$(curl -s -D - -o /dev/null \
+  http://localhost:3900/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"hunter2"}' \
+  | awk '/set-cookie/ {print $2}' | tr -d '\r\n')
+SESSION_COOKIE=${SESSION_COOKIE%;} # strip trailing semicolon
+
+# 2. Run the CLI with --manual-login and --json
+npx create-moneydevkit \
+  --base-url http://localhost:3900 \
+  --dir /tmp/mdk-demo \
+  --env-file .env.local \
+  --webhook-url https://example.com/api/mdk \
+  --manual-login "$SESSION_COOKIE" \
+  --json --no-open --no-clipboard
+```
+
+The CLI will emit a JSON payload containing the secrets plus a path to the env file, so agents can parse the response deterministically.
+
 ## Flags
 
 | Flag | Description |
