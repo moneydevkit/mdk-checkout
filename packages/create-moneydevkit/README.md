@@ -20,18 +20,15 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 
 ### Running headlessly (for LLMs/automation)
 
-If you already have dashboard credentials, you can obtain a Better Auth session cookie and pass it to the CLI so the whole flow runs without opening a browser:
+Manual mode still uses the device-auth flow—the only difference is that you reuse an *existing* dashboard session instead of waiting for a browser round trip. The steps are:
+
+1. **Sign in via the dashboard UI** (browser) and keep the tab open.
+2. **Copy the `better-auth.session_token` cookie** from your browser’s developer tools (Application → Storage → Cookies or the Network panel). Copy the full `name=value` pair.
+3. **Pass that cookie to the CLI** using `--manual-login`. Example:
 
 ```bash
-# 1. Sign in and capture the session cookie
-SESSION_COOKIE=$(curl -s -D - -o /dev/null \
-  http://localhost:3900/api/auth/sign-in/email \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"hunter2"}' \
-  | awk '/set-cookie/ {print $2}' | tr -d '\r\n')
-SESSION_COOKIE=${SESSION_COOKIE%;} # strip trailing semicolon
+SESSION_COOKIE='better-auth.session_token=eyJhbGciOiJI...'
 
-# 2. Run the CLI with --manual-login and --json
 npx create-moneydevkit \
   --base-url http://localhost:3900 \
   --dir /tmp/mdk-demo \
@@ -41,7 +38,7 @@ npx create-moneydevkit \
   --json --no-open --no-clipboard
 ```
 
-The CLI will emit a JSON payload containing the secrets plus a path to the env file, so agents can parse the response deterministically.
+The CLI still requests a device code, immediately authorises it using the provided cookie, and emits a JSON payload containing the secrets plus the env-file path—no username/password ever touch the terminal.
 
 ## Flags
 
