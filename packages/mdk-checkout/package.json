@@ -42,7 +42,7 @@
     "copy-css": "node scripts/copy-styles.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test --experimental-loader ./tests/test-loader.mjs tests/route.test.js",
+    "test": "npm run build && node --test tests/smoke.test.js",
     "pack:local": "npm pack"
   },
   "peerDependencies": {
