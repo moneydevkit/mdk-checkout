@@ -133,6 +133,18 @@ export class MoneyDevKitNode {
     return this.node.payBolt12Offer(bolt12)
   }
 
+  payBolt11(bolt11: string) {
+    return this.node.payBolt11(bolt11)
+  }
+
+  payLNUrl(lnurl: string, amountMsat: number) {
+    return this.node.payLnurl(lnurl, amountMsat)
+  }
+
+  listChannels() {
+    return this.node.listChannels()
+  }
+
   syncWallets() {
     return this.node.syncWallets()
   }
