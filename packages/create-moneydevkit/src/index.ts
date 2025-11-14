@@ -414,8 +414,12 @@ async function main() {
 	projectDir = normalizeDirectory(projectDir);
 	ensureDirectoryExists(projectDir);
 
-	let envFile = flags.envFile ?? DEFAULT_ENV_FILE;
-	if (!flags.envFile && !jsonMode) {
+	const envFileOverride = process.env.MDK_ENV_FILE;
+	let envFile =
+		flags.envFile ??
+		envFileOverride ??
+		DEFAULT_ENV_FILE;
+	if (!flags.envFile && !envFileOverride && !jsonMode) {
 		const envPrompt = await p.text({
 			message: "Env file to update",
 			initialValue: envFile,
