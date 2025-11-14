@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { handleBalance } from "./handlers/balance";
+import { listChannels } from "./handlers/list_channels";
+import { handlePayBolt11 } from "./handlers/pay_bolt_11";
 import { handlePayBolt12 } from "./handlers/pay_bolt_12";
+import { handlePayLNUrl } from "./handlers/pay_ln_url";
 import { handlePing } from "./handlers/ping";
 import { handleMdkWebhook } from "./handlers/webhooks";
 import { log } from "./logging";
@@ -10,7 +13,7 @@ type RouteHandler = (request: Request) => Promise<Response>;
 
 const WEBHOOK_SECRET_HEADER = "x-moneydevkit-webhook-secret";
 
-const routeSchema = z.enum(["webhook", "webhooks", "pay_bolt_12", "balance", "ping"]);
+const routeSchema = z.enum(["webhook", "webhooks", "pay_bolt_12", "balance", "ping", "pay_ln_url", "list_channels", "pay_bolt11"]);
 export type UnifiedRoute = z.infer<typeof routeSchema>;
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {};
@@ -21,6 +24,9 @@ function assignDefaultHandlers() {
   HANDLERS.pay_bolt_12 = handlePayBolt12;
   HANDLERS.balance = handleBalance;
   HANDLERS.ping = handlePing;
+  HANDLERS.pay_ln_url = handlePayLNUrl;
+  HANDLERS.list_channels = listChannels;
+  HANDLERS.pay_bolt11 = handlePayBolt11;
 }
 
 assignDefaultHandlers();
