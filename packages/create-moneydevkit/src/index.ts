@@ -8,7 +8,7 @@ import os from "node:os";
 import open from "open";
 import clipboard from "clipboardy";
 import setCookieParser, { Cookie } from "set-cookie-parser";
-import { generateMnemonic } from "@moneydevkit/lightning-js";
+import { generateMnemonic as generateBip39Mnemonic } from "bip39";
 import { contract } from "@moneydevkit/api-contract";
 import type { ContractRouterClient } from "@orpc/contract";
 import type {
@@ -146,17 +146,13 @@ function readEnvFile(filePath: string): Map<string, string> {
 }
 
 function renderEnvPreview(
-	original: Map<string, string>,
+	_original: Map<string, string>,
 	updates: Record<string, string>,
 ): string {
-	const lines: string[] = [];
-	lines.push("");
-	lines.push("Writing the following values:");
-	lines.push("");
+	const lines: string[] = ["Writing the following values:", ""];
 	for (const [key, value] of Object.entries(updates)) {
 		lines.push(`  ${key}=${value}`);
 	}
-	lines.push("");
 	return lines.join("\n");
 }
 
@@ -348,7 +344,7 @@ const device = await client.onboarding.startDeviceAuth({
             forceNewWebhook: options.flags.forceNewWebhook,
 		});
 
-		const mnemonic = generateMnemonic();
+		const mnemonic = generateBip39Mnemonic(128);
 
 		return {
 			device,
@@ -376,7 +372,7 @@ const device = await client.onboarding.startDeviceAuth({
 		forceNewWebhook: options.flags.forceNewWebhook,
 	});
 
-	const mnemonic = generateMnemonic();
+	const mnemonic = generateBip39Mnemonic(128);
 
 	return {
 		device,
@@ -397,8 +393,32 @@ async function main() {
 	const baseUrl = flags.baseUrl ?? DEFAULT_BASE_URL;
 	const cookies = new CookieJar(flags.manualLogin);
 
+	const envFileOverride = process.env.MDK_ENV_FILE;
+	const rawEnvFile =
+		flags.envFile ??
+		envFileOverride ??
+		DEFAULT_ENV_FILE;
+	const envFileHasPathSeparator =
+		rawEnvFile.includes("/") || rawEnvFile.includes("\\");
+
+	let envFile = rawEnvFile;
 	let projectDir = flags.dir ?? process.cwd();
-	if (!flags.dir && !jsonMode) {
+	let dirProvidedByEnvFile = false;
+
+	if (path.isAbsolute(rawEnvFile)) {
+		projectDir = path.dirname(rawEnvFile);
+		envFile = path.basename(rawEnvFile);
+		dirProvidedByEnvFile = true;
+	} else if (!flags.dir && envFileHasPathSeparator) {
+		const relativeDir = path.dirname(rawEnvFile);
+		if (relativeDir && relativeDir !== "." && relativeDir !== "") {
+			projectDir = path.resolve(process.cwd(), relativeDir);
+			envFile = path.basename(rawEnvFile);
+			dirProvidedByEnvFile = true;
+		}
+	}
+
+	if (!flags.dir && !dirProvidedByEnvFile && !jsonMode) {
 		const dirPrompt = await p.text({
 			message: "Where should we store your MDK credentials?",
 			initialValue: projectDir,
@@ -414,11 +434,6 @@ async function main() {
 	projectDir = normalizeDirectory(projectDir);
 	ensureDirectoryExists(projectDir);
 
-	const envFileOverride = process.env.MDK_ENV_FILE;
-	let envFile =
-		flags.envFile ??
-		envFileOverride ??
-		DEFAULT_ENV_FILE;
 	if (!flags.envFile && !envFileOverride && !jsonMode) {
 		const envPrompt = await p.text({
 			message: "Env file to update",
@@ -468,7 +483,7 @@ async function main() {
 		writeEnvFile(envPath, existingEnv, updates);
 
 		if (!jsonMode) {
-			p.note(preview);
+			p.note(preview, "Env file updated");
 		}
 
         if (!flags.noClipboard) {

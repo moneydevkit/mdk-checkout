@@ -15,7 +15,7 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 
 1. Calls the MDK onboarding RPC to create a device/session code.
 2. Launches the browser for sign-in (or prints the verification URL when `--no-open` or `--json` are supplied).
-3. Polls until the dashboard authorises the device, then provisions an API key + webhook secret, and generates a mnemonic locally via `@moneydevkit/lightning-js`.
+3. Polls until the dashboard authorises the device, then provisions an API key + webhook secret, and generates a mnemonic locally via BIP-39.
 4. Shows an env diff, writes `.env.local` (or a user-specified file), and optionally copies secrets to the clipboard.
 
 ### Running headlessly (for LLMs/automation)
