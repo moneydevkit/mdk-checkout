@@ -46,14 +46,14 @@
     "pack:local": "npm pack"
   },
   "peerDependencies": {
-    "next": "^14 || ^15 || ^16",
+    "next": "^15 || ^16",
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@moneydevkit/api-contract": "^0.1.10",
-    "@moneydevkit/lightning-js": "^0.1.41",
+    "@moneydevkit/lightning-js": "^0.1.44",
     "@orpc/client": "1.3.0",
     "@orpc/contract": "1.3.0",
     "@radix-ui/react-collapsible": "^1.1.11",
