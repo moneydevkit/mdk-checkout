@@ -214,7 +214,7 @@ async function runDeviceFlow(options: {
 		const webhookInput = await p.text({
 			message: "Webhook URL for your application",
 			initialValue: webhookUrl ?? "https://",
-			placeholder: "https://yourapp.com/api/webhooks/mdk",
+			placeholder: "https://yourapp.com",
 			validate: (value) =>
 				!value || !value.startsWith("http")
 					? "Enter a fully qualified URL"
