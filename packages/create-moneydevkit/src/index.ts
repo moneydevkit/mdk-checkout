@@ -28,7 +28,6 @@ type Flags = {
 	manualLogin?: string;
 	forceNewWebhook?: boolean;
 	webhookUrl?: string;
-	network?: string;
 };
 
 const DEFAULT_BASE_URL = "https://moneydevkit.com";
