@@ -1,4 +1,4 @@
-# moneydevkit/nextjs
+# @moneydevkit/nextjs
 
 moneydevkit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
 
@@ -6,7 +6,7 @@ moneydevkit checkout library for embedding Lightning-powered payments inside Nex
 1. **Create a Money Dev Kit account** at [moneydevkit.com](https://moneydevkit.com) and grab your `api_key`, `webhook_key`, and mnemonic.
 2. **Install the SDK** in your project:
    ```bash
-   npm install mdk-checkout
+   npm install @moneydevkit/nextjs
    ```
 3. **Add required secrets** to `.env` (or similar):
    ```env
@@ -21,7 +21,7 @@ moneydevkit checkout library for embedding Lightning-powered payments inside Nex
 // app/page.js
 'use client'
 
-import { useCheckout } from 'mdk-checkout'
+import { useCheckout } from '@moneydevkit/nextjs'
 
 export default function HomePage() {
   const { navigate, isNavigating } = useCheckout()
@@ -51,7 +51,7 @@ export default function HomePage() {
 ```jsx
 // app/checkout/[id]/page.js
 "use client";
-import { Checkout } from "mdk-checkout";
+import { Checkout } from "@moneydevkit/nextjs";
 import { use } from "react";
 
 export default function CheckoutPage({ params }) {
@@ -64,13 +64,13 @@ export default function CheckoutPage({ params }) {
 ### 3. Expose the unified Money Dev Kit endpoint
 ```js
 // app/api/mdk/route.js
-export { POST } from 'mdk-checkout/server/route'
+export { POST } from '@moneydevkit/nextjs/server/route'
 ```
 
 ### 4. Configure Next.js
 ```js
 // next.config.js / next.config.mjs
-import withMdkCheckout from 'mdk-checkout/next-plugin'
+import withMdkCheckout from '@moneydevkit/nextjs/next-plugin'
 
 export default withMdkCheckout({})
 ```
