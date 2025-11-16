@@ -15,7 +15,7 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 
 1. Bump the version in `packages/create-moneydevkit/package.json` (for example: `npm version 0.2.0 --workspace packages/create-moneydevkit --no-git-tag-version`) and commit the resulting `package-lock.json` change.
 2. Push the commit, then create a GitHub release (or annotated tag) named `create-moneydevkit-vX.Y.Z` that matches the new version string.
-3. The `publish-create-moneydevkit` workflow will detect that tag, run the build, and publish via npm’s Trusted Publisher integration (no long-lived tokens required).
+3. The `publish-create-moneydevkit` workflow will detect that tag, run the build, and execute `npm publish packages/create-moneydevkit --access public` using the repo’s `NPM_TOKEN`.
 
 Once that workflow succeeds, `npx create-moneydevkit` automatically downloads the freshly published build.
 
@@ -24,7 +24,7 @@ Once that workflow succeeds, `npx create-moneydevkit` automatically downloads th
 1. Calls the MDK onboarding RPC to create a device/session code.
 2. Launches the browser for sign-in (or prints the verification URL when `--no-open` or `--json` are supplied).
 3. Polls until the dashboard authorises the device, then provisions an API key + webhook secret, and generates a mnemonic locally via BIP-39.
-4. Shows an env diff, writes `.env.local` (or a user-specified file), and optionally copies secrets to the clipboard. The CLI now adds all of the MDK runtime variables (`MDK_API_BASE_URL`, `MDK_VSS_URL`, `MDK_ESPLORA_URL`, `MDK_RGS_URL`, `MDK_LSP_*`, `MDK_NETWORK`) with sensible defaults for mainnet, staging/signet, or local regtest stacks.
+4. Shows an env diff, writes `.env.local` (or a user-specified file), and optionally copies secrets to the clipboard.
 
 ### Running headlessly (for LLMs/automation)
 
@@ -62,6 +62,5 @@ The CLI still requests a device code, immediately authorises it using the provid
 | `--manual-login "<cookie>"` | Use a pre-generated dashboard session cookie instead of device flow. |
 | `--webhook-url "<url>"` | Provide the webhook URL when running in `--manual-login` or `--json` modes. |
 | `--force-new-webhook` | Force creation of a new webhook even if one already exists for the URL. |
-| `--network <mainnet\|signet\|regtest>` | Override which defaults are written for MDK API/node settings. If omitted, the CLI infers the network from `--base-url`. |
 
 Manual login mode calls `POST /api/cli/device/authorize` with the supplied session cookie. When used with `--json`, pass `--webhook-url` to avoid interactive prompts.

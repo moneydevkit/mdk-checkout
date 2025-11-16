@@ -29,7 +29,6 @@ type Flags = {
 	manualLogin?: string;
 	forceNewWebhook?: boolean;
 	webhookUrl?: string;
-	network?: string;
 };
 
 const DEFAULT_BASE_URL = "https://moneydevkit.com";
@@ -83,7 +82,6 @@ function parseFlags(argv: string[]): Flags {
 			"project-name",
 			"manual-login",
 			"webhook-url",
-			"network",
 		],
 		alias: {
 			json: "j",
@@ -118,80 +116,7 @@ function parseFlags(argv: string[]): Flags {
 			typeof result["webhook-url"] === "string"
 				? result["webhook-url"]
 				: undefined,
-		network:
-			typeof result.network === "string" ? result.network.toLowerCase() : undefined,
 	};
-}
-
-type NodeDefaults = {
-	network: string;
-	vssUrl: string;
-	esploraUrl: string;
-	rgsUrl: string;
-	lspNodeId: string;
-	lspAddress: string;
-};
-
-const MAINNET_DEFAULTS: NodeDefaults = {
-	network: "mainnet",
-	vssUrl: "https://vss.moneydevkit.com/vss",
-	esploraUrl: "https://esplora.moneydevkit.com/api",
-	rgsUrl: "https://rapidsync.lightningdevkit.org/snapshot",
-	lspNodeId:
-		"02a63339cc6b913b6330bd61b2f469af8785a6011a6305bb102298a8e76697473b",
-	lspAddress: "lsp.moneydevkit.com:9735",
-};
-
-const SIGNET_DEFAULTS: NodeDefaults = {
-	network: "signet",
-	vssUrl: "https://vss.staging.moneydevkit.com/vss",
-	esploraUrl: "https://mutinynet.com/api",
-	rgsUrl: "https://rgs.mutinynet.com/snapshot",
-	lspNodeId:
-		"03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd",
-	lspAddress: "lsp.staging.moneydevkit.com:9735",
-};
-
-const REGTEST_DEFAULTS: NodeDefaults = {
-	network: "regtest",
-	vssUrl: "http://localhost:9999/vss",
-	esploraUrl: "http://localhost:8080/regtest/api",
-	rgsUrl: "https://rapidsync.lightningdevkit.org/snapshot",
-	lspNodeId:
-		"02bdaf611b67618c3ac770a6f065c4ea3d41bf5bac2924c77ae79ca5d3cbefb640",
-	lspAddress: "host.docker.internal:9735",
-};
-
-function inferNodeDefaults(baseUrl: string, override?: string | undefined) {
-	if (override) {
-		switch (override) {
-			case "mainnet":
-				return MAINNET_DEFAULTS;
-			case "regtest":
-				return REGTEST_DEFAULTS;
-			case "signet":
-			default:
-				return SIGNET_DEFAULTS;
-		}
-	}
-
-	const normalized = baseUrl.toLowerCase();
-	if (
-		normalized.includes("staging") ||
-		normalized.includes("signet") ||
-		normalized.includes("mutinynet")
-	) {
-		return SIGNET_DEFAULTS;
-	}
-
-	if (
-		normalized.includes("localhost") ||
-		normalized.includes("127.0.0.1")
-	) {
-		return REGTEST_DEFAULTS;
-	}
-
-	return MAINNET_DEFAULTS;
 }
 
 function normalizeDirectory(dir: string): string {
@@ -484,9 +409,7 @@ async function main() {
 	}
 
 	const baseUrl = flags.baseUrl ?? DEFAULT_BASE_URL;
-	const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
 	const cookies = new CookieJar(flags.manualLogin);
-	const nodeDefaults = inferNodeDefaults(normalizedBaseUrl, flags.network);
 
 	const envFileOverride = process.env.MDK_ENV_FILE;
 	const rawEnvFile =
@@ -560,7 +483,7 @@ async function main() {
 	try {
 		const result = await runDeviceFlow({
 			flags,
-			baseUrl: normalizedBaseUrl,
+			baseUrl,
 			cookies,
 			projectName,
 			webhookUrl: flags.webhookUrl,
@@ -570,13 +493,6 @@ async function main() {
 			MDK_ACCESS_TOKEN: result.credentials.apiKey,
 			MDK_WEBHOOK_SECRET: result.credentials.webhookSecret,
 			MDK_MNEMONIC: result.mnemonic,
-			MDK_API_BASE_URL: `${normalizedBaseUrl}/rpc`,
-			MDK_VSS_URL: nodeDefaults.vssUrl,
-			MDK_ESPLORA_URL: nodeDefaults.esploraUrl,
-			MDK_RGS_URL: nodeDefaults.rgsUrl,
-			MDK_LSP_NODE_ID: nodeDefaults.lspNodeId,
-			MDK_LSP_ADDRESS: nodeDefaults.lspAddress,
-			MDK_NETWORK: nodeDefaults.network,
 		};
 
 		ensureEnvFileExists(envPath);
