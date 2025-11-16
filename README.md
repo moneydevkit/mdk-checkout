@@ -1,4 +1,4 @@
-# @moneydevkit/nextjs
+# moneydevkit/nextjs
 
 moneydevkit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
 
