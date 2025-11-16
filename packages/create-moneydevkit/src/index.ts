@@ -16,6 +16,7 @@ import type {
 	StartDeviceAuthResponse,
 } from "@moneydevkit/api-contract";
 import { setTimeout as delay } from "node:timers/promises";
+import { deriveProjectName, resolveEnvTarget } from "./utils/env-target.js";
 
 type Flags = {
 	json: boolean;
@@ -23,7 +24,6 @@ type Flags = {
 	noOpen: boolean;
 	yes: boolean;
 	baseUrl?: string;
-	dir?: string;
 	envFile?: string;
 	projectName?: string;
 	manualLogin?: string;
@@ -77,7 +77,6 @@ function parseFlags(argv: string[]): Flags {
 		boolean: ["json", "no-clipboard", "no-open", "force-new-webhook", "yes"],
 		string: [
 			"base-url",
-			"dir",
 			"env-target",
 			"project-name",
 			"manual-login",
@@ -95,14 +94,13 @@ function parseFlags(argv: string[]): Flags {
 		},
 	});
 
-	return {
-		json: Boolean(result.json),
-		noClipboard: Boolean(result["no-clipboard"]),
-		noOpen: Boolean(result["no-open"]),
-		yes: Boolean(result.yes),
-		baseUrl: result["base-url"],
-		dir: result.dir,
-		envFile: result["env-target"],
+return {
+	json: Boolean(result.json),
+	noClipboard: Boolean(result["no-clipboard"]),
+	noOpen: Boolean(result["no-open"]),
+	yes: Boolean(result.yes),
+	baseUrl: result["base-url"],
+	envFile: result["env-target"],
 		projectName:
 			typeof result["project-name"] === "string"
 				? result["project-name"]
@@ -218,7 +216,7 @@ async function runDeviceFlow(options: {
 	baseUrl: string;
 	cookies: CookieJar;
 	projectName?: string;
-	webhookUrl?: string;
+	webhookUrl: string;
 }): Promise<{
 	device: StartDeviceAuthResponse;
 	bootstrapToken: string;
@@ -226,37 +224,8 @@ async function runDeviceFlow(options: {
 	mnemonic: string;
 }> {
 	const client = createRpcClient(options.baseUrl, options.cookies);
-	const manualSessionCookie = options.flags.manualLogin;
-	let webhookUrl = options.webhookUrl ?? options.flags.webhookUrl;
-	const promptForWebhook = async () => {
-		const webhookInput = await p.text({
-			message: "Webhook URL for your application",
-			initialValue: webhookUrl ?? "https://",
-			placeholder: "https://yourapp.com",
-			validate: (value) =>
-				isValidHttpUrl(value?.trim())
-					? undefined
-					: "Enter a valid http(s) URL (e.g. https://yourapp.com)",
-		});
-
-		if (p.isCancel(webhookInput)) {
-			p.cancel("Aborted.");
-			process.exit(1);
-		}
-
-		webhookUrl = webhookInput;
-	};
-
-	if (!webhookUrl) {
-		if (options.flags.json) {
-			throw new Error("Provide --webhook-url when running in --json mode.");
-		}
-		await promptForWebhook();
-	}
-
-	if (!webhookUrl) {
-		throw new Error("Webhook URL is required.");
-	}
+const manualSessionCookie = options.flags.manualLogin;
+const webhookUrl = options.webhookUrl;
 
 const device = await client.onboarding.startDeviceAuth({
     clientDisplayName: options.projectName,
@@ -412,31 +381,17 @@ async function main() {
 	const cookies = new CookieJar(flags.manualLogin);
 
 	const envFileOverride = process.env.MDK_ENV_FILE;
-	const rawEnvFile =
-		flags.envFile ??
-		envFileOverride ??
-		DEFAULT_ENV_FILE;
-	const envFileHasPathSeparator =
-		rawEnvFile.includes("/") || rawEnvFile.includes("\\");
+	const envResolution = resolveEnvTarget({
+		explicitTarget: flags.envFile,
+		overrideTarget: envFileOverride,
+		cwd: process.cwd(),
+		defaultFilename: DEFAULT_ENV_FILE,
+	});
+	const { providedExplicitly } = envResolution;
+	let projectDir = envResolution.projectDir;
+	let envFile = envResolution.envFile;
 
-	let envFile = rawEnvFile;
-	let projectDir = flags.dir ?? process.cwd();
-	let dirProvidedByEnvFile = false;
-
-	if (path.isAbsolute(rawEnvFile)) {
-		projectDir = path.dirname(rawEnvFile);
-		envFile = path.basename(rawEnvFile);
-		dirProvidedByEnvFile = true;
-	} else if (!flags.dir && envFileHasPathSeparator) {
-		const relativeDir = path.dirname(rawEnvFile);
-		if (relativeDir && relativeDir !== "." && relativeDir !== "") {
-			projectDir = path.resolve(process.cwd(), relativeDir);
-			envFile = path.basename(rawEnvFile);
-			dirProvidedByEnvFile = true;
-		}
-	}
-
-	if (!flags.dir && !dirProvidedByEnvFile && !jsonMode) {
+	if (!providedExplicitly && !jsonMode && !flags.envFile) {
 		const dirPrompt = await p.text({
 			message: "Where should we store your MDK credentials?",
 			initialValue: projectDir,
@@ -467,7 +422,31 @@ async function main() {
 
 	const envPath = path.join(projectDir, envFile);
 
-	let projectName = flags.projectName;
+	let webhookUrl = flags.webhookUrl?.trim();
+	if ((!webhookUrl || !isValidHttpUrl(webhookUrl)) && jsonMode) {
+		throw new Error("Provide a valid --webhook-url when running in --json mode.");
+	}
+
+	while (!webhookUrl) {
+		const webhookInput = await p.text({
+			message: "Webhook URL for your application",
+			initialValue: "https://",
+			placeholder: "https://yourapp.com",
+			validate: (value) =>
+				isValidHttpUrl(value?.trim())
+					? undefined
+					: "Enter a valid http(s) URL (e.g. https://yourapp.com)",
+		});
+
+		if (p.isCancel(webhookInput)) {
+			p.cancel("Aborted.");
+			process.exit(1);
+		}
+
+		webhookUrl = webhookInput.trim();
+	}
+
+	let projectName = flags.projectName?.trim();
 	if (!projectName && !jsonMode) {
 		const namePrompt = await p.text({
 			message: "Project name (used for the generated API key)",
@@ -480,13 +459,15 @@ async function main() {
 		projectName = namePrompt.trim() || undefined;
 	}
 
+	projectName = deriveProjectName(projectName, webhookUrl);
+
 	try {
 		const result = await runDeviceFlow({
 			flags,
 			baseUrl,
 			cookies,
 			projectName,
-			webhookUrl: flags.webhookUrl,
+			webhookUrl,
 		});
 
 		const updates: Record<string, string> = {
