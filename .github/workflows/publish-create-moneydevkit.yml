@@ -43,4 +43,4 @@ jobs:
         run: npm run build --workspace packages/create-moneydevkit
 
       - name: Publish to npm
-        run: npm publish packages/create-moneydevkit --access public
+        run: npm publish ./packages/create-moneydevkit --access public
