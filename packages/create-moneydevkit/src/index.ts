@@ -16,6 +16,7 @@ import type {
 	StartDeviceAuthResponse,
 } from "@moneydevkit/api-contract";
 import { setTimeout as delay } from "node:timers/promises";
+import { deriveProjectName, resolveEnvTarget } from "./utils/env-target.js";
 
 type Flags = {
 	json: boolean;
@@ -380,30 +381,15 @@ async function main() {
 	const cookies = new CookieJar(flags.manualLogin);
 
 	const envFileOverride = process.env.MDK_ENV_FILE;
-	const envTargetProvided = typeof flags.envFile === "string";
-	const rawEnvTarget =
-		flags.envFile ?? envFileOverride ?? DEFAULT_ENV_FILE;
-	const envTargetHasPathSeparator =
-		rawEnvTarget.includes("/") || rawEnvTarget.includes("\\");
+	const envResolution = resolveEnvTarget({
+		explicitTarget: flags.envFile,
+		overrideTarget: envFileOverride,
+		cwd: process.cwd(),
+		defaultFilename: DEFAULT_ENV_FILE,
+	});
+	let { projectDir, envFile, providedExplicitly } = envResolution;
 
-	let envFile = path.basename(rawEnvTarget);
-	let projectDir = process.cwd();
-	let dirProvidedByEnvTarget = envTargetProvided;
-
-	if (path.isAbsolute(rawEnvTarget)) {
-		projectDir = path.dirname(rawEnvTarget);
-		envFile = path.basename(rawEnvTarget);
-		dirProvidedByEnvTarget = true;
-	} else if (envTargetHasPathSeparator) {
-		const relativeDir = path.dirname(rawEnvTarget);
-		if (relativeDir && relativeDir !== "." && relativeDir !== "") {
-			projectDir = path.resolve(process.cwd(), relativeDir);
-			envFile = path.basename(rawEnvTarget);
-			dirProvidedByEnvTarget = true;
-		}
-	}
-
-	if (!dirProvidedByEnvTarget && !jsonMode && !envTargetProvided) {
+	if (!providedExplicitly && !jsonMode && !flags.envFile) {
 		const dirPrompt = await p.text({
 			message: "Where should we store your MDK credentials?",
 			initialValue: projectDir,
@@ -471,9 +457,7 @@ async function main() {
 		projectName = namePrompt.trim() || undefined;
 	}
 
-	if (!projectName) {
-		projectName = webhookUrl;
-	}
+	projectName = deriveProjectName(projectName, webhookUrl);
 
 	try {
 		const result = await runDeviceFlow({

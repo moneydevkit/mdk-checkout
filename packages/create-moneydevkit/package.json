@@ -15,7 +15,8 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "run:local": "npm run build && node dist/index.js --base-url http://localhost:3900",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "node --test --loader ts-node/esm src/**/*.test.ts"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
@@ -31,16 +32,17 @@
     "undici": "^7.16.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@eslint/js": "^9.15.0",
     "@types/minimist": "^1.2.5",
     "@types/node": "^22.9.0",
     "@types/set-cookie-parser": "^2.4.10",
     "@typescript-eslint/eslint-plugin": "^8.12.2",
     "@typescript-eslint/parser": "^8.12.2",
     "eslint": "^9.15.0",
+    "ts-node": "^10.9.2",
     "tsup": "^8.4.0",
-    "typescript": "^5.6.3",
-    "@eslint/eslintrc": "^3.1.0",
-    "@eslint/js": "^9.15.0"
+    "typescript": "^5.6.3"
   },
   "engines": {
     "node": ">=18"
