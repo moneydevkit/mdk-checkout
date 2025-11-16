@@ -172,6 +172,14 @@ function writeEnvFile(
 	fs.writeFileSync(filePath, content, "utf8");
 }
 
+function ensureEnvFileExists(filePath: string) {
+	const dir = path.dirname(filePath);
+	ensureDirectoryExists(dir);
+	if (!fs.existsSync(filePath)) {
+		fs.writeFileSync(filePath, "", "utf8");
+	}
+}
+
 function isValidHttpUrl(value?: string): boolean {
 	if (!value) return false;
 	try {
@@ -487,6 +495,7 @@ async function main() {
 			MDK_MNEMONIC: result.mnemonic,
 		};
 
+		ensureEnvFileExists(envPath);
 		const existingEnv = readEnvFile(envPath);
 		const preview = renderEnvPreview(existingEnv, updates);
 
