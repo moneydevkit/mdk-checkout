@@ -28,7 +28,8 @@ export default function HomePage() {
 
   const handlePurchase = () => {
     navigate({
-      prompt: 'Describe the purchase shown to the buyer',
+      title: "Describe the purchase shown to the buyer",
+      description: 'A description of the purchase',
       amount: 500,         // 500 USD cents or Bitcoin sats
       currency: 'USD',     // or 'SAT'
       metadata: {
