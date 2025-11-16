@@ -41,7 +41,7 @@ npx create-moneydevkit \
   --base-url http://localhost:3900 \
   --dir /tmp/mdk-demo \
   --env-file .env.local \
-  --webhook-url https://example.com/api/mdk \
+  --webhook-url https://example.com \
   --manual-login "$SESSION_COOKIE" \
   --json --no-open --no-clipboard
 ```
