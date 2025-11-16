@@ -11,6 +11,14 @@ npm run build        # produce dist/ bundle + types
 npm run run:local    # talk to a dashboard at http://localhost:3900
 ```
 
+## Releasing to npm
+
+1. Bump the version in `packages/create-moneydevkit/package.json` (for example: `npm version 0.2.0 --workspace packages/create-moneydevkit --no-git-tag-version`) and commit the resulting `package-lock.json` change.
+2. Push the commit, then create a GitHub release (or annotated tag) named `create-moneydevkit-vX.Y.Z` that matches the new version string.
+3. The `publish-create-moneydevkit` workflow will detect that tag, run the build, and execute `npm publish packages/create-moneydevkit --access public` using the repo’s `NPM_TOKEN`.
+
+Once that workflow succeeds, `npx create-moneydevkit` automatically downloads the freshly published build.
+
 ## What the CLI does
 
 1. Calls the MDK onboarding RPC to create a device/session code.
