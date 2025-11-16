@@ -4,7 +4,7 @@ import type { Checkout } from '@moneydevkit/api-contract'
 
 export interface PaymentReceivedCheckoutProps {
   checkout: Checkout
-  onSuccess?: (checkout: Checkout) => void
+  onSuccess: (checkout: Checkout) => void
 }
 
 export default function PaymentReceivedCheckout({ checkout, onSuccess }: PaymentReceivedCheckoutProps) {
@@ -23,11 +23,7 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
   }
 
   const handleContinue = () => {
-    if (onSuccess) {
-      onSuccess(checkout)
-    } else if (checkout.successUrl) {
-      window.location.href = checkout.successUrl
-    }
+    onSuccess(checkout)
   }
 
   const CheckmarkIcon = () => (

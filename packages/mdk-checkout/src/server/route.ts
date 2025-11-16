@@ -116,7 +116,7 @@ export async function POST(request: Request) {
 
   if (!handler) {
     return jsonResponse(501, {
-      error: `Handler "${route}" is not implemented in this version of mdk-checkout.`,
+      error: `Handler "${route}" not found.`,
     });
   }
 

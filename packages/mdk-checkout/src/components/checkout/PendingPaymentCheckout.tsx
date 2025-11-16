@@ -2,10 +2,9 @@
 
 import type { Checkout } from '@moneydevkit/api-contract'
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import { useEffect, useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
-import { payInvoice } from '../../server/actions'
 
 type PendingPaymentCheckoutType = Extract<Checkout, { status: 'PENDING_PAYMENT' }>
 
@@ -51,12 +50,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   const formatSats = (sats: number) => {
     return new Intl.NumberFormat('en-US').format(sats)
-  }
-
-  const openInWallet = async () => {
-    if (checkout.invoice?.paymentHash && checkout.invoiceAmountSats) {
-      await payInvoice(checkout.invoice.paymentHash, checkout.invoiceAmountSats)
-    }
   }
 
   const copyToClipboard = async () => {
@@ -173,15 +166,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
           </div>
         </div>
       )}
-
-      <div className="w-full mb-6">
-        <button
-          onClick={openInWallet}
-          className="w-full bg-white hover:bg-gray-100 text-black font-medium py-3 px-4 rounded-lg transition-colors border border-gray-200"
-        >
-          Pay in Wallet
-        </button>
-      </div>
     </>
   )
 }
