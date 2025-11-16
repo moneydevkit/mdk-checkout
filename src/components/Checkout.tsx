@@ -2,10 +2,10 @@
 
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { ReactNode, useCallback, useEffect, useState } from 'react'
 import '../mdk-styles.css'
 import { MdkCheckoutProvider } from '../providers'
-import { getCheckout, createCheckout, type CreateCheckoutParams } from '../server/actions'
+import { createCheckout, getCheckout } from '../server/actions'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
@@ -14,21 +14,17 @@ import UnconfirmedCheckout from './checkout/UnconfirmedCheckout'
 const POLLING_STATUSES = new Set<CheckoutType['status']>(['UNCONFIRMED', 'CONFIRMED', 'PENDING_PAYMENT'])
 
 export interface CheckoutProps {
-  id?: string
-  onSuccess?: (checkout: CheckoutType) => void
-  title?: string
-  description?: string
-  // New: creation parameters for when no id is provided
-  createParams?: CreateCheckoutParams
+  id: string
 }
 
 interface CheckoutLayoutProps {
-  title?: string
-  description?: string
+  checkout?: CheckoutType
   children: ReactNode
 }
 
-function CheckoutLayout({ title, description, children }: CheckoutLayoutProps) {
+function CheckoutLayout({ checkout, children }: CheckoutLayoutProps) {
+  const title = checkout?.userMetadata?.title
+  const description = checkout?.userMetadata?.description
   return (
     <div className="w-fit mx-auto" style={{ width: '380px' }}>
       {(title || description) && (
@@ -61,24 +57,14 @@ function CheckoutLayout({ title, description, children }: CheckoutLayoutProps) {
   )
 }
 
-function CheckoutInternal({ id, createParams, onSuccess, title, description }: CheckoutProps) {
-  // First, create checkout if needed (when createParams provided but no id)
-  const { data: createdCheckout, error: createError } = useQuery({
-    queryKey: ['mdk-create-checkout', createParams],
-    queryFn: () => createCheckout(createParams!),
-    enabled: !id && !!createParams,
-    staleTime: Infinity, // Don't refetch creation
-  })
-
-  // Use the provided id or the id from the created checkout
-  const checkoutId = id || createdCheckout?.id
-
+function CheckoutInternal({ id }: CheckoutProps) {
   const [isWindowVisible, setIsWindowVisible] = useState(() => {
     if (typeof document === 'undefined') {
       return true
     }
     return document.visibilityState === 'visible'
   })
+  const [isRestarting, setIsRestarting] = useState(false)
 
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') {
@@ -102,11 +88,10 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
     }
   }, [])
 
-  // Fetch the checkout and keep polling until it reaches a terminal state.
   const { data: checkout } = useQuery({
-    queryKey: ['mdk-checkout', checkoutId],
-    queryFn: () => getCheckout(checkoutId!),
-    enabled: !!checkoutId,
+    queryKey: ['mdk-checkout', id],
+    queryFn: () => getCheckout(id!),
+    enabled: !!id,
     refetchInterval: ({ state: { data } }) => {
       if (!isWindowVisible) {
         return false
@@ -130,39 +115,45 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
     checkout?.status === 'PAYMENT_RECEIVED' ||
     (checkout?.invoice?.amountSatsReceived ?? 0) > 0
 
-  // Check for successUrl in checkout metadata
-  const successUrl = checkout?.userMetadata?.successUrl
-
-  // Default onSuccess behavior: redirect to successUrl or /success
-  const handleSuccess = onSuccess || (() => {
+  const handleSuccess = (() => {
+    const successUrl = checkout?.userMetadata?.successUrl
     window.location.href = successUrl || '/success'
   })
 
-  // Handle creation errors
-  if (createError) {
-    return (
-      <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
-        <div className="w-full max-w-md">
-          <CheckoutLayout title="Error" description="Failed to create checkout">
-            <div className="text-center">
-              <div className="text-red-400 mb-4">
-                <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-gray-300 mb-4">Unable to create checkout session</p>
-              <button
-                onClick={() => window.history.back()}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
-              >
-                Go Back
-              </button>
-            </div>
-          </CheckoutLayout>
-        </div>
-      </div>
-    )
-  }
+  const handleRestart = useCallback(async () => {
+    if (!checkout) return
+
+    const amount = checkout.currency === 'SAT'
+      ? checkout.invoiceAmountSats ?? checkout.netAmount ?? checkout.providedAmount ?? checkout.totalAmount
+      : checkout.providedAmount ?? checkout.totalAmount ?? checkout.netAmount ?? checkout.invoice?.fiatAmount
+
+    if (!amount) {
+      window.location.reload()
+      return
+    }
+
+    const checkoutPath = typeof window !== 'undefined'
+      ? window.location.pathname.split('/').slice(0, -1).join('/') || '/checkout'
+      : '/checkout'
+
+    try {
+      setIsRestarting(true)
+
+      const newCheckout = await createCheckout({
+        title: (checkout.userMetadata?.title as string) || 'Checkout',
+        description: (checkout.userMetadata?.description as string) || '',
+        amount,
+        currency: checkout.currency as 'USD' | 'SAT',
+        successUrl: (checkout.userMetadata?.successUrl as string) ?? checkout.successUrl ?? undefined,
+        metadata: checkout.userMetadata ?? undefined,
+      })
+
+      window.location.href = `${checkoutPath}/${newCheckout.id}`
+    } catch (error) {
+      console.error('Failed to restart checkout', error)
+      setIsRestarting(false)
+    }
+  }, [checkout])
 
   if (!checkout) {
     return (
@@ -172,41 +163,13 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
     )
   }
 
-  const resolvedTitle = (() => {
-    if (title) return title
-    if (paymentReceived) {
-      return 'Payment Successful!'
-    }
-    switch (checkout.status) {
-      case 'UNCONFIRMED':
-        return 'Checkout'
-      case 'PENDING_PAYMENT':
-        return 'ImageMint'
-      case 'EXPIRED':
-        return 'Checkout Expired'
-      default:
-        return 'Checkout'
-    }
-  })()
-
-  const resolvedDescription = (() => {
-    if (description) return description
-    if (paymentReceived) {
-      return undefined
-    }
-    if (checkout.status === 'PENDING_PAYMENT') {
-      return checkout.userMetadata?.prompt ? `'${checkout.userMetadata.prompt}'` : undefined
-    }
-    return undefined
-  })()
-
   return (
     <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
       <div className="w-full max-w-md">
         {(() => {
           if (paymentReceived) {
             return (
-              <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
+              <CheckoutLayout checkout={checkout}>
                 <PaymentReceivedCheckout checkout={checkout} onSuccess={handleSuccess} />
               </CheckoutLayout>
             )
@@ -215,13 +178,13 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
           switch (checkout.status) {
             case 'UNCONFIRMED':
               return (
-                <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
+                <CheckoutLayout checkout={checkout}>
                   <UnconfirmedCheckout checkout={checkout as Extract<CheckoutType, { status: 'UNCONFIRMED' }>} />
                 </CheckoutLayout>
               )
             case 'CONFIRMED':
               return (
-                <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
+                <CheckoutLayout checkout={checkout}>
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
                     <p className="text-gray-300">Generating invoice...</p>
@@ -230,14 +193,17 @@ function CheckoutInternal({ id, createParams, onSuccess, title, description }: C
               )
             case 'PENDING_PAYMENT':
               return (
-                <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
+                <CheckoutLayout checkout={checkout}>
                   <PendingPaymentCheckout checkout={checkout as Extract<CheckoutType, { status: 'PENDING_PAYMENT' }>} />
                 </CheckoutLayout>
               )
             case 'EXPIRED':
               return (
-                <CheckoutLayout title={resolvedTitle} description={resolvedDescription}>
-                  <ExpiredCheckout checkout={checkout as Extract<CheckoutType, { status: 'EXPIRED' }>}
+                <CheckoutLayout checkout={checkout}>
+                  <ExpiredCheckout
+                    checkout={checkout as Extract<CheckoutType, { status: 'EXPIRED' }>}
+                    onRestart={handleRestart}
+                    isRestarting={isRestarting}
                   />
                 </CheckoutLayout>
               )

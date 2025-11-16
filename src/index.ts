@@ -1,6 +1,6 @@
 export { Checkout } from './components/Checkout'
 export type { CheckoutProps } from './components/Checkout'
 export { useCheckout } from './hooks/useCheckout'
-export type { UseCheckoutOptions, CheckoutResult } from './hooks/useCheckout'
-export { createCheckout, getCheckout, confirmCheckout } from './server/actions'
+export { confirmCheckout, createCheckout, getCheckout } from './server/actions'
 export type { CreateCheckoutParams } from './server/actions'
+
