@@ -1,6 +1,7 @@
 {
   "name": "@moneydevkit/nextjs",
   "version": "0.1.1",
+  "title": "@moneydevkit/nextjs",
   "description": "moneydevkit checkout components for Next.js.",
   "type": "module",
   "main": "./dist/index.js",
