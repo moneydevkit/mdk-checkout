@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/nextjs",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "title": "@moneydevkit/nextjs",
   "description": "moneydevkit checkout components for Next.js.",
   "type": "module",
