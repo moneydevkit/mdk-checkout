@@ -1,0 +1,46 @@
+name: Publish mdk-checkout
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish from (must match mdk-checkout-v*)"
+        required: false
+
+jobs:
+  publish:
+    if: |
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'mdk-checkout-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'mdk-checkout-v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use workflow_dispatch tag if provided
+        if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+        run: git checkout ${{ inputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build --workspace packages/mdk-checkout
+
+      - name: Publish to npm
+        run: npm publish packages/mdk-checkout --access public
