@@ -32,9 +32,12 @@ export async function confirmCheckout(confirm: ConfirmCheckout) {
 }
 
 export interface CreateCheckoutParams {
-  prompt: string
-  amount?: number
+  title: string,
+  description: string,
+  amount: number
   currency?: 'USD' | 'SAT'
+  successUrl?: string,
+  checkoutPath?: string,
   metadata?: Record<string, any>
 }
 
@@ -48,12 +51,15 @@ export async function createCheckout(params: CreateCheckoutParams) {
 
   const checkout = await client.checkouts.create(
     {
-    amount,
-    currency,
-    metadata: { prompt: params.prompt, ...metadataOverrides },
-    },
-    node.id,
-  )
+      amount,
+      currency,
+      metadata: {
+        title: params.title,
+        description: params.description,
+        successUrl: params.successUrl,
+        ...metadataOverrides,
+      },
+    }, node.id)
 
   if (checkout.status === 'CONFIRMED') {
     const invoice = checkout.invoiceScid

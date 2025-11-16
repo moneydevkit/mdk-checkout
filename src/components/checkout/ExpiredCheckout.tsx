@@ -7,9 +7,10 @@ type ExpiredCheckoutType = Extract<Checkout, { status: 'EXPIRED' }>
 export interface ExpiredCheckoutProps {
   checkout: ExpiredCheckoutType
   onRestart?: () => void
+  isRestarting?: boolean
 }
 
-export default function ExpiredCheckout({ checkout, onRestart }: ExpiredCheckoutProps) {
+export default function ExpiredCheckout({ checkout, onRestart, isRestarting = false }: ExpiredCheckoutProps) {
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -78,9 +79,10 @@ export default function ExpiredCheckout({ checkout, onRestart }: ExpiredCheckout
 
       <button
         onClick={handleRestart}
-        className="w-full bg-white hover:bg-gray-100 text-gray-900 font-medium py-3 px-4 rounded-lg transition-colors"
+        disabled={isRestarting}
+        className="w-full bg-white hover:bg-gray-100 disabled:opacity-70 disabled:cursor-not-allowed text-gray-900 font-medium py-3 px-4 rounded-lg transition-colors"
       >
-        Restart
+        {isRestarting ? 'Restarting...' : 'Restart'}
       </button>
     </>
   )
