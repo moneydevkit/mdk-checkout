@@ -40,7 +40,7 @@ SESSION_COOKIE='better-auth.session_token=eyJhbGciOiJI...'
 npx create-moneydevkit \
   --base-url http://localhost:3900 \
   --dir /tmp/mdk-demo \
-  --env-file .env.local \
+  --env-target .env.local \
   --webhook-url https://example.com \
   --manual-login "$SESSION_COOKIE" \
   --json --no-open --no-clipboard
@@ -54,7 +54,7 @@ The CLI still requests a device code, immediately authorises it using the provid
 | ---- | ----------- |
 | `--base-url` | Override dashboard base URL (default `https://moneydevkit.com`). |
 | `--dir` | Target project directory (defaults to `cwd`). |
-| `--env-file` | Env file name (default `.env.local`). |
+| `--env-target` | Env file name (default `.env.local`). |
 | `--project-name` | Friendly name used when minting the API key. |
 | `--no-open` | Skip auto-opening the browser; prints the verification URL instead. |
 | `--no-clipboard` | Do not place secrets on the clipboard. |
