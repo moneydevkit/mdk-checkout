@@ -78,7 +78,7 @@ function parseFlags(argv: string[]): Flags {
 		string: [
 			"base-url",
 			"dir",
-			"env-file",
+			"env-target",
 			"project-name",
 			"manual-login",
 			"webhook-url",
@@ -102,7 +102,7 @@ function parseFlags(argv: string[]): Flags {
 		yes: Boolean(result.yes),
 		baseUrl: result["base-url"],
 		dir: result.dir,
-		envFile: result["env-file"],
+		envFile: result["env-target"],
 		projectName:
 			typeof result["project-name"] === "string"
 				? result["project-name"]
