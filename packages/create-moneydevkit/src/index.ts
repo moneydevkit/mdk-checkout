@@ -387,7 +387,9 @@ async function main() {
 		cwd: process.cwd(),
 		defaultFilename: DEFAULT_ENV_FILE,
 	});
-	let { projectDir, envFile, providedExplicitly } = envResolution;
+	const { providedExplicitly } = envResolution;
+	let projectDir = envResolution.projectDir;
+	let envFile = envResolution.envFile;
 
 	if (!providedExplicitly && !jsonMode && !flags.envFile) {
 		const dirPrompt = await p.text({
