@@ -1,6 +1,6 @@
-# mdk-checkout
+# @moneydevkit/nextjs
 
-Money Dev Kit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
+moneydevkit checkout library for embedding Lightning-powered payments inside Next.js (App Router) apps.
 
 ## Setup
 1. **Create a Money Dev Kit account** at [moneydevkit.com](https://moneydevkit.com) and grab your `api_key`, `webhook_key`, and mnemonic.
