@@ -172,6 +172,16 @@ function writeEnvFile(
 	fs.writeFileSync(filePath, content, "utf8");
 }
 
+function isValidHttpUrl(value?: string): boolean {
+	if (!value) return false;
+	try {
+		const parsed = new URL(value);
+		return parsed.protocol === "https:" || parsed.protocol === "http:";
+	} catch (error) {
+		return false;
+	}
+}
+
 function createRpcClient(
 	baseUrl: string,
 	jar: CookieJar,
@@ -216,9 +226,9 @@ async function runDeviceFlow(options: {
 			initialValue: webhookUrl ?? "https://",
 			placeholder: "https://yourapp.com",
 			validate: (value) =>
-				!value || !value.startsWith("http")
-					? "Enter a fully qualified URL"
-					: undefined,
+				isValidHttpUrl(value?.trim())
+					? undefined
+					: "Enter a valid http(s) URL (e.g. https://yourapp.com)",
 		});
 
 		if (p.isCancel(webhookInput)) {
