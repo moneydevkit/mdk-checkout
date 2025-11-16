@@ -1,6 +1,6 @@
 {
   "name": "create-moneydevkit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Interactive CLI for bootstrapping Money Dev Kit credentials.",
   "type": "module",
   "bin": {
