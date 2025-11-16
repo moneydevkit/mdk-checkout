@@ -13,7 +13,7 @@
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
-  "dependencies": {
+  "optionalDependencies": {
     "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.41"
   }
 }
