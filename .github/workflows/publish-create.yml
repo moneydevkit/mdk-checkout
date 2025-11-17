@@ -1,4 +1,4 @@
-name: Publish mdk-checkout
+name: Publish create
 
 on:
   release:
@@ -6,19 +6,20 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish from (must match mdk-checkout-v*)"
+        description: "Tag to publish from (must match create-v*)"
         required: false
 
 jobs:
   publish:
     if: |
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'mdk-checkout-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'mdk-checkout-v'))
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'create-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'create-v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,13 +35,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          registry-url: "https://registry.npmjs.org"
+          registry-url: ${{ env.NPM_PUBLISH_REGISTRY }}
+      - name: Upgrade npm (required for trusted publishing)
+        run: npm install -g npm@11.6.2
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build package
-        run: npm run build --workspace packages/mdk-checkout
+        run: npm run build --workspace packages/create
 
-      - name: Publish to npm
-        run: npm publish packages/mdk-checkout --access public
+      - name: Publish to npm with provenance
+        run: npm publish ./packages/create --provenance --access public

@@ -1,6 +1,6 @@
-# create-moneydevkit
+# @moneydevkit/create
 
-Developer onboarding CLI for Money Dev Kit. This package publishes the interactive `npx create-moneydevkit` flow that provisions API keys, webhook secrets, and a Lightning mnemonic for local development.
+Developer onboarding CLI for Money Dev Kit. This package publishes the interactive `npx @moneydevkit/create` flow that provisions API keys, webhook secrets, and a Lightning mnemonic for local development.
 
 ## Local Development
 
@@ -13,11 +13,11 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 
 ## Releasing to npm
 
-1. Bump the version in `packages/create-moneydevkit/package.json` (for example: `npm version 0.2.0 --workspace packages/create-moneydevkit --no-git-tag-version`) and commit the resulting `package-lock.json` change.
-2. Push the commit, then create a GitHub release (or annotated tag) named `create-moneydevkit-vX.Y.Z` that matches the new version string.
-3. The `publish-create-moneydevkit` workflow will detect that tag, run the build, and execute `npm publish packages/create-moneydevkit --access public` using the repo’s `NPM_TOKEN`.
+1. Bump the version in `packages/create/package.json` (for example: `npm version 0.2.0 --workspace packages/create --no-git-tag-version`) and commit the resulting `package-lock.json` change.
+2. Push the commit, then create a GitHub release (or annotated tag) named `create-vX.Y.Z` that matches the new version string.
+3. The `publish-create` workflow will detect that tag, run the build, and execute `npm publish packages/create --access public` using the repo’s `NPM_TOKEN`.
 
-Once that workflow succeeds, `npx create-moneydevkit` automatically downloads the freshly published build.
+Once that workflow succeeds, `npx @moneydevkit/create` automatically downloads the freshly published build.
 
 ## What the CLI does
 
@@ -37,7 +37,7 @@ Manual mode still uses the device-auth flow—the only difference is that you re
 ```bash
 SESSION_COOKIE='better-auth.session_token=eyJhbGciOiJI...'
 
-npx create-moneydevkit \
+npx @moneydevkit/create \
   --base-url http://localhost:3900 \
   --dir /tmp/mdk-demo \
   --env-target .env.local \
