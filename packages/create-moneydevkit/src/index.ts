@@ -421,6 +421,30 @@ async function main() {
 	}
 
 	const envPath = path.join(projectDir, envFile);
+	const existingEnvValues = readEnvFile(envPath);
+	const mnemonicAlreadySet = existingEnvValues.get("MDK_MNEMONIC")?.trim();
+
+	if (mnemonicAlreadySet) {
+		const warningMessage =
+			"We found MDK_MNEMONIC already set in your project. Your mnemonic is the key to your wallet. If you've already deployed and taken payments with this mnemonic and change it, you will lose access to your funds. If you want to generate a new mnemonic, delete MDK_MNEMONIC from your .env and try again.";
+
+		if (jsonMode) {
+			console.error(
+				JSON.stringify(
+					{
+						status: "error",
+						error: { message: warningMessage },
+					},
+					null,
+					2,
+				),
+			);
+		} else {
+			p.cancel(warningMessage);
+		}
+
+		process.exit(1);
+	}
 
 	let webhookUrl = flags.webhookUrl?.trim();
 	if ((!webhookUrl || !isValidHttpUrl(webhookUrl)) && jsonMode) {
