@@ -374,7 +374,7 @@ async function main() {
 	const jsonMode = flags.json;
 
 	if (!jsonMode) {
-		p.intro("Money Dev Kit – create-moneydevkit");
+		p.intro("Money Dev Kit – @moneydevkit/create");
 	}
 
 	const baseUrl = flags.baseUrl ?? DEFAULT_BASE_URL;
