@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/create",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Interactive CLI for bootstrapping Money Dev Kit credentials.",
   "type": "module",
   "bin": {
@@ -50,9 +50,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/moneydevkit/nextjs.git",
+    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
     "directory": "packages/create"
   },
+  "homepage": "https://github.com/moneydevkit/mdk-checkout/blob/main/packages/create/README.md",
   "publishConfig": {
     "access": "public"
   },
