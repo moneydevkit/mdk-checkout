@@ -3,6 +3,12 @@
   "version": "0.1.8",
   "title": "@moneydevkit/nextjs",
   "description": "moneydevkit checkout components for Next.js.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
+    "directory": "packages/nextjs"
+  },
+  "homepage": "https://github.com/moneydevkit/mdk-checkout/blob/main/packages/nextjs/README.md",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
