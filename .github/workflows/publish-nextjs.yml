@@ -1,4 +1,4 @@
-name: Publish mdk-checkout
+name: Publish @moneydevkit/nextjs
 
 on:
   release:
@@ -6,14 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish from (must match mdk-checkout-v*)"
+        description: "Tag to publish from (must match nextjs-v*)"
         required: false
 
 jobs:
   publish:
     if: |
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'mdk-checkout-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'mdk-checkout-v'))
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'nextjs-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'nextjs-v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,7 +40,6 @@ jobs:
         run: npm ci
 
       - name: Build package
-        run: npm run build --workspace packages/mdk-checkout
-
+        run: npm run build --workspace packages/nextjs
       - name: Publish to npm
-        run: npm publish packages/mdk-checkout --access public
+        run: npm publish packages/nextjs --access public

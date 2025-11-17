@@ -50,7 +50,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
+    "url": "git+https://github.com/moneydevkit/nextjs.git",
     "directory": "packages/create"
   },
   "publishConfig": {
