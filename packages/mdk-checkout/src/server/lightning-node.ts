@@ -129,8 +129,8 @@ export class MoneyDevKitNode {
     )
   }
 
-  payBolt12Offer(bolt12: string) {
-    return this.node.payBolt12Offer(bolt12)
+  payBolt12Offer(bolt12: string, amountMsat: number): string {
+    return this.node.payBolt12Offer(bolt12, amountMsat)
   }
 
   payBolt11(bolt11: string) {

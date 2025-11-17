@@ -1,8 +1,17 @@
+import { z } from "zod";
+
 import { log } from "../logging";
 import { createMoneyDevKitNode } from "../mdk";
 
-export async function handlePayBolt12(_request: Request): Promise<Response> {
+const bolt12Schema = z.object({
+  amount: z.number().positive(),
+});
+
+export async function handlePayBolt12(request: Request): Promise<Response> {
   try {
+    const body = await request.json();
+    const parsed = bolt12Schema.parse(body);
+
     const node = createMoneyDevKitNode();
     const bolt12Offer = process.env.WITHDRAWAL_BOLT_12;
 
@@ -12,7 +21,7 @@ export async function handlePayBolt12(_request: Request): Promise<Response> {
       return new Response("Bolt 12 offer not configured", { status: 500 });
     }
 
-    node.payBolt12Offer(bolt12Offer);
+    await node.payBolt12Offer(bolt12Offer, parsed.amount);
 
     return new Response("OK", { status: 200 });
   } catch (error) {

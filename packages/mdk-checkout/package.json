@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/nextjs",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "title": "@moneydevkit/nextjs",
   "description": "moneydevkit checkout components for Next.js.",
   "type": "module",
@@ -54,7 +54,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@moneydevkit/api-contract": "^0.1.10",
-    "@moneydevkit/lightning-js": "^0.1.47",
+    "@moneydevkit/lightning-js": "^0.1.49",
     "@orpc/client": "1.3.0",
     "@orpc/contract": "1.3.0",
     "@radix-ui/react-collapsible": "^1.1.11",
