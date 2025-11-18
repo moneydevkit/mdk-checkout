@@ -178,6 +178,17 @@ function ensureEnvFileExists(filePath: string) {
 	}
 }
 
+function resolveLocalEnvPath(options: {
+	organizationId?: string;
+}): string | undefined {
+	const trimmed = options.organizationId?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	const homeDir = os.homedir();
+	return path.join(homeDir, ".mdk", trimmed, ".env");
+}
+
 function isValidHttpUrl(value?: string): boolean {
 	if (!value) return false;
 	try {
@@ -505,6 +516,15 @@ async function main() {
 		const preview = renderEnvPreview(existingEnv, updates);
 
 		writeEnvFile(envPath, existingEnv, updates);
+
+		const localEnvPath = resolveLocalEnvPath({
+			organizationId: result.credentials.organizationId,
+		});
+		if (localEnvPath) {
+			ensureEnvFileExists(localEnvPath);
+			const localEnv = readEnvFile(localEnvPath);
+			writeEnvFile(localEnvPath, localEnv, updates);
+		}
 
 		if (!jsonMode) {
 			p.note(preview, "Env file updated");
