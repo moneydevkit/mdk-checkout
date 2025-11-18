@@ -180,13 +180,15 @@ function ensureEnvFileExists(filePath: string) {
 
 function resolveLocalEnvPath(options: {
 	organizationId?: string;
+	apiKeyId?: string;
 }): string | undefined {
-	const trimmed = options.organizationId?.trim();
-	if (!trimmed) {
+	const organization = options.organizationId?.trim();
+	const apiKey = options.apiKeyId?.trim();
+	if (!organization || !apiKey) {
 		return undefined;
 	}
 	const homeDir = os.homedir();
-	return path.join(homeDir, ".mdk", trimmed, ".env");
+	return path.join(homeDir, ".mdk", organization, apiKey, ".env");
 }
 
 function isValidHttpUrl(value?: string): boolean {
@@ -519,6 +521,7 @@ async function main() {
 
 		const localEnvPath = resolveLocalEnvPath({
 			organizationId: result.credentials.organizationId,
+			apiKeyId: result.credentials.apiKeyId,
 		});
 		if (localEnvPath) {
 			ensureEnvFileExists(localEnvPath);
