@@ -138,7 +138,7 @@ export class MoneyDevKitNode {
   }
 
   payLNUrl(lnurl: string, amountMsat: number) {
-    return this.node.payLnurl(lnurl, amountMsat, 10)
+    return this.node.payLnurl(lnurl, amountMsat, 15)
   }
 
   listChannels() {
