@@ -320,15 +320,14 @@ function updateConfigFile(configPath: string): ConfigResult {
 }
 
 function scaffoldAppRouter(
-	rootDir: string,
+	appDir: string,
 	isTypeScript: boolean,
 ): { added: string[]; skipped: string[] } {
 	const added: string[] = [];
 	const skipped: string[] = [];
 
 	const routePath = path.join(
-		rootDir,
-		"app",
+		appDir,
 		"api",
 		"mdk",
 		`route.${isTypeScript ? "ts" : "js"}`,
@@ -344,8 +343,7 @@ function scaffoldAppRouter(
 	}
 
 	const pagePath = path.join(
-		rootDir,
-		"app",
+		appDir,
 		"checkout",
 		"[id]",
 		`page.${isTypeScript ? "tsx" : "js"}`,
@@ -364,15 +362,14 @@ function scaffoldAppRouter(
 }
 
 function scaffoldPagesRouter(
-	rootDir: string,
+	pagesDir: string,
 	isTypeScript: boolean,
 ): { added: string[]; skipped: string[] } {
 	const added: string[] = [];
 	const skipped: string[] = [];
 
 	const apiPath = path.join(
-		rootDir,
-		"pages",
+		pagesDir,
 		"api",
 		`mdk.${isTypeScript ? "ts" : "js"}`,
 	);
@@ -387,8 +384,7 @@ function scaffoldPagesRouter(
 	}
 
 	const checkoutPath = path.join(
-		rootDir,
-		"pages",
+		pagesDir,
 		"checkout",
 		`[id].${isTypeScript ? "tsx" : "js"}`,
 	);
@@ -436,12 +432,18 @@ export async function scaffoldNextJs(options: {
 
 	let fileResults: { added: string[]; skipped: string[] };
 	if (detection.appDir) {
-		fileResults = scaffoldAppRouter(rootDir, detection.usesTypeScript);
+		fileResults = scaffoldAppRouter(detection.appDir, detection.usesTypeScript);
 	} else if (detection.pagesDir) {
-		fileResults = scaffoldPagesRouter(rootDir, detection.usesTypeScript);
+		fileResults = scaffoldPagesRouter(
+			detection.pagesDir,
+			detection.usesTypeScript,
+		);
 	} else {
 		// Default to App Router layout.
-		fileResults = scaffoldAppRouter(rootDir, detection.usesTypeScript);
+		fileResults = scaffoldAppRouter(
+			path.join(rootDir, "app"),
+			detection.usesTypeScript,
+		);
 		warnings.push(
 			"No app/ or pages/ directory detected; created App Router scaffolding in app/.",
 		);

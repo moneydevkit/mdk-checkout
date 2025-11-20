@@ -39,9 +39,18 @@ test("scaffoldNextJs creates config, route, and checkout page idempotently", asy
 	});
 
 	assert.ok(fs.existsSync(path.join(tmp, "next.config.js")));
-	assert.ok(fs.existsSync(path.join(tmp, "app", "api", "mdk", "route.js")));
 	assert.ok(
-		fs.existsSync(path.join(tmp, "app", "checkout", "[id]", "page.js")),
+		fs.existsSync(path.join(detection.appDir ?? path.join(tmp, "app"), "api", "mdk", "route.js")),
+	);
+	assert.ok(
+		fs.existsSync(
+			path.join(
+				detection.appDir ?? path.join(tmp, "app"),
+				"checkout",
+				"[id]",
+				"page.js",
+			),
+		),
 	);
 	assert.ok(first.addedFiles.length >= 2);
 
@@ -53,4 +62,26 @@ test("scaffoldNextJs creates config, route, and checkout page idempotently", asy
 
 	assert.equal(second.addedFiles.length, 0);
 	assert.ok(second.skippedFiles.length >= 2);
+});
+
+test("scaffolds inside src/app when present", async () => {
+	const tmp = makeTmpNextApp();
+	const srcApp = path.join(tmp, "src", "app");
+	fs.mkdirSync(srcApp, { recursive: true });
+
+	// remove root app to force src/app usage
+	fs.rmSync(path.join(tmp, "app"), { recursive: true, force: true });
+
+	const detection = detectNextJsProject(tmp);
+	assert.ok(detection.found);
+	assert.ok(detection.appDir?.endsWith(path.join("src", "app")));
+
+	await scaffoldNextJs({
+		detection,
+		jsonMode: true,
+		skipInstall: true,
+	});
+
+	assert.ok(fs.existsSync(path.join(srcApp, "api", "mdk", "route.js")));
+	assert.ok(fs.existsSync(path.join(srcApp, "checkout", "[id]", "page.js")));
 });
