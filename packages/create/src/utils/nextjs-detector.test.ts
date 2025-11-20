@@ -60,3 +60,15 @@ test("marks unsupported when Next.js version is below 15", () => {
 	assert.ok(detection.found);
 	assert.equal(detection.versionIsSupported, false);
 });
+
+test("detects src/app layout", () => {
+	const tmp = makeTempDir();
+	fs.mkdirSync(path.join(tmp, "src", "app"), { recursive: true });
+	fs.writeFileSync(
+		path.join(tmp, "package.json"),
+		JSON.stringify({ name: "src-app", dependencies: { next: "^15.0.0" } }),
+	);
+	const detection = detectNextJsProject(tmp);
+	assert.ok(detection.found);
+	assert.ok(detection.appDir?.endsWith(path.join("src", "app")));
+});

@@ -10,6 +10,9 @@ const NEXT_CONFIG_BASENAMES = [
 	"next.config.mts",
 ];
 
+const APP_DIR_CANDIDATES = ["app", path.join("src", "app")];
+const PAGES_DIR_CANDIDATES = ["pages", path.join("src", "pages")];
+
 export type NextJsDetection = {
 	found: boolean;
 	rootDir?: string;
@@ -92,12 +95,14 @@ export function detectNextJsProject(startDir: string): NextJsDetection {
 	}
 
 	const nextConfigPath = findNextConfig(rootDir);
-	const appDir = fileExists(path.join(rootDir, "app"))
-		? path.join(rootDir, "app")
-		: undefined;
-	const pagesDir = fileExists(path.join(rootDir, "pages"))
-		? path.join(rootDir, "pages")
-		: undefined;
+	const appDir =
+		APP_DIR_CANDIDATES.map((candidate) => path.join(rootDir, candidate)).find(
+			(candidate) => fileExists(candidate),
+		);
+	const pagesDir =
+		PAGES_DIR_CANDIDATES.map((candidate) => path.join(rootDir, candidate)).find(
+			(candidate) => fileExists(candidate),
+		);
 	const usesTypeScript =
 		fileExists(path.join(rootDir, "tsconfig.json")) ||
 		fileExists(path.join(rootDir, "next-env.d.ts"));

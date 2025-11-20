@@ -253,7 +253,7 @@ function updateConfigFile(configPath: string): ConfigResult {
 	}
 
 	if (original.includes("module.exports")) {
-		const re = /module\\.exports\\s*=\\s*(\\{[\\s\\S]*?\\});?/;
+		const re = /module\.exports\s*=\s*(\{[\s\S]*?\});?/;
 		const match = original.match(re);
 
 		if (match) {
@@ -274,7 +274,7 @@ function updateConfigFile(configPath: string): ConfigResult {
 	}
 
 	if (original.includes("export default")) {
-		const reDefaultObject = /export\\s+default\\s+(\\{[\\s\\S]*?\\});?/;
+		const reDefaultObject = /export\s+default\s+(\{[\s\S]*?\});?/;
 		const objectMatch = original.match(reDefaultObject);
 		if (objectMatch) {
 			const content = [
@@ -296,7 +296,7 @@ function updateConfigFile(configPath: string): ConfigResult {
 			};
 		}
 
-		const reNamed = /export\\s+default\\s+([a-zA-Z0-9_]+)\\s*;?/;
+		const reNamed = /export\s+default\s+([a-zA-Z0-9_]+)\s*;?/;
 		const namedMatch = original.match(reNamed);
 		if (namedMatch) {
 			const name = namedMatch[1];
