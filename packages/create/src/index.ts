@@ -119,12 +119,6 @@ return {
 	};
 }
 
-function stripCliSuffix(name: string | undefined): string | undefined {
-	const trimmed = name?.trim();
-	if (!trimmed) return undefined;
-	return trimmed.replace(/\s+cli$/i, "").trim();
-}
-
 function normalizeDirectory(dir: string): string {
 	if (path.isAbsolute(dir)) return dir;
 	return path.resolve(process.cwd(), dir);
@@ -504,7 +498,7 @@ async function main() {
 		projectName = namePrompt.trim() || undefined;
 	}
 
-	projectName = stripCliSuffix(deriveProjectName(projectName, webhookUrl));
+	projectName = deriveProjectName(projectName, webhookUrl);
 
 	const nextJsDetection = detectNextJsProject(projectDir);
 	let shouldScaffoldNextJs = false;
