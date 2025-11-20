@@ -1,0 +1,96 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const NEXT_CONFIG_BASENAMES = [
+	"next.config.js",
+	"next.config.cjs",
+	"next.config.mjs",
+	"next.config.ts",
+	"next.config.mts",
+];
+
+export type NextJsDetection = {
+	found: boolean;
+	rootDir?: string;
+	nextConfigPath?: string;
+	appDir?: string;
+	pagesDir?: string;
+	usesTypeScript: boolean;
+};
+
+function fileExists(target: string): boolean {
+	try {
+		return fs.existsSync(target);
+	} catch {
+		return false;
+	}
+}
+
+function readPackageJson(pkgPath: string): Record<string, unknown> | null {
+	try {
+		const content = fs.readFileSync(pkgPath, "utf8");
+		return JSON.parse(content) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
+function hasNextDependency(pkg: Record<string, unknown>): boolean {
+	const deps = pkg.dependencies as Record<string, string> | undefined;
+	const devDeps = pkg.devDependencies as Record<string, string> | undefined;
+	return Boolean(deps?.next || devDeps?.next);
+}
+
+function findNearestPackageJson(startDir: string): string | undefined {
+	let current = path.resolve(startDir);
+	while (true) {
+		const candidate = path.join(current, "package.json");
+		if (fileExists(candidate)) {
+			return candidate;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			return undefined;
+		}
+		current = parent;
+	}
+}
+
+function findNextConfig(rootDir: string): string | undefined {
+	for (const basename of NEXT_CONFIG_BASENAMES) {
+		const candidate = path.join(rootDir, basename);
+		if (fileExists(candidate)) {
+			return candidate;
+		}
+	}
+	return undefined;
+}
+
+export function detectNextJsProject(startDir: string): NextJsDetection {
+	const pkgPath = findNearestPackageJson(startDir);
+	const rootDir = pkgPath ? path.dirname(pkgPath) : path.resolve(startDir);
+	const pkg = pkgPath ? readPackageJson(pkgPath) : null;
+
+	const hasNext = pkg ? hasNextDependency(pkg) : false;
+	const nextConfigPath = findNextConfig(rootDir);
+	const appDir = fileExists(path.join(rootDir, "app"))
+		? path.join(rootDir, "app")
+		: undefined;
+	const pagesDir = fileExists(path.join(rootDir, "pages"))
+		? path.join(rootDir, "pages")
+		: undefined;
+	const usesTypeScript =
+		fileExists(path.join(rootDir, "tsconfig.json")) ||
+		fileExists(path.join(rootDir, "next-env.d.ts"));
+
+	const found = Boolean(hasNext || nextConfigPath || appDir || pagesDir);
+
+	return {
+		found,
+		rootDir: found ? rootDir : undefined,
+		nextConfigPath,
+		appDir,
+		pagesDir,
+		usesTypeScript,
+	};
+}

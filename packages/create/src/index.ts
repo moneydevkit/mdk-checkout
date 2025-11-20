@@ -17,6 +17,7 @@ import type {
 } from "@moneydevkit/api-contract";
 import { setTimeout as delay } from "node:timers/promises";
 import { deriveProjectName, resolveEnvTarget } from "./utils/env-target.js";
+import { detectNextJsProject } from "./utils/nextjs-detector.js";
 
 type Flags = {
 	json: boolean;
@@ -497,6 +498,25 @@ async function main() {
 	}
 
 	projectName = deriveProjectName(projectName, webhookUrl);
+
+	const nextJsDetection = detectNextJsProject(projectDir);
+	let scaffoldNextJs = false;
+
+	if (!jsonMode && nextJsDetection.found) {
+		const scaffoldPrompt = await p.confirm({
+			message: `Next.js application detected at ${
+				nextJsDetection.rootDir ?? projectDir
+			}. Install and scaffold @moneydevkit/nextjs?`,
+			initialValue: true,
+		});
+
+		if (p.isCancel(scaffoldPrompt)) {
+			p.cancel("Aborted.");
+			process.exit(1);
+		}
+
+		scaffoldNextJs = Boolean(scaffoldPrompt);
+	}
 
 	try {
 		const result = await runDeviceFlow({
