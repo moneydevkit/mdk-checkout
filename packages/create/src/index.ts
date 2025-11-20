@@ -601,26 +601,24 @@ async function main() {
 								: "Skipped @moneydevkit/nextjs installation.",
 					];
 
-					if (scaffoldSummary.config) {
-						const { status, path: updatedPath, reason } =
-							scaffoldSummary.config;
-						if (status === "created") {
-							lines.push(`Created ${updatedPath} with withMdkCheckout().`);
-						} else if (status === "updated") {
-							lines.push(`Updated ${updatedPath} with withMdkCheckout().`);
-						} else {
-							lines.push(
-								`Could not update ${updatedPath} automatically (${
-									reason ?? "unknown reason"
-								}).`,
-							);
+						if (scaffoldSummary.config) {
+							const cfg = scaffoldSummary.config;
+							if (cfg.status === "created") {
+								lines.push(`Created ${cfg.path} with withMdkCheckout().`);
+								if (cfg.backupPath) {
+									lines.push(`Previous config backed up at ${cfg.backupPath}.`);
+								}
+							} else if (cfg.status === "updated") {
+								lines.push(`Updated ${cfg.path} with withMdkCheckout().`);
+								if (cfg.backupPath) {
+									lines.push(`Previous config backed up at ${cfg.backupPath}.`);
+								}
+							} else {
+								lines.push(
+									`Could not update ${cfg.path} automatically (${cfg.reason ?? "unknown reason"}).`,
+								);
+							}
 						}
-						if (scaffoldSummary.config.backupPath) {
-							lines.push(
-								`Previous config backed up at ${scaffoldSummary.config.backupPath}.`,
-							);
-						}
-					}
 
 					if (scaffoldSummary.addedFiles.length > 0) {
 						lines.push(
