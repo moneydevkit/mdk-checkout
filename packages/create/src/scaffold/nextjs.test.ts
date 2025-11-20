@@ -30,6 +30,7 @@ test("scaffoldNextJs creates config, route, and checkout page idempotently", asy
 	const tmp = makeTmpNextApp();
 	const detection = detectNextJsProject(tmp);
 	assert.ok(detection.found);
+	assert.equal(detection.versionIsSupported, true);
 
 	const first = await scaffoldNextJs({
 		detection,

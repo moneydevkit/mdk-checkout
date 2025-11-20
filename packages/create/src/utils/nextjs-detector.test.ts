@@ -14,7 +14,7 @@ test("detects Next.js via dependency and app directory", () => {
 	fs.writeFileSync(
 		path.join(tmp, "package.json"),
 		JSON.stringify(
-			{ name: "app", dependencies: { next: "15.0.0" } },
+			{ name: "app", dependencies: { next: "^15.0.0" } },
 			null,
 			2,
 		),
@@ -25,6 +25,8 @@ test("detects Next.js via dependency and app directory", () => {
 	assert.ok(detection.found);
 	assert.equal(detection.rootDir, tmp);
 	assert.ok(detection.appDir?.endsWith("app"));
+	assert.equal(detection.nextVersion, "^15.0.0");
+	assert.equal(detection.versionIsSupported, true);
 });
 
 test("detects Next.js via next.config.* when dependency is missing", () => {
@@ -41,4 +43,20 @@ test("returns not found when no signals exist", () => {
 	const detection = detectNextJsProject(tmp);
 	assert.equal(detection.found, false);
 	assert.equal(detection.rootDir, undefined);
+});
+
+test("marks unsupported when Next.js version is below 15", () => {
+	const tmp = makeTempDir();
+	fs.writeFileSync(
+		path.join(tmp, "package.json"),
+		JSON.stringify(
+			{ name: "legacy", dependencies: { next: "^14.2.0" } },
+			null,
+			2,
+		),
+	);
+
+	const detection = detectNextJsProject(tmp);
+	assert.ok(detection.found);
+	assert.equal(detection.versionIsSupported, false);
 });

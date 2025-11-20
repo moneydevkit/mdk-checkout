@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import semver from "semver";
 
 const NEXT_CONFIG_BASENAMES = [
 	"next.config.js",
@@ -16,6 +17,8 @@ export type NextJsDetection = {
 	appDir?: string;
 	pagesDir?: string;
 	usesTypeScript: boolean;
+	nextVersion?: string;
+	versionIsSupported: boolean;
 };
 
 function fileExists(target: string): boolean {
@@ -39,6 +42,12 @@ function hasNextDependency(pkg: Record<string, unknown>): boolean {
 	const deps = pkg.dependencies as Record<string, string> | undefined;
 	const devDeps = pkg.devDependencies as Record<string, string> | undefined;
 	return Boolean(deps?.next || devDeps?.next);
+}
+
+function extractNextVersion(pkg: Record<string, unknown>): string | undefined {
+	const deps = pkg.dependencies as Record<string, string> | undefined;
+	const devDeps = pkg.devDependencies as Record<string, string> | undefined;
+	return deps?.next ?? devDeps?.next ?? undefined;
 }
 
 function findNearestPackageJson(startDir: string): string | undefined {
@@ -72,6 +81,16 @@ export function detectNextJsProject(startDir: string): NextJsDetection {
 	const pkg = pkgPath ? readPackageJson(pkgPath) : null;
 
 	const hasNext = pkg ? hasNextDependency(pkg) : false;
+	const nextVersion = pkg ? extractNextVersion(pkg) : undefined;
+	let versionIsSupported = true;
+
+	if (nextVersion) {
+		const minVersion = semver.minVersion(nextVersion);
+		if (minVersion) {
+			versionIsSupported = semver.gte(minVersion, "15.0.0");
+		}
+	}
+
 	const nextConfigPath = findNextConfig(rootDir);
 	const appDir = fileExists(path.join(rootDir, "app"))
 		? path.join(rootDir, "app")
@@ -92,5 +111,7 @@ export function detectNextJsProject(startDir: string): NextJsDetection {
 		appDir,
 		pagesDir,
 		usesTypeScript,
+		nextVersion,
+		versionIsSupported,
 	};
 }

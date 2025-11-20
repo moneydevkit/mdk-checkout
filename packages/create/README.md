@@ -41,7 +41,7 @@ The CLI still creates a device code but immediately authorises it using your coo
 
 ## Next.js scaffolding
 
-- Auto-detects Next.js via `package.json`, `next.config.*`, or `app/`/`pages/` directories. If found, you’ll be prompted to install and scaffold `@moneydevkit/nextjs`.
+- Auto-detects Next.js via `package.json`, `next.config.*`, or `app/`/`pages/` directories. If found, you’ll be prompted to install and scaffold `@moneydevkit/nextjs`. Requires Next.js 15+ (per SDK peer deps).
 - `--scaffold-nextjs` forces the install/scaffold (useful for CI); if no Next.js app is found, the CLI prints a warning and skips.
 - Prefers the App Router (`app/api/mdk/route.(ts|js)` and `app/checkout/[id]/page.(tsx|js)`); falls back to the Pages Router paths when only `pages/` exists.
 - Existing files are left untouched; `next.config.*` is backed up if we need to wrap it with `withMdkCheckout`.

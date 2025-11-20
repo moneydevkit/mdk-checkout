@@ -505,26 +505,38 @@ async function main() {
 
 	if (flags.scaffoldNextjs) {
 		if (nextJsDetection.found) {
-			shouldScaffoldNextJs = true;
+			if (nextJsDetection.versionIsSupported) {
+				shouldScaffoldNextJs = true;
+			} else {
+				console.warn(
+					`Next.js version ${nextJsDetection.nextVersion ?? "unknown"} detected, but @moneydevkit/nextjs requires Next.js 15+. Skipping installation and scaffolding.`,
+				);
+			}
 		} else {
 			console.warn(
 				"No NextJS app found, skipping @moneydevkit/nextjs installation. Please install manually.",
 			);
 		}
 	} else if (!jsonMode && nextJsDetection.found) {
-		const scaffoldPrompt = await p.confirm({
-			message: `Next.js application detected at ${
-				nextJsDetection.rootDir ?? projectDir
-			}. Install and scaffold @moneydevkit/nextjs?`,
-			initialValue: true,
-		});
+		if (!nextJsDetection.versionIsSupported) {
+			console.warn(
+				`Next.js version ${nextJsDetection.nextVersion ?? "unknown"} detected, but @moneydevkit/nextjs requires Next.js 15+. Skipping scaffolding prompt.`,
+			);
+		} else {
+			const scaffoldPrompt = await p.confirm({
+				message: `Next.js application detected at ${
+					nextJsDetection.rootDir ?? projectDir
+				} (version ${nextJsDetection.nextVersion ?? "unknown"}). Install and scaffold @moneydevkit/nextjs?`,
+				initialValue: true,
+			});
 
-		if (p.isCancel(scaffoldPrompt)) {
-			p.cancel("Aborted.");
-			process.exit(1);
+			if (p.isCancel(scaffoldPrompt)) {
+				p.cancel("Aborted.");
+				process.exit(1);
+			}
+
+			shouldScaffoldNextJs = Boolean(scaffoldPrompt);
 		}
-
-		shouldScaffoldNextJs = Boolean(scaffoldPrompt);
 	}
 
 	try {
