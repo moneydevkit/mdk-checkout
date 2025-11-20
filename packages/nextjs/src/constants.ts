@@ -1,2 +1,1 @@
-export const DEFAULT_LSP_NODE_ID =
-  "03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd";
+export const CHECKOUT_ID_QUERY_PARAM = 'checkout-id'

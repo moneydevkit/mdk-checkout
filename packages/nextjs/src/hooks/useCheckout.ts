@@ -16,7 +16,7 @@ export function useCheckout() {
         ...params,
       })
 
-      let checkoutPath = params.checkoutPath || '/checkout'
+      const checkoutPath = params.checkoutPath || '/checkout'
 
       window.location.href = `${checkoutPath}/${checkout.id}`
     } catch (error) {
