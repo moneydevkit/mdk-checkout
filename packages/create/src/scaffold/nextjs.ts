@@ -2,17 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { NextJsDetection } from "../utils/nextjs-detector.js";
-
-type PackageManager = "pnpm" | "yarn" | "npm" | "bun";
-
-type WriteResult =
-	| { status: "created"; path: string }
-	| { status: "skipped-exists"; path: string }
-	| { status: "skipped-different"; path: string };
+import {
+	detectPackageManager,
+	hasDependency,
+	type PackageManager,
+} from "../utils/package-manager.js";
+import {
+	ensureDir,
+	readFileSafe,
+	writeFileIfAbsent,
+	writeFileWithBackup,
+	type WriteResult,
+} from "../utils/fs-utils.js";
 
 type ConfigResult =
-	| { status: "created"; path: string }
-	| { status: "updated"; path: string }
+	| { status: "created"; path: string; backupPath?: string }
+	| { status: "updated"; path: string; backupPath?: string }
 	| { status: "skipped"; path: string; reason: string };
 
 export type ScaffoldSummary = {
@@ -44,58 +49,11 @@ function findExistingConfig(rootDir: string, preferred?: string): string | undef
 	return undefined;
 }
 
-function ensureDir(filePath: string) {
-	const dir = path.dirname(filePath);
-	fs.mkdirSync(dir, { recursive: true });
-}
-
-function readFileSafe(filePath: string): string | null {
-	try {
-		return fs.readFileSync(filePath, "utf8");
-	} catch {
-		return null;
-	}
-}
-
-function writeFileIfAbsent(filePath: string, content: string): WriteResult {
-	if (fs.existsSync(filePath)) {
-		const existing = readFileSafe(filePath);
-		if (existing?.trim() === content.trim()) {
-			return { status: "skipped-exists", path: filePath };
-		}
-		return { status: "skipped-different", path: filePath };
-	}
-	ensureDir(filePath);
-	fs.writeFileSync(filePath, content, "utf8");
-	return { status: "created", path: filePath };
-}
-
-function detectPackageManager(rootDir: string): PackageManager {
-	if (fs.existsSync(path.join(rootDir, "pnpm-lock.yaml"))) return "pnpm";
-	if (fs.existsSync(path.join(rootDir, "yarn.lock"))) return "yarn";
-	if (fs.existsSync(path.join(rootDir, "bun.lockb"))) return "bun";
-	if (fs.existsSync(path.join(rootDir, "package-lock.json"))) return "npm";
-	return "npm";
-}
-
-function hasDependency(pkgJsonPath: string, depName: string): boolean {
-	try {
-		const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as {
-			dependencies?: Record<string, string>;
-			devDependencies?: Record<string, string>;
-		};
-		return Boolean(pkg.dependencies?.[depName] || pkg.devDependencies?.[depName]);
-	} catch {
-		return false;
-	}
-}
-
 async function installNextjsPackage(
 	rootDir: string,
 	packageManager: PackageManager,
 ): Promise<{ installed: boolean; skipped: boolean }> {
-	const pkgJsonPath = path.join(rootDir, "package.json");
-	if (hasDependency(pkgJsonPath, "@moneydevkit/nextjs")) {
+	if (hasDependency(rootDir, "@moneydevkit/nextjs")) {
 		return { installed: false, skipped: true };
 	}
 
@@ -263,10 +221,7 @@ function createPagesCheckoutContent(isTypeScript: boolean): string {
 	].join("\n");
 }
 
-function updateConfigFile(
-	configPath: string,
-	isTypeScript: boolean,
-): ConfigResult {
+function updateConfigFile(configPath: string): ConfigResult {
 	if (!fs.existsSync(configPath)) {
 		const content = [
 			'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";',
@@ -277,9 +232,15 @@ function updateConfigFile(
 			"",
 		].join("\n");
 
-		ensureDir(configPath);
-		fs.writeFileSync(configPath, content, "utf8");
-		return { status: "created", path: configPath };
+		const writeResult = writeFileWithBackup(configPath, content);
+		return {
+			status: "created",
+			path: configPath,
+			backupPath:
+				writeResult.status === "updated-with-backup"
+					? writeResult.backupPath
+					: undefined,
+		};
 	}
 
 	const original = readFileSafe(configPath) ?? "";
@@ -302,8 +263,13 @@ function updateConfigFile(
 				re,
 				`module.exports = withMdkCheckout(${match[1]});`,
 			);
-			fs.writeFileSync(configPath, `${prefix}${replaced}`, "utf8");
-			return { status: "updated", path: configPath };
+			const result = writeFileWithBackup(configPath, `${prefix}${replaced}`);
+			return {
+				status: "updated",
+				path: configPath,
+				backupPath:
+					result.status === "updated-with-backup" ? result.backupPath : undefined,
+			};
 		}
 	}
 
@@ -319,8 +285,15 @@ function updateConfigFile(
 				"export default withMdkCheckout(nextConfig);",
 				"",
 			].join("\n");
-			fs.writeFileSync(configPath, content, "utf8");
-			return { status: "updated", path: configPath };
+			const writeResult = writeFileWithBackup(configPath, content);
+			return {
+				status: "updated",
+				path: configPath,
+				backupPath:
+					writeResult.status === "updated-with-backup"
+						? writeResult.backupPath
+						: undefined,
+			};
 		}
 
 		const reNamed = /export\\s+default\\s+([a-zA-Z0-9_]+)\\s*;?/;
@@ -331,8 +304,15 @@ function updateConfigFile(
 				'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";',
 				original.replace(reNamed, `export default withMdkCheckout(${name});`),
 			];
-			fs.writeFileSync(configPath, lines.join("\n"), "utf8");
-			return { status: "updated", path: configPath };
+			const writeResult = writeFileWithBackup(configPath, lines.join("\n"));
+			return {
+				status: "updated",
+				path: configPath,
+				backupPath:
+					writeResult.status === "updated-with-backup"
+						? writeResult.backupPath
+						: undefined,
+			};
 		}
 	}
 
@@ -443,7 +423,7 @@ export async function scaffoldNextJs(options: {
 	const configPath =
 		findExistingConfig(rootDir, detection.nextConfigPath) ??
 		path.join(rootDir, "next.config.js");
-	const configResult = updateConfigFile(configPath, detection.usesTypeScript);
+	const configResult = updateConfigFile(configPath);
 
 	if (configResult.status === "skipped") {
 		warnings.push(

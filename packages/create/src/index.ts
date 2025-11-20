@@ -603,6 +603,11 @@ async function main() {
 								}).`,
 							);
 						}
+						if (scaffoldSummary.config.backupPath) {
+							lines.push(
+								`Previous config backed up at ${scaffoldSummary.config.backupPath}.`,
+							);
+						}
 					}
 
 					if (scaffoldSummary.addedFiles.length > 0) {
