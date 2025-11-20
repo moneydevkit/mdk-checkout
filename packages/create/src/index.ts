@@ -23,7 +23,7 @@ type Flags = {
 	json: boolean;
 	noClipboard: boolean;
 	noOpen: boolean;
-	yes: boolean;
+	scaffoldNextjs?: boolean;
 	baseUrl?: string;
 	envFile?: string;
 	projectName?: string;
@@ -75,7 +75,7 @@ class CookieJar {
 
 function parseFlags(argv: string[]): Flags {
 	const result = minimist(argv, {
-		boolean: ["json", "no-clipboard", "no-open", "force-new-webhook", "yes"],
+		boolean: ["json", "no-clipboard", "no-open", "force-new-webhook", "scaffold-nextjs"],
 		string: [
 			"base-url",
 			"env-target",
@@ -91,7 +91,7 @@ function parseFlags(argv: string[]): Flags {
 			"no-open": false,
 			json: false,
 			"force-new-webhook": false,
-			yes: false,
+			"scaffold-nextjs": false,
 		},
 	});
 
@@ -99,7 +99,7 @@ return {
 	json: Boolean(result.json),
 	noClipboard: Boolean(result["no-clipboard"]),
 	noOpen: Boolean(result["no-open"]),
-	yes: Boolean(result.yes),
+	scaffoldNextjs: Boolean(result["scaffold-nextjs"]),
 	baseUrl: result["base-url"],
 	envFile: result["env-target"],
 		projectName:
@@ -502,7 +502,15 @@ async function main() {
 	const nextJsDetection = detectNextJsProject(projectDir);
 	let scaffoldNextJs = false;
 
-	if (!jsonMode && nextJsDetection.found) {
+	if (flags.scaffoldNextjs) {
+		if (nextJsDetection.found) {
+			scaffoldNextJs = true;
+		} else {
+			console.warn(
+				"No NextJS app found, skipping @moneydevkit/nextjs installation. Please install manually.",
+			);
+		}
+	} else if (!jsonMode && nextJsDetection.found) {
 		const scaffoldPrompt = await p.confirm({
 			message: `Next.js application detected at ${
 				nextJsDetection.rootDir ?? projectDir
