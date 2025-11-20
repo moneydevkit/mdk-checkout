@@ -3,9 +3,11 @@
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import { useQuery } from '@tanstack/react-query'
 import { ReactNode, useCallback, useEffect, useState } from 'react'
+import { CHECKOUT_ID_QUERY_PARAM } from '../constants'
 import '../mdk-styles.css'
 import { MdkCheckoutProvider } from '../providers'
 import { createCheckout, getCheckout } from '../server/actions'
+import { log } from '../server/logging'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
@@ -115,10 +117,24 @@ function CheckoutInternal({ id }: CheckoutProps) {
     checkout?.status === 'PAYMENT_RECEIVED' ||
     (checkout?.invoice?.amountSatsReceived ?? 0) > 0
 
-  const handleSuccess = (() => {
-    const successUrl = checkout?.userMetadata?.successUrl
-    window.location.href = successUrl || '/success'
-  })
+  const handleSuccess = useCallback((paidCheckout: CheckoutType) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const configuredSuccessUrl = (paidCheckout.userMetadata?.successUrl as string) ?? paidCheckout.successUrl ?? '/success'
+    let destination = configuredSuccessUrl
+
+    try {
+      const successUrl = new URL(configuredSuccessUrl, window.location.origin)
+      successUrl.searchParams.set(CHECKOUT_ID_QUERY_PARAM, paidCheckout.id)
+      destination = successUrl.toString()
+    } catch (error) {
+      log('Failed to generate checkout success URL, falling back to provided path.', error)
+    }
+
+    window.location.href = destination
+  }, [])
 
   const handleRestart = useCallback(async () => {
     if (!checkout) return

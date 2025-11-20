@@ -35,7 +35,8 @@ export default function HomePage() {
       metadata: {
         type: 'my_type',
         customField: 'internal reference for this checkout',
-        successUrl: '/checkout/success'
+        successUrl: '/checkout/success',
+        name: 'John Doe'
       }
     })
   }
@@ -77,3 +78,32 @@ export default withMdkCheckout({})
 ```
 
 You now have a complete Lightning checkout loop: the button creates a session, the dynamic route renders it, and the webhook endpoint signals your Lightning node to claim paid invoices.
+
+## Verify successful payments
+When a checkout completes, use `useCheckoutSuccess()` on the success page
+```tsx
+'use client'
+
+import { useCheckoutSuccess } from '@moneydevkit/nextjs'
+
+export default function SuccessPage() {
+  const { isCheckoutPaidLoading, isCheckoutPaid, metadata } = useCheckoutSuccess()
+
+  if (isCheckoutPaidLoading || isCheckoutPaid === null) {
+    return <p>Verifying payment…</p>
+  }
+
+  if (!isCheckoutPaid) {
+    return <p>Payment has not been confirmed.</p>
+  }
+
+  // We set 'name' when calling navigate(), and it's accessible here on the success page.
+  console.log('Customer name:', metadata?.name) // "John Doe"
+
+  return (
+    <div>
+      <p>Payment confirmed. Enjoy your purchase!</p>
+    </div>
+  )
+}
+```
