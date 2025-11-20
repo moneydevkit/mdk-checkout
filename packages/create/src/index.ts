@@ -18,6 +18,7 @@ import type {
 import { setTimeout as delay } from "node:timers/promises";
 import { deriveProjectName, resolveEnvTarget } from "./utils/env-target.js";
 import { detectNextJsProject } from "./utils/nextjs-detector.js";
+import { scaffoldNextJs } from "./scaffold/nextjs.js";
 
 type Flags = {
 	json: boolean;
@@ -500,11 +501,11 @@ async function main() {
 	projectName = deriveProjectName(projectName, webhookUrl);
 
 	const nextJsDetection = detectNextJsProject(projectDir);
-	let scaffoldNextJs = false;
+	let shouldScaffoldNextJs = false;
 
 	if (flags.scaffoldNextjs) {
 		if (nextJsDetection.found) {
-			scaffoldNextJs = true;
+			shouldScaffoldNextJs = true;
 		} else {
 			console.warn(
 				"No NextJS app found, skipping @moneydevkit/nextjs installation. Please install manually.",
@@ -523,7 +524,7 @@ async function main() {
 			process.exit(1);
 		}
 
-		scaffoldNextJs = Boolean(scaffoldPrompt);
+		shouldScaffoldNextJs = Boolean(scaffoldPrompt);
 	}
 
 	try {
@@ -569,6 +570,87 @@ async function main() {
 			);
 		}
 
+		let scaffoldSummary: Awaited<ReturnType<typeof scaffoldNextJs>> | null =
+			null;
+
+		if (shouldScaffoldNextJs && nextJsDetection.found) {
+			try {
+				scaffoldSummary = await scaffoldNextJs({
+					detection: nextJsDetection,
+					jsonMode,
+				});
+
+				if (!jsonMode && scaffoldSummary) {
+					const lines = [
+						scaffoldSummary.installedPackage
+							? `Installed @moneydevkit/nextjs with ${scaffoldSummary.packageManager}.`
+							: scaffoldSummary.installSkipped
+								? "@moneydevkit/nextjs already installed; skipped package install."
+								: "Skipped @moneydevkit/nextjs installation.",
+					];
+
+					if (scaffoldSummary.config) {
+						const { status, path: updatedPath, reason } =
+							scaffoldSummary.config;
+						if (status === "created") {
+							lines.push(`Created ${updatedPath} with withMdkCheckout().`);
+						} else if (status === "updated") {
+							lines.push(`Updated ${updatedPath} with withMdkCheckout().`);
+						} else {
+							lines.push(
+								`Could not update ${updatedPath} automatically (${
+									reason ?? "unknown reason"
+								}).`,
+							);
+						}
+					}
+
+					if (scaffoldSummary.addedFiles.length > 0) {
+						lines.push(
+							`Added: ${scaffoldSummary.addedFiles
+								.map((p) => path.relative(projectDir, p))
+								.join(", ")}`,
+						);
+					}
+
+					if (scaffoldSummary.skippedFiles.length > 0) {
+						lines.push(
+							`Skipped existing files: ${scaffoldSummary.skippedFiles
+								.map((p) => path.relative(projectDir, p))
+								.join(", ")}`,
+						);
+					}
+
+					p.note(lines.join("\n"), "Next.js scaffolding");
+				}
+
+				if (scaffoldSummary?.warnings.length) {
+					for (const warning of scaffoldSummary.warnings) {
+						console.warn(warning);
+					}
+				}
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : String(error);
+				if (jsonMode) {
+					console.error(
+						JSON.stringify(
+							{
+								status: "error",
+								error: {
+									message: `Next.js scaffolding failed: ${message}`,
+								},
+							},
+							null,
+							2,
+						),
+					);
+				} else {
+					console.warn(`Next.js scaffolding failed: ${message}`);
+				}
+			}
+		}
+
 		const summary = {
 			projectDir,
 			envFile: envPath,
@@ -577,6 +659,7 @@ async function main() {
 			organizationId: result.credentials.organizationId,
 			webhookUrl: result.credentials.webhookUrl,
 			mnemonic: updates.MDK_MNEMONIC,
+			scaffoldedNextjs: Boolean(scaffoldSummary),
 		};
 
         if (jsonMode) {
@@ -593,6 +676,7 @@ async function main() {
 							webhookUrl: result.credentials.webhookUrl,
 							organizationId: result.credentials.organizationId,
 							mnemonic: updates.MDK_MNEMONIC,
+							scaffoldedNextjs: Boolean(scaffoldSummary),
 						},
 					},
 					null,
