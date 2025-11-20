@@ -408,8 +408,9 @@ function scaffoldPagesRouter(
 export async function scaffoldNextJs(options: {
 	detection: NextJsDetection;
 	jsonMode: boolean;
+	skipInstall?: boolean;
 }): Promise<ScaffoldSummary> {
-	const { detection, jsonMode } = options;
+	const { detection, jsonMode, skipInstall } = options;
 	if (!detection.rootDir) {
 		throw new Error("Next.js project root not found for scaffolding.");
 	}
@@ -418,7 +419,9 @@ export async function scaffoldNextJs(options: {
 	const rootDir = detection.rootDir;
 	const packageManager = detectPackageManager(rootDir);
 
-	const installResult = await installNextjsPackage(rootDir, packageManager);
+	const installResult = skipInstall
+		? { installed: false, skipped: true }
+		: await installNextjsPackage(rootDir, packageManager);
 
 	const configPath =
 		findExistingConfig(rootDir, detection.nextConfigPath) ??
