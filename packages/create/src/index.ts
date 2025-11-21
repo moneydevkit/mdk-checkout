@@ -606,12 +606,12 @@ async function main() {
 							if (cfg.status === "created") {
 								lines.push(`Created ${cfg.path} with withMdkCheckout().`);
 								if (cfg.backupPath) {
-									lines.push(`Previous config backed up at ${cfg.backupPath}.`);
+									lines.push(`Created backup at ${cfg.backupPath}.`);
 								}
 							} else if (cfg.status === "updated") {
 								lines.push(`Updated ${cfg.path} with withMdkCheckout().`);
 								if (cfg.backupPath) {
-									lines.push(`Previous config backed up at ${cfg.backupPath}.`);
+									lines.push(`Created backup at ${cfg.backupPath}.`);
 								}
 							} else {
 								lines.push(

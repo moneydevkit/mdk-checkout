@@ -8,11 +8,9 @@ import {
 	type PackageManager,
 } from "../utils/package-manager.js";
 import {
-	ensureDir,
 	readFileSafe,
 	writeFileIfAbsent,
 	writeFileWithBackup,
-	type WriteResult,
 } from "../utils/fs-utils.js";
 
 type ConfigResult =
@@ -221,12 +219,35 @@ function createPagesCheckoutContent(isTypeScript: boolean): string {
 	].join("\n");
 }
 
+function isTypeScriptConfig(configPath: string): boolean {
+	return configPath.endsWith(".ts") || configPath.endsWith(".mts");
+}
+
+function patchNextConfigTypes(source: string): string {
+	// Strip NextConfig imports and swap annotations to the plugin's override type.
+	let patched = source.replace(
+		/import\s+type\s+\{\s*NextConfig\s*\}\s+from\s+["']next["'];?\s*\n?/g,
+		"",
+	);
+	patched = patched.replace(/:\s*NextConfig\b/g, ": NextConfigOverrides");
+	return patched;
+}
+
 function updateConfigFile(configPath: string): ConfigResult {
+	const isTs = isTypeScriptConfig(configPath);
+	const pluginImport = isTs
+		? 'import withMdkCheckout, { type NextConfigOverrides } from "@moneydevkit/nextjs/next-plugin";'
+		: 'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";';
+
 	if (!fs.existsSync(configPath)) {
 		const content = [
-			'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";',
+			pluginImport,
 			"",
-			"const nextConfig = {};",
+			"// Wrap your existing Next.js config with withMdkCheckout to enable Money Dev Kit.",
+			"// Example: export default withMdkCheckout(yourConfig)",
+			isTs
+				? "const nextConfig: NextConfigOverrides = {};"
+				: "const nextConfig = {};",
 			"",
 			"export default withMdkCheckout(nextConfig);",
 			"",
@@ -278,9 +299,11 @@ function updateConfigFile(configPath: string): ConfigResult {
 		const objectMatch = original.match(reDefaultObject);
 		if (objectMatch) {
 			const content = [
-				'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";',
+				pluginImport,
 				"",
-				"const nextConfig = " + objectMatch[1] + ";",
+				isTs
+					? "const nextConfig: NextConfigOverrides = " + objectMatch[1] + ";"
+					: "const nextConfig = " + objectMatch[1] + ";",
 				"",
 				"export default withMdkCheckout(nextConfig);",
 				"",
@@ -300,9 +323,13 @@ function updateConfigFile(configPath: string): ConfigResult {
 		const namedMatch = original.match(reNamed);
 		if (namedMatch) {
 			const name = namedMatch[1];
+			const patched =
+				isTs && original.includes("NextConfig")
+					? patchNextConfigTypes(original)
+					: original;
 			const lines = [
-				'import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";',
-				original.replace(reNamed, `export default withMdkCheckout(${name});`),
+				pluginImport,
+				patched.replace(reNamed, `export default withMdkCheckout(${name});`),
 			];
 			const writeResult = writeFileWithBackup(configPath, lines.join("\n"));
 			return {
@@ -316,7 +343,12 @@ function updateConfigFile(configPath: string): ConfigResult {
 		}
 	}
 
-	return { status: "skipped", path: configPath, reason: "unrecognized format" };
+	return {
+		status: "skipped",
+		path: configPath,
+		reason:
+			"unrecognized format; wrap your export with withMdkCheckout, e.g. export default withMdkCheckout(yourConfig)",
+	};
 }
 
 function scaffoldAppRouter(
