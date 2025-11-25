@@ -1,0 +1,103 @@
+import { z } from 'zod'
+
+import { confirmCheckout, createCheckout, getCheckout } from '../actions'
+import type { CreateCheckoutParams } from '../actions'
+
+const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
+  title: z.string(),
+  description: z.string(),
+  amount: z.number(),
+  currency: z.enum(['USD', 'SAT']).optional(),
+  successUrl: z.string().optional(),
+  checkoutPath: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+})
+
+const confirmCheckoutSchema = z.object({
+  checkoutId: z.string(),
+  customerEmail: z.string().optional(),
+  customerName: z.string().optional(),
+})
+
+function jsonResponse(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+export async function handleCreateCheckout(request: Request): Promise<Response> {
+  let body: unknown
+
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON body' })
+  }
+
+  const parsed = z.object({ params: createCheckoutSchema }).safeParse(body)
+
+  if (!parsed.success) {
+    return jsonResponse(400, { error: 'Invalid checkout params', details: parsed.error.issues })
+  }
+
+  try {
+    const checkout = await createCheckout(parsed.data.params)
+    return jsonResponse(200, { data: checkout })
+  } catch (error) {
+    console.error(error)
+    return jsonResponse(500, { error: 'Failed to create checkout' })
+  }
+}
+
+export async function handleGetCheckout(request: Request): Promise<Response> {
+  let body: unknown
+
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON body' })
+  }
+
+  const parsed = z
+    .object({ checkoutId: z.string().min(1) })
+    .safeParse(body)
+
+  if (!parsed.success) {
+    return jsonResponse(400, { error: 'Missing checkoutId' })
+  }
+
+  try {
+    const checkout = await getCheckout(parsed.data.checkoutId)
+    return jsonResponse(200, { data: checkout })
+  } catch (error) {
+    console.error(error)
+    return jsonResponse(500, { error: 'Failed to fetch checkout' })
+  }
+}
+
+export async function handleConfirmCheckout(request: Request): Promise<Response> {
+  let body: unknown
+
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON body' })
+  }
+
+  const parsed = z
+    .object({ confirm: confirmCheckoutSchema })
+    .safeParse(body)
+
+  if (!parsed.success) {
+    return jsonResponse(400, { error: 'Invalid confirm payload', details: parsed.error.issues })
+  }
+
+  try {
+    const checkout = await confirmCheckout(parsed.data.confirm)
+    return jsonResponse(200, { data: checkout })
+  } catch (error) {
+    console.error(error)
+    return jsonResponse(500, { error: 'Failed to confirm checkout' })
+  }
+}
