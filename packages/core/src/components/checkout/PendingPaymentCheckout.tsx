@@ -1,5 +1,3 @@
-'use client'
-
 import type { Checkout } from '@moneydevkit/api-contract'
 import { ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'

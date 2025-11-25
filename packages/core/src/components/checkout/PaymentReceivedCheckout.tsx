@@ -1,5 +1,3 @@
-'use client'
-
 import type { Checkout } from '@moneydevkit/api-contract'
 
 export interface PaymentReceivedCheckoutProps {

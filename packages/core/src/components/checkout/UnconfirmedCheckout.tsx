@@ -1,11 +1,9 @@
-'use client'
-
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Checkout } from '@moneydevkit/api-contract'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { confirmCheckout } from '../../server/actions'
+import { clientConfirmCheckout } from '../../client-actions'
 import { Button } from '../ui/button'
 import {
   Form,
@@ -46,7 +44,7 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
 
   const confirmMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
-      return await confirmCheckout({
+      return await clientConfirmCheckout({
         checkoutId: checkout.id,
         customerEmail: data.customerEmail || undefined,
         customerName: data.customerName || undefined,

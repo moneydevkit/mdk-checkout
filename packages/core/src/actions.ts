@@ -1,6 +1,5 @@
-'use server'
-
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
+
 import { log } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
@@ -32,12 +31,12 @@ export async function confirmCheckout(confirm: ConfirmCheckout) {
 }
 
 export interface CreateCheckoutParams {
-  title: string,
-  description: string,
+  title: string
+  description: string
   amount: number
   currency?: 'USD' | 'SAT'
-  successUrl?: string,
-  checkoutPath?: string,
+  successUrl?: string
+  checkoutPath?: string
   metadata?: Record<string, any>
 }
 
@@ -59,7 +58,9 @@ export async function createCheckout(params: CreateCheckoutParams) {
         successUrl: params.successUrl,
         ...metadataOverrides,
       },
-    }, node.id)
+    },
+    node.id,
+  )
 
   if (checkout.status === 'CONFIRMED') {
     const invoice = checkout.invoiceScid
