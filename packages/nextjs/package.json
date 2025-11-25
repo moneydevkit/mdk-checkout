@@ -18,18 +18,8 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "import": "./dist/server/index.js",
-      "default": "./dist/server/index.js"
-    },
     "./mdk-styles.css": "./dist/mdk-styles.css",
     "./package.json": "./package.json",
-    "./server/runtime": {
-      "types": "./dist/server/runtime.d.ts",
-      "import": "./dist/server/runtime.js",
-      "default": "./dist/server/runtime.js"
-    },
     "./server/route": {
       "types": "./dist/server/route.d.ts",
       "import": "./dist/server/route.js",
@@ -45,8 +35,9 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "npm --prefix ../core run build",
     "build": "rm -rf dist && tsc -p tsconfig.json && npm run copy-css",
-    "copy-css": "node scripts/copy-styles.mjs",
+    "copy-css": "node ../core/scripts/copy-styles.mjs dist/mdk-styles.css",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test --experimental-loader ./tests/test-loader.mjs tests/route.test.js",
@@ -59,10 +50,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
-    "@moneydevkit/api-contract": "^0.1.10",
-    "@moneydevkit/lightning-js": "^0.1.51",
-    "@orpc/client": "1.3.0",
-    "@orpc/contract": "1.3.0",
+    "@moneydevkit/core": "0.0.1",
     "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
