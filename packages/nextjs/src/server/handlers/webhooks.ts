@@ -26,7 +26,8 @@ async function handleIncomingPayment() {
     await client.checkouts.paymentReceived({
       payments: payments.map((payment) => ({
         paymentHash: payment.paymentHash,
-        amountSats: payment.amount,
+        // amount comes in msat from the node, convert to sats
+        amountSats: payment.amount / 1000,
       })),
     });
   } catch (error) {
