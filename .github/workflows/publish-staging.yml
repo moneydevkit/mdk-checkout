@@ -1,0 +1,117 @@
+# Publish beta packages from staging
+#
+# This workflow runs when code is pushed to the staging branch and publishes
+# beta versions of changed packages to npm.
+#
+# How it works:
+# 1. Detects which packages (core, nextjs, replit) have changed files
+# 2. Bumps the version of each changed package using prerelease (e.g., 0.0.12 -> 0.0.13-beta.0)
+# 3. If core changed, updates the @moneydevkit/core dependency version in nextjs and replit
+# 4. Commits and pushes version bumps back to staging (with [skip ci] to avoid infinite loop)
+# 5. Builds and publishes each changed package to npm with the "beta" tag
+#
+# Developers can install beta versions with: npm install @moneydevkit/nextjs@beta
+
+name: Publish beta packages from staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - "packages/core/**"
+      - "packages/nextjs/**"
+      - "packages/replit/**"
+
+jobs:
+  publish-beta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect changed packages
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'packages/core/**'
+            nextjs:
+              - 'packages/nextjs/**'
+            replit:
+              - 'packages/replit/**'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Bump versions for changed packages
+      - name: Bump core version
+        if: steps.filter.outputs.core == 'true'
+        working-directory: packages/core
+        run: npm version prerelease --preid=beta --no-git-tag-version
+
+      - name: Update core dependency in nextjs and replit
+        if: steps.filter.outputs.core == 'true'
+        run: |
+          CORE_VERSION=$(node -p "require('./packages/core/package.json').version")
+          cd packages/nextjs && npm pkg set "dependencies.@moneydevkit/core=$CORE_VERSION"
+          cd ../replit && npm pkg set "dependencies.@moneydevkit/core=$CORE_VERSION"
+
+      - name: Bump nextjs version
+        if: steps.filter.outputs.nextjs == 'true'
+        working-directory: packages/nextjs
+        run: npm version prerelease --preid=beta --no-git-tag-version
+
+      - name: Bump replit version
+        if: steps.filter.outputs.replit == 'true'
+        working-directory: packages/replit
+        run: npm version prerelease --preid=beta --no-git-tag-version
+
+      # Commit and push version bumps
+      - name: Commit version bumps
+        run: |
+          git add packages/*/package.json package-lock.json
+          git diff --staged --quiet || git commit -m "chore: bump beta versions [skip ci]"
+          git push
+
+      # Build and publish changed packages
+      - name: Build and publish core
+        if: steps.filter.outputs.core == 'true'
+        working-directory: packages/core
+        run: |
+          npm run build
+          npm publish --tag beta --access public
+
+      - name: Build and publish nextjs
+        if: steps.filter.outputs.nextjs == 'true'
+        working-directory: packages/nextjs
+        run: |
+          npm run build
+          npm publish --tag beta --access public
+
+      - name: Build and publish replit
+        if: steps.filter.outputs.replit == 'true'
+        working-directory: packages/replit
+        run: |
+          npm run build
+          npm publish --tag beta --access public
