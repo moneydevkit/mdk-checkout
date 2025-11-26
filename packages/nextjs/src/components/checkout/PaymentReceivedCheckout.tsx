@@ -32,10 +32,6 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
     </svg>
   )
 
-  const satsReceived = checkout.invoice?.amountSatsReceived
-    ? checkout.invoice.amountSatsReceived / 1000
-    : undefined
-
   return (
     <>
       <div className="text-center mb-6">
@@ -49,20 +45,19 @@ export default function PaymentReceivedCheckout({ checkout, onSuccess }: Payment
         <h3 className="text-sm text-center font-bold text-gray-300 mb-3">Payment Details</h3>
 
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
+          {checkout.invoice?.fiatAmount && <div className="flex justify-between">
             <span className="text-gray-400">Amount Fiat:</span>
             <span className="text-white font-medium">
-              {checkout.invoice?.fiatAmount && checkout.currency &&
-                formatCurrency(checkout.invoice.fiatAmount, checkout.currency)}
+              {formatCurrency(checkout.invoice.fiatAmount, 'USD')}
             </span>
-          </div>
+          </div>}
 
-          <div className="flex justify-between">
+          {checkout.invoice?.amountSats && <div className="flex justify-between">
             <span className="text-gray-400">Amount BTC:</span>
             <span className="text-white font-medium">
-              {satsReceived !== undefined && `${formatSats(satsReceived)} sats`}
+              {`${formatSats(checkout.invoice.amountSats)} sats`}
             </span>
-          </div>
+          </div>}
 
           <div className="flex justify-between">
             <span className="text-gray-400">Checkout ID:</span>
