@@ -28,8 +28,7 @@
     "clipboardy": "^4.0.0",
     "minimist": "^1.2.8",
     "open": "^10.1.0",
-    "set-cookie-parser": "^2.6.0",
-    "undici": "^7.16.0"
+    "set-cookie-parser": "^2.6.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
