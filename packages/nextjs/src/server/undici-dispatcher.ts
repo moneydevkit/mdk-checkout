@@ -53,5 +53,3 @@ export const ensureUndiciDispatcher = () => {
 
   globalThis.__mdkUndiciDispatcherConfigured = true
 }
-
-ensureUndiciDispatcher()
