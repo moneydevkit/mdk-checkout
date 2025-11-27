@@ -3,9 +3,6 @@ import { RPCLink } from '@orpc/client/fetch'
 import { ContractRouterClient } from '@orpc/contract'
 
 import { contract } from '@moneydevkit/api-contract'
-import { ensureUndiciDispatcher } from './undici-dispatcher'
-
-ensureUndiciDispatcher()
 
 export type MoneyDevKitClientOptions = {
   accessToken: string
@@ -16,6 +13,7 @@ export class MoneyDevKitClient {
   private client: ContractRouterClient<typeof contract>
 
   constructor(options: MoneyDevKitClientOptions) {
+
     const link = new RPCLink({
       url: options.baseUrl,
       headers: () => ({
