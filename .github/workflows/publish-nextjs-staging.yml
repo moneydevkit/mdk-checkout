@@ -1,0 +1,39 @@
+name: Publish @moneydevkit/nextjs beta from staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - "packages/nextjs/**"
+
+jobs:
+  publish-beta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        working-directory: packages/nextjs
+        run: npm run build
+
+      - name: Publish beta tag to npm
+        working-directory: packages/nextjs
+        run: npm publish --tag beta --access public
