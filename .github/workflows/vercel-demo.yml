@@ -1,0 +1,94 @@
+name: Demo Vercel Checkout
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Vercel environment to pull (preview or production)"
+        required: false
+        default: "preview"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    env:
+      APP_DIR: examples/mdk-nextjs-demo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build @moneydevkit/nextjs
+        run: npm run build --workspace packages/nextjs
+
+      - name: Pack @moneydevkit/nextjs tarball
+        run: |
+          rm -f ${{ env.APP_DIR }}/moneydevkit-nextjs-local.tgz
+          npm pack ./packages/nextjs --pack-destination ${{ env.APP_DIR }}
+          mv ${{ env.APP_DIR }}/moneydevkit-nextjs-*.tgz ${{ env.APP_DIR }}/moneydevkit-nextjs-local.tgz
+
+      - name: Sync package-lock integrity for local tarball
+        working-directory: ${{ env.APP_DIR }}
+        run: node ./scripts/sync-local-tarball.mjs
+
+      - name: Install demo dependencies
+        run: npm ci
+        working-directory: ${{ env.APP_DIR }}
+
+      - name: Lint demo
+        run: npm run lint
+        working-directory: ${{ env.APP_DIR }}
+
+      - name: Pull Vercel environment settings
+        run: npx vercel pull --yes --environment=${{ inputs.environment || 'preview' }} --token=$VERCEL_TOKEN
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy (builds on Vercel, alias mdk-nextjs-demo-brown.vercel.app)
+        run: npx vercel deploy --prod --yes --token=$VERCEL_TOKEN
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Install Cypress dependencies (Xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libnss3 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libasound2t64 \
+            libgtk-3-0 \
+            libgtk2.0-0 \
+            libxss1 \
+            libxtst6 \
+            libnotify-dev
+
+      - name: Run Cypress smoke test against production alias
+        env:
+          CYPRESS_BASE_URL: https://mdk-nextjs-demo-brown.vercel.app
+        run: npx cypress run --spec cypress/e2e/vercel-demo.cy.ts --config baseUrl=$CYPRESS_BASE_URL
