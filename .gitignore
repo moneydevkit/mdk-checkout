@@ -19,5 +19,4 @@ coverage
 .idea
 .vscode
 *.tgz
-!examples/mdk-nextjs-demo/moneydevkit-nextjs-local.tgz
 .secrets

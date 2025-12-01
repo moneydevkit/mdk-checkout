@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@moneydevkit/nextjs": "file:moneydevkit-nextjs-local.tgz",
+    "@moneydevkit/core": "file:moneydevkit-core-local.tgz",
     "next": "16.0.5",
     "react": "19.2.0",
     "react-dom": "19.2.0"
