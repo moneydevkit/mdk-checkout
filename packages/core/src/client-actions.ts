@@ -2,7 +2,8 @@ import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
 
-const API_PATH = '/api/mdk'
+const API_PATH =
+  (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_API_PATH ?? process.env.MDK_API_PATH)) || '/api/mdk'
 
 async function postToMdk<T>(handler: string, payload: Record<string, unknown>): Promise<T> {
   const response = await fetch(API_PATH, {

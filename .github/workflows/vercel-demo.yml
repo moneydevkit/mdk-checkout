@@ -26,25 +26,10 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Build @moneydevkit/nextjs
-        run: npm run build --workspace packages/nextjs
-
-      - name: Pack @moneydevkit/nextjs tarball
-        run: |
-          rm -f ${{ env.APP_DIR }}/moneydevkit-nextjs-local.tgz
-          npm pack ./packages/nextjs --pack-destination ${{ env.APP_DIR }}
-          mv ${{ env.APP_DIR }}/moneydevkit-nextjs-*.tgz ${{ env.APP_DIR }}/moneydevkit-nextjs-local.tgz
-
-      - name: Sync package-lock integrity for local tarball
-        working-directory: ${{ env.APP_DIR }}
-        run: node ./scripts/sync-local-tarball.mjs
-
-      - name: Install demo dependencies
-        run: npm ci
-        working-directory: ${{ env.APP_DIR }}
+      - name: Prepare demo app
+        uses: ./.github/actions/prepare-demo
+        with:
+          demo-dir: ${{ env.APP_DIR }}
 
       - name: Lint demo
         run: npm run lint
@@ -66,27 +51,8 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Install Cypress dependencies (Xvfb)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            xvfb \
-            libnss3 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libpango-1.0-0 \
-            libcairo2 \
-            libasound2t64 \
-            libgtk-3-0 \
-            libgtk2.0-0 \
-            libxss1 \
-            libxtst6 \
-            libnotify-dev
+      - name: Install Cypress system deps
+        uses: ./.github/actions/install-cypress-deps
 
       - name: Run Cypress smoke test against production alias
         env:
