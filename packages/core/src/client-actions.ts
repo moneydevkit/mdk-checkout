@@ -5,10 +5,38 @@ import type { CreateCheckoutParams } from './actions'
 const API_PATH =
   (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_API_PATH ?? process.env.MDK_API_PATH)) || '/api/mdk'
 
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const cookies = document.cookie.split(';')
+  for (const cookie of cookies) {
+    const [key, ...rest] = cookie.trim().split('=')
+    if (key === name) {
+      return rest.join('=')
+    }
+  }
+  return null
+}
+
+function ensureCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null
+  let token = getCookie('mdk_csrf')
+  if (!token) {
+    token = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`
+    document.cookie = `mdk_csrf=${token}; path=/; SameSite=Lax`
+  }
+  return token
+}
+
 async function postToMdk<T>(handler: string, payload: Record<string, unknown>): Promise<T> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const csrfToken = ensureCsrfToken()
+  if (csrfToken) {
+    headers['x-moneydevkit-csrf-token'] = csrfToken
+  }
+
   const response = await fetch(API_PATH, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: JSON.stringify({ handler, ...payload }),
   })
 

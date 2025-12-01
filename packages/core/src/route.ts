@@ -11,6 +11,7 @@ import { handleMdkWebhook } from './handlers/webhooks'
 import { log } from './logging'
 
 export type RouteHandler = (request: Request) => Promise<Response>
+type RouteAuth = 'secret' | 'csrf'
 
 const WEBHOOK_SECRET_HEADER = 'x-moneydevkit-webhook-secret'
 
@@ -26,23 +27,31 @@ const routeSchema = z.enum([
   'create_checkout',
   'get_checkout',
   'confirm_checkout',
-])
+	])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
+const ROUTE_CONFIG: Record<UnifiedRoute, { handler: RouteHandler; auth: RouteAuth }> = {
+  webhook: { handler: handleMdkWebhook, auth: 'secret' },
+  webhooks: { handler: handleMdkWebhook, auth: 'secret' },
+  pay_bolt_12: { handler: handlePayBolt12, auth: 'secret' },
+  balance: { handler: handleBalance, auth: 'secret' },
+  ping: { handler: handlePing, auth: 'secret' },
+  pay_ln_url: { handler: handlePayLNUrl, auth: 'secret' },
+  list_channels: { handler: listChannels, auth: 'secret' },
+  pay_bolt11: { handler: handlePayBolt11, auth: 'secret' },
+  create_checkout: { handler: handleCreateCheckout, auth: 'csrf' },
+  get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
+  confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
+}
+
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}
+const CSRF_HEADER = 'x-moneydevkit-csrf-token'
+const CSRF_COOKIE = 'mdk_csrf'
 
 function assignDefaultHandlers() {
-  HANDLERS.webhook = handleMdkWebhook
-  HANDLERS.webhooks = handleMdkWebhook
-  HANDLERS.pay_bolt_12 = handlePayBolt12
-  HANDLERS.balance = handleBalance
-  HANDLERS.ping = handlePing
-  HANDLERS.pay_ln_url = handlePayLNUrl
-  HANDLERS.list_channels = listChannels
-  HANDLERS.pay_bolt11 = handlePayBolt11
-  HANDLERS.create_checkout = handleCreateCheckout
-  HANDLERS.get_checkout = handleGetCheckout
-  HANDLERS.confirm_checkout = handleConfirmCheckout
+  for (const route of Object.keys(ROUTE_CONFIG) as UnifiedRoute[]) {
+    HANDLERS[route] = ROUTE_CONFIG[route].handler
+  }
 }
 
 assignDefaultHandlers()
@@ -114,10 +123,50 @@ async function resolveRoute(request: Request): Promise<UnifiedRoute | null> {
 }
 
 function routeRequiresSecret(route: UnifiedRoute): boolean {
-  if (route === 'create_checkout' || route === 'get_checkout' || route === 'confirm_checkout') {
-    return false
+  return ROUTE_CONFIG[route]?.auth === 'secret'
+}
+
+function routeRequiresCsrf(route: UnifiedRoute): boolean {
+  return ROUTE_CONFIG[route]?.auth === 'csrf'
+}
+
+function parseCookies(request: Request): Record<string, string> {
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  return Object.fromEntries(
+    cookieHeader
+      .split(';')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => {
+        const [key, ...rest] = c.split('=')
+        return [key, rest.join('=')]
+      }),
+  )
+}
+
+function validateCsrf(request: Request): Response | null {
+  const origin = request.headers.get('origin')
+  const host = request.headers.get('host')
+  if (origin && host) {
+    try {
+      const originHost = new URL(origin).host
+      if (originHost !== host) {
+        return jsonResponse(403, { error: 'Invalid origin' })
+      }
+    } catch {
+      // If origin is malformed, fall through to token validation.
+    }
   }
-  return true
+
+  const cookies = parseCookies(request)
+  const cookieToken = cookies[CSRF_COOKIE]
+  const headerToken = request.headers.get(CSRF_HEADER)
+
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    return jsonResponse(401, { error: 'Unauthorized' })
+  }
+
+  return null
 }
 
 async function handleRequest(request: Request) {
@@ -134,6 +183,15 @@ async function handleRequest(request: Request) {
 
     if (authError) {
       return authError
+    }
+  } else if (routeRequiresCsrf(route)) {
+    // Allow webhook secret as an override for server-to-server calls; otherwise require a CSRF token.
+    const secretError = validateWebhookSecret(request)
+    if (secretError) {
+      const csrfError = validateCsrf(request)
+      if (csrfError) {
+        return csrfError
+      }
     }
   }
 
