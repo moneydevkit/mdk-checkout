@@ -20,3 +20,11 @@ export const warn: typeof console.warn = (...args) => {
 
   console.warn(...args)
 }
+
+export const error: typeof console.error = (...args) => {
+  if (!loggingEnabled) {
+    return
+  }
+
+  console.error(...args)
+}
