@@ -1,0 +1,48 @@
+{
+  "name": "@moneydevkit/replit",
+  "version": "0.0.4",
+  "description": "Money Dev Kit checkout package for Replit (Vite + Express).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./mdk-styles.css": "./dist/mdk-styles.css",
+    "./server/express": {
+      "types": "./dist/server/express.d.ts",
+      "import": "./dist/server/express.js",
+      "default": "./dist/server/express.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "npm --prefix ../core run build",
+    "build": "rm -rf dist && tsc -p tsconfig.json && npm run copy-css",
+    "copy-css": "node ../core/scripts/copy-styles.mjs dist/mdk-styles.css",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "express": "^4.19.2",
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "dependencies": {
+    "@moneydevkit/core": "0.0.7"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.5",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.6.3"
+  },
+  "module": "./dist/index.js"
+}
