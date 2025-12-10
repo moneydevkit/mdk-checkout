@@ -278,7 +278,7 @@ const device = await client.onboarding.startDeviceAuth({
             p.note(
                 [
                     `Device code: ${device.userCode}`,
-                    `Webhook URL: ${webhookUrl}`,
+                    `Domain: ${webhookUrl}`,
                     "Open the authorization page, click Authorize, then return to this terminal.",
                 ].join("\n"),
                 "Authorize this device",
@@ -468,7 +468,7 @@ async function main() {
 
 	while (!webhookUrl) {
 		const webhookInput = await p.text({
-			message: "Webhook URL for your application",
+			message: "Domain for your application",
 			initialValue: "https://",
 			placeholder: "https://yourapp.com",
 			validate: (value) =>
