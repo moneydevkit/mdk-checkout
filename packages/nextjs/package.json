@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
-    "@moneydevkit/core": "0.0.4",
+    "@moneydevkit/core": "0.0.8",
     "@moneydevkit/api-contract": "^0.1.10",
     "@moneydevkit/lightning-js": "^0.1.54",
     "@orpc/client": "1.3.0",
