@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/replit",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Money Dev Kit checkout package for Replit (Vite + Express).",
   "type": "module",
   "main": "./dist/index.js",
