@@ -3,6 +3,9 @@ import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import { log } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
+import { is_preview_environment } from './preview'
+
+const isPreview = is_preview_environment()
 
 export async function getCheckout(checkoutId: string) {
   const client = createMoneyDevKitClient()
@@ -82,16 +85,22 @@ export async function createCheckout(params: CreateCheckoutParams) {
   return checkout
 }
 
-export async function payInvoice(paymentHash: string, amountSats: number) {
+export async function markInvoicePaidPreview(paymentHash: string, amountSats: number) {
+  if (!isPreview) {
+    throw new Error('markInvoicePaidPreview can only be used in preview environments.')
+  }
+
   const client = createMoneyDevKitClient()
-  const result = await client.checkouts.paymentReceived({
+  const paymentsPayload = {
     payments: [
       {
         paymentHash,
         amountSats,
+        sandbox: true,
       },
     ],
-  })
+  }
+  const result = await client.checkouts.paymentReceived(paymentsPayload)
 
   markPaymentReceived(paymentHash)
 
