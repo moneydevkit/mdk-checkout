@@ -22,11 +22,12 @@
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            nodejs_24
-            cypress
+            nodejs_24 # JavaScript runtime
+            cypress # E2E testing framework
           ];
 
           env = {
+            # The auto-downloaded Cypress binary is not compatible Nix. We tell Cypress to use the binary from nixpkgs instead.
             CYPRESS_INSTALL_BINARY = 0;
             CYPRESS_RUN_BINARY = "${pkgs.cypress}/bin/Cypress";
           };
