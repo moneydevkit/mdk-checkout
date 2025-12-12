@@ -20,3 +20,5 @@ coverage
 .vscode
 *.tgz
 .secrets
+.envrc
+.direnv
