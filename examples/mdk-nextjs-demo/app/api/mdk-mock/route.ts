@@ -25,10 +25,19 @@ type MockState = {
   log: string[];
 };
 
-const mockState: MockState = {
+type GlobalForMock = {
+  mockState?: MockState;
+}
+
+// Persist state across Next.js module reloads in development mode
+const globalForMock = globalThis as GlobalForMock;
+
+const mockState: MockState = globalForMock.mockState ?? {
   checkout: null,
   log: [],
 };
+
+globalForMock.mockState = mockState;
 
 function nowPlusMinutes(minutes: number) {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
