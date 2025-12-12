@@ -6,7 +6,7 @@ Developer onboarding CLI for Money Dev Kit. This package publishes the interacti
 
 1. Run `npx @moneydevkit/create@latest` from the root of your project. The CLI walks you through login, webhook verification, and writes your secrets to `.env.local` (or a path you pick) while also copying them to the clipboard by default.
 2. If we detect a Next.js app (package.json `next` dependency, `next.config.*`, or an `app/` directory), we'll offer to install and scaffold `@moneydevkit/nextjs` for you.
-3. Follow the prompts. When you reach your editor again, `MDK_ACCESS_TOKEN`, `MDK_WEBHOOK_SECRET`, and `MDK_MNEMONIC` are ready to go.
+3. Follow the prompts. When you reach your editor again, `MDK_ACCESS_TOKEN` and `MDK_MNEMONIC` are ready to go.
 
 ### Customize the flow with flags
 

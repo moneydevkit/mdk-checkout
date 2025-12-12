@@ -8,7 +8,7 @@ import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
 import { handlePing } from './handlers/ping'
 import { handleMdkWebhook } from './handlers/webhooks'
-import { error, log, warn } from './logging'
+import { error, log } from './logging'
 
 export type RouteHandler = (request: Request) => Promise<Response>
 type RouteAuth = 'secret' | 'csrf'
@@ -66,18 +66,11 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
 }
 
 function validateWebhookSecret(request: Request): Response | null {
-  const expectedSecret = process.env.MDK_ACCESS_TOKEN || process.env.MDK_WEBHOOK_SECRET
+  const expectedSecret = process.env.MDK_ACCESS_TOKEN
 
   if (!expectedSecret) {
     error('MDK_ACCESS_TOKEN environment variable is not configured.')
     return jsonResponse(500, { error: 'Webhook secret is not configured.' })
-  }
-
-  if (process.env.MDK_WEBHOOK_SECRET) {
-    warn(
-      'DEPRECATED: MDK_WEBHOOK_SECRET will be removed in a future version. ' +
-      'Only MDK_ACCESS_TOKEN is required.'
-    )
   }
 
   const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER)
