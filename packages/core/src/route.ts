@@ -67,7 +67,7 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
 
 function validateWebhookSecret(request: Request): Response | null {
   const expectedSecret = process.env.MDK_WEBHOOK_SECRET || process.env.MDK_ACCESS_TOKEN
-  
+
   if (!expectedSecret) {
     error('MDK_ACCESS_TOKEN environment variable is not configured.')
     return jsonResponse(500, { error: 'Webhook secret is not configured.' })
