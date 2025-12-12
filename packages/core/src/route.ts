@@ -83,9 +83,7 @@ function validateWebhookSecret(request: Request): Response | null {
   const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER)
 
   if (!providedSecret || providedSecret !== expectedSecret) {
-    log('Unauthorized webhook request received.')
-    log(`Expected secret: ${expectedSecret}`)
-    log(`Provided secret: ${providedSecret}`)
+    log('Unauthorized webhook request received. Please confirm that MDK_ACCESS_TOKEN is set to the correct value.')
     return jsonResponse(401, { error: 'Unauthorized' })
   }
 
