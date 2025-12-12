@@ -550,7 +550,6 @@ async function main() {
 
 		const updates: Record<string, string> = {
 			MDK_ACCESS_TOKEN: result.credentials.apiKey,
-			MDK_WEBHOOK_SECRET: result.credentials.webhookSecret,
 			MDK_MNEMONIC: result.mnemonic,
 		};
 
@@ -576,7 +575,7 @@ async function main() {
 
         if (!flags.noClipboard) {
             await clipboard.write(
-				[`MDK_ACCESS_TOKEN=${updates.MDK_ACCESS_TOKEN}`, `MDK_WEBHOOK_SECRET=${updates.MDK_WEBHOOK_SECRET}`, `MDK_MNEMONIC=${updates.MDK_MNEMONIC}`].join(
+				[`MDK_ACCESS_TOKEN=${updates.MDK_ACCESS_TOKEN}`, `MDK_MNEMONIC=${updates.MDK_MNEMONIC}`].join(
 					"\n",
 				),
 			);

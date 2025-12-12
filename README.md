@@ -17,7 +17,6 @@ Configure your `.env` with the credentials provided by the CLI (create an accoun
 
 ```env
 MDK_ACCESS_TOKEN=your_api_key_here
-MDK_WEBHOOK_SECRET=your_webhook_key_here
 MDK_MNEMONIC=your_mnemonic_here
 ```
 
