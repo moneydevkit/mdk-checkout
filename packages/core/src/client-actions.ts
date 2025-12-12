@@ -1,6 +1,7 @@
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
+import { is_preview_environment } from './preview'
 
 const API_PATH =
   (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_API_PATH ?? process.env.MDK_API_PATH)) || '/api/mdk'
@@ -70,4 +71,12 @@ export async function clientConfirmCheckout(confirm: ConfirmCheckout) {
     throw new Error('Failed to confirm checkout')
   }
   return response.data
+}
+
+export async function clientPayInvoice(paymentHash: string, amountSats: number) {
+  if (!is_preview_environment()) {
+    throw new Error('clientPayInvoice is only available in preview environments.')
+  }
+
+  await postToMdk('pay_invoice', { paymentHash, amountSats })
 }
