@@ -11,16 +11,17 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build --workspace=packages/core && npm run typecheck --workspaces --if-present",
     "cypress:run": "cypress run --spec cypress/e2e/vercel-demo.cy.ts",
     "test:e2e": "concurrently -k -s first \"npm run dev --prefix examples/mdk-nextjs-demo -- --hostname 0.0.0.0 --port 3010\" \"wait-on http://localhost:3010 && CYPRESS_BASE_URL=http://localhost:3010 cypress run --spec cypress/e2e/checkout.cy.ts\""
   },
   "optionalDependencies": {
-    "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.41"
+    "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.41",
+    "@rollup/rollup-linux-x64-gnu": "^4.53.3"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "cypress": "^15.7.0",
+    "cypress": "14.5.4",
     "wait-on": "^8.0.2"
   }
 }
