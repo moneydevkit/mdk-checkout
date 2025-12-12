@@ -17,7 +17,7 @@
   },
   "optionalDependencies": {
     "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.41",
-    "@rollup/rollup-linux-x64-gnu": "^4.53.3"
+    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.54"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
