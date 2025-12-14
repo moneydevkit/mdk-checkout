@@ -23,8 +23,19 @@ function ensureCsrfToken(): string | null {
   let token = getCookie('mdk_csrf')
   if (!token) {
     token = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`
-    document.cookie = `mdk_csrf=${token}; path=/; SameSite=Lax`
   }
+
+  // In embedded preview environments (e.g., Replit) the app is often running in a third-party context.
+  // Use SameSite=None; Secure when possible so the cookie is still sent; fall back to Lax for local/http.
+  const cookieAttributes = ['path=/']
+  const secureContext = typeof window !== 'undefined' && window.isSecureContext
+  if (secureContext) {
+    cookieAttributes.push('SameSite=None', 'Secure')
+  } else {
+    cookieAttributes.push('SameSite=Lax')
+  }
+  document.cookie = `mdk_csrf=${token}; ${cookieAttributes.join('; ')}`
+
   return token
 }
 
