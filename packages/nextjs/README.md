@@ -11,7 +11,6 @@ moneydevkit checkout library for embedding Lightning-powered payments inside Nex
 3. **Add required secrets** to `.env` (or similar):
    ```env
    MDK_ACCESS_TOKEN=your_api_key_here
-   MDK_WEBHOOK_SECRET=your_webhook_key_here
    MDK_MNEMONIC=your_mnemonic_here
    ```
 

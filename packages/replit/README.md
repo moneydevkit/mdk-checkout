@@ -11,7 +11,6 @@ Money Dev Kit checkout package tuned for Replit workspaces: Vite + React on the 
 3. **Add required secrets** to `.env` (or Replit Secrets):
    ```env
    MDK_ACCESS_TOKEN=your_api_key_here
-   MDK_WEBHOOK_SECRET=your_webhook_key_here
    MDK_MNEMONIC=your_mnemonic_here
    ```
 
