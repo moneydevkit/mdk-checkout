@@ -10,7 +10,7 @@ const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
   currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string()).optional(),
 })
 
 const confirmCheckoutSchema = z.object({
