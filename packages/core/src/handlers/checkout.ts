@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { confirmCheckout, createCheckout, getCheckout } from '../actions'
 import type { CreateCheckoutParams } from '../actions'
+import { validateMetadata } from './checkout-validation.js'
 
 const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
   title: z.string(),
@@ -10,7 +11,19 @@ const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
   currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
-  metadata: z.record(z.string()).optional(),
+  metadata: z.record(z.string()).optional()
+    .superRefine((metadata, ctx) => {
+      const validation = validateMetadata(metadata)
+      if (!validation.ok) {
+        for (const error of validation.error) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: error.message,
+            path: ['metadata'],
+          })
+        }
+      }
+    }),
 })
 
 const confirmCheckoutSchema = z.object({
