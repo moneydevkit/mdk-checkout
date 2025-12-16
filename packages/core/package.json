@@ -32,7 +32,7 @@
     "copy-css": "node scripts/copy-styles.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && tsx --tsconfig tsconfig.test.json --test tests/**/*.test.ts"
+    "test": "npm run build && tsx --tsconfig tsconfig.test.json --test $(find tests -name '*.test.ts')"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

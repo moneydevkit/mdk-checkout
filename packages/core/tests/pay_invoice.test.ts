@@ -18,12 +18,7 @@ afterEach(() => {
 })
 
 beforeEach(() => {
-  delete process.env.REPL_ID
-  delete process.env.REPL_OWNER
-  delete process.env.REPLIT_CLUSTER
-  delete process.env.REPLIT_DEPLOYMENT
-  delete process.env.REPLIT_CONTEXT
-  delete process.env.REPL_SLUG
+  delete process.env.REPLIT_DEV_DOMAIN
 })
 
 test('pay_invoice rejects when not in preview', async () => {
@@ -34,7 +29,7 @@ test('pay_invoice rejects when not in preview', async () => {
 })
 
 test('pay_invoice with wrong payload is rejected before processing', async () => {
-  process.env.REPL_ID = 'preview-repl'
+  process.env.REPLIT_DEV_DOMAIN = 'preview-repl.repl.co'
 
   const req = new Request('http://localhost/api/mdk', {
     method: 'POST',
