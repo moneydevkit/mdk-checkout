@@ -6,8 +6,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { clientPayInvoice } from '../../client-actions'
 import { warn } from '../../logging'
 import { is_preview_environment } from '../../preview'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import { Button } from '../ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 
 type PendingPaymentCheckoutType = Extract<Checkout, { status: 'PENDING_PAYMENT' }>
 
@@ -207,7 +207,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
             disabled={markingPaid}
             className="bg-gray-700 hover:bg-gray-900 text-gray-300"
           >
-            {markingPaid ? 'Marking as paid...' : 'Mark as paid (sandbox)'}
+            {markingPaid ? 'Marking as paid...' : 'Mark as Paid (Sandbox)'}
           </Button>
           {markPaidError && (
             <p className="text-red-400 text-xs text-center mt-2">{markPaidError}</p>
