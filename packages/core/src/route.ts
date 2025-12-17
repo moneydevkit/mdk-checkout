@@ -5,6 +5,7 @@ import { handleConfirmCheckout, handleCreateCheckout, handleGetCheckout } from '
 import { listChannels } from './handlers/list_channels'
 import { handlePayBolt11 } from './handlers/pay_bolt_11'
 import { handlePayBolt12 } from './handlers/pay_bolt_12'
+import { handlePreviewPayInvoice } from './handlers/pay_invoice'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
 import { handlePing } from './handlers/ping'
 import { handleMdkWebhook } from './handlers/webhooks'
@@ -12,6 +13,7 @@ import { error, log } from './logging'
 
 export type RouteHandler = (request: Request) => Promise<Response>
 type RouteAuth = 'secret' | 'csrf'
+type RouteConfig = { handler: RouteHandler; auth: RouteAuth }
 
 const WEBHOOK_SECRET_HEADER = 'x-moneydevkit-webhook-secret'
 
@@ -27,10 +29,11 @@ const routeSchema = z.enum([
   'create_checkout',
   'get_checkout',
   'confirm_checkout',
-	])
+  'pay_invoice',
+])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
-const ROUTE_CONFIG: Record<UnifiedRoute, { handler: RouteHandler; auth: RouteAuth }> = {
+const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   webhook: { handler: handleMdkWebhook, auth: 'secret' },
   webhooks: { handler: handleMdkWebhook, auth: 'secret' },
   pay_bolt_12: { handler: handlePayBolt12, auth: 'secret' },
@@ -42,6 +45,7 @@ const ROUTE_CONFIG: Record<UnifiedRoute, { handler: RouteHandler; auth: RouteAut
   create_checkout: { handler: handleCreateCheckout, auth: 'csrf' },
   get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
+  pay_invoice: { handler: handlePreviewPayInvoice, auth: 'csrf' },
 }
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}
