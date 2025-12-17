@@ -1,7 +1,12 @@
 import type { Checkout } from '@moneydevkit/api-contract'
+import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { clientPayInvoice } from '../../client-actions'
+import { warn } from '../../logging'
+import { is_preview_environment } from '../../preview'
+import { Button } from '../ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 
 type PendingPaymentCheckoutType = Extract<Checkout, { status: 'PENDING_PAYMENT' }>
@@ -14,7 +19,11 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false)
-
+  const [markingPaid, setMarkingPaid] = useState<boolean>(false)
+  const [markPaidError, setMarkPaidError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const isPreview = is_preview_environment()
+  warn('isPreview_environment()', is_preview_environment())
   useEffect(() => {
     const updateTimer = () => {
       if (!checkout.invoice?.expiresAt) return
@@ -85,6 +94,28 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     </svg>
   )
 
+  const invoiceAmountSats = checkout.invoice?.amountSats ?? checkout.invoiceAmountSats ?? null
+  const paymentHash = checkout.invoice?.paymentHash
+
+  const handleMarkAsPaid = useCallback(async () => {
+    if (!isPreview || !paymentHash || !invoiceAmountSats) {
+      setMarkPaidError('Missing invoice details for preview payment.')
+      return
+    }
+
+    try {
+      setMarkPaidError(null)
+      setMarkingPaid(true)
+      await clientPayInvoice(paymentHash, invoiceAmountSats)
+      await queryClient.invalidateQueries({ queryKey: ['mdk-checkout', checkout.id] })
+    } catch (error) {
+      console.error('Failed to mark invoice as paid', error)
+      setMarkPaidError('Failed to mark as paid. Please try again.')
+    } finally {
+      setMarkingPaid(false)
+    }
+  }, [checkout.id, invoiceAmountSats, isPreview, paymentHash, queryClient])
+
   const CheckmarkIcon = () => (
     <svg
       className="w-4 h-4 text-green-500 cursor-pointer transition-colors"
@@ -95,6 +126,10 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
   )
+
+  warn('isPreview', isPreview)
+  warn('paymentHash', paymentHash)
+  warn('invoiceAmountSats', invoiceAmountSats)
 
   return (
     <>
@@ -108,7 +143,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
         <div className="w-full">
           <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
             <CollapsibleTrigger className="flex items-center justify-center gap-2 text-gray-400 hover:text-white transition-colors text-sm w-full font-medium">
-              View Details
+              View Detailssssss
               <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-in-out ${detailsOpen ? 'rotate-180' : ''}`} />
             </CollapsibleTrigger>
             <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">
@@ -162,6 +197,21 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
           <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
             {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}
           </div>
+        </div>
+      )}
+
+      {isPreview && paymentHash && invoiceAmountSats && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            onClick={handleMarkAsPaid}
+            disabled={markingPaid}
+            className="bg-gray-700 hover:bg-gray-900 text-gray-300"
+          >
+            {markingPaid ? 'Marking as paid...' : 'Mark as Paid (Sandbox)'}
+          </Button>
+          {markPaidError && (
+            <p className="text-red-400 text-xs text-center mt-2">{markPaidError}</p>
+          )}
         </div>
       )}
     </>

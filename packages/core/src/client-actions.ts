@@ -1,6 +1,7 @@
 import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
+import { is_preview_environment } from './preview'
 
 const API_PATH =
   (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_API_PATH ?? process.env.MDK_API_PATH)) || '/api/mdk'
@@ -22,8 +23,19 @@ function ensureCsrfToken(): string | null {
   let token = getCookie('mdk_csrf')
   if (!token) {
     token = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`
-    document.cookie = `mdk_csrf=${token}; path=/; SameSite=Lax`
   }
+
+  // In embedded preview environments (e.g., Replit) the app is often running in a third-party context.
+  // Use SameSite=None; Secure when possible so the cookie is still sent; fall back to Lax for local/http.
+  const cookieAttributes = ['path=/']
+  const secureContext = typeof window !== 'undefined' && window.isSecureContext
+  if (secureContext) {
+    cookieAttributes.push('SameSite=None', 'Secure')
+  } else {
+    cookieAttributes.push('SameSite=Lax')
+  }
+  document.cookie = `mdk_csrf=${token}; ${cookieAttributes.join('; ')}`
+
   return token
 }
 
@@ -70,4 +82,12 @@ export async function clientConfirmCheckout(confirm: ConfirmCheckout) {
     throw new Error('Failed to confirm checkout')
   }
   return response.data
+}
+
+export async function clientPayInvoice(paymentHash: string, amountSats: number) {
+  if (!is_preview_environment()) {
+    throw new Error('clientPayInvoice is only available in preview environments.')
+  }
+
+  await postToMdk('pay_invoice', { paymentHash, amountSats })
 }
