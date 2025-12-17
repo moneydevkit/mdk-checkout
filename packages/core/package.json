@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/core",
-  "version": "0.0.8",
+  "version": "0.0.12",
   "description": "Shared moneydevkit checkout core utilities",
   "type": "module",
   "main": "./dist/index.js",
