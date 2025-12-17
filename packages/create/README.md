@@ -6,7 +6,7 @@ Developer onboarding CLI for Money Dev Kit. This package publishes the interacti
 
 1. Run `npx @moneydevkit/create@latest` from the root of your project. The CLI walks you through login, webhook verification, and writes your secrets to `.env.local` (or a path you pick) while also copying them to the clipboard by default.
 2. If we detect a Next.js app (package.json `next` dependency, `next.config.*`, or an `app/` directory), we'll offer to install and scaffold `@moneydevkit/nextjs` for you.
-3. Follow the prompts. When you reach your editor again, `MDK_ACCESS_TOKEN`, `MDK_WEBHOOK_SECRET`, and `MDK_MNEMONIC` are ready to go.
+3. Follow the prompts. When you reach your editor again, `MDK_ACCESS_TOKEN` and `MDK_MNEMONIC` are ready to go.
 
 ### Customize the flow with flags
 
@@ -16,7 +16,7 @@ Pass any of the options from the table below to skip prompts or run non-interact
 npx @moneydevkit/create@latest \
   --dir ./apps/storefront \
   --env-target .env.production \
-  --webhook-url https://example.com/webhooks/mdk \
+  --webhook-url https://example.com \
   --project-name "Storefront" \
   --no-open --no-clipboard
 ```
@@ -58,7 +58,7 @@ The CLI still creates a device code but immediately authorises it using your coo
 | `--no-clipboard` | Do not place secrets on the clipboard. |
 | `--json` | Emit JSON result payloads (no interactive prompts).
 | `--manual-login "<cookie>"` | Use a pre-generated dashboard session cookie instead of device flow. |
-| `--webhook-url "<url>"` | Provide the webhook URL when running in `--manual-login` or `--json` modes. |
+| `--webhook-url "<url>"` | Provide the domain when running in `--manual-login` or `--json` modes. |
 | `--force-new-webhook` | Force creation of a new webhook even if one already exists for the URL. |
 | `--scaffold-nextjs` | Force install + scaffold `@moneydevkit/nextjs` (warns and skips if no Next.js app is detected). |
 

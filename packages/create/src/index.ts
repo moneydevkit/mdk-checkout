@@ -278,7 +278,7 @@ const device = await client.onboarding.startDeviceAuth({
             p.note(
                 [
                     `Device code: ${device.userCode}`,
-                    `Webhook URL: ${webhookUrl}`,
+                    `Domain: ${webhookUrl}`,
                     "Open the authorization page, click Authorize, then return to this terminal.",
                 ].join("\n"),
                 "Authorize this device",
@@ -468,7 +468,7 @@ async function main() {
 
 	while (!webhookUrl) {
 		const webhookInput = await p.text({
-			message: "Webhook URL for your application",
+			message: "Domain for your application",
 			initialValue: "https://",
 			placeholder: "https://yourapp.com",
 			validate: (value) =>
@@ -550,7 +550,6 @@ async function main() {
 
 		const updates: Record<string, string> = {
 			MDK_ACCESS_TOKEN: result.credentials.apiKey,
-			MDK_WEBHOOK_SECRET: result.credentials.webhookSecret,
 			MDK_MNEMONIC: result.mnemonic,
 		};
 
@@ -576,7 +575,7 @@ async function main() {
 
         if (!flags.noClipboard) {
             await clipboard.write(
-				[`MDK_ACCESS_TOKEN=${updates.MDK_ACCESS_TOKEN}`, `MDK_WEBHOOK_SECRET=${updates.MDK_WEBHOOK_SECRET}`, `MDK_MNEMONIC=${updates.MDK_MNEMONIC}`].join(
+				[`MDK_ACCESS_TOKEN=${updates.MDK_ACCESS_TOKEN}`, `MDK_MNEMONIC=${updates.MDK_MNEMONIC}`].join(
 					"\n",
 				),
 			);
