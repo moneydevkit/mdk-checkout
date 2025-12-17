@@ -1,8 +1,8 @@
-name: Sync Staging from Master
+name: Sync Staging from Main
 
 on:
   pull_request_target:
-    branches: [master]
+    branches: [main]
     types: [closed]
 
 jobs:
@@ -13,12 +13,12 @@ jobs:
       group: sync-staging
       cancel-in-progress: true
     steps:
-      - name: Checkout master
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.STAGING_PAT_TOKEN }}
 
       - name: Force push to staging
-        run: git push --force origin master:staging
+        run: git push --force origin main:staging
