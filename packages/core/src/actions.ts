@@ -40,7 +40,7 @@ export interface CreateCheckoutParams {
   currency?: 'USD' | 'SAT'
   successUrl?: string
   checkoutPath?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, string>
 }
 
 export async function createCheckout(params: CreateCheckoutParams) {
