@@ -36,16 +36,6 @@ export type MetadataValidationError = {
   message: string
 }
 
-function validateReservedKey(key: string): Result<void, MetadataValidationError> {
-  if (RESERVED_KEYS.includes(key as (typeof RESERVED_KEYS)[number])) {
-    return err({
-      type: 'reserved_key',
-      message: `Metadata key "${key}" is reserved and cannot be used. Reserved keys are: ${RESERVED_KEYS.join(', ')}`,
-    })
-  }
-  return ok(undefined)
-}
-
 function validateKeyFormat(key: string): Result<void, MetadataValidationError> {
   if (!VALID_KEY_PATTERN.test(key)) {
     const message =
@@ -113,9 +103,6 @@ function validateMetadataSize(metadata: Record<string, string>): Result<void, Me
 }
 
 function validateKey(key: string): Result<void, MetadataValidationError> {
-  const reservedCheck = validateReservedKey(key)
-  if (!reservedCheck.ok) return reservedCheck
-
   const formatCheck = validateKeyFormat(key)
   if (!formatCheck.ok) return formatCheck
 

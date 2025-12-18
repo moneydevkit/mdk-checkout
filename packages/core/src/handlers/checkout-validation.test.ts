@@ -67,44 +67,6 @@ test('includes actual size in error details', () => {
   assert.ok(result.error[0].message.includes('bytes'))
 })
 
-// Reserved key tests
-test('rejects reserved key "title"', () => {
-  const metadata = {
-    title: 'Should not be allowed',
-  }
-  const result = validateMetadata(metadata)
-
-  assert.equal(result.ok, false)
-  assert.equal(result.error.length, 1)
-  assert.equal(result.error[0].type, 'reserved_key')
-  assert.ok(result.error[0].message.includes('reserved'))
-  assert.ok(result.error[0].message.includes('title'))
-})
-
-test('rejects reserved key "description"', () => {
-  const metadata = {
-    description: 'Should not be allowed',
-  }
-  const result = validateMetadata(metadata)
-
-  assert.equal(result.ok, false)
-  assert.equal(result.error.length, 1)
-  assert.equal(result.error[0].type, 'reserved_key')
-  assert.ok(result.error[0].message.includes('description'))
-})
-
-test('rejects reserved key "successUrl"', () => {
-  const metadata = {
-    successUrl: 'https://example.com',
-  }
-  const result = validateMetadata(metadata)
-
-  assert.equal(result.ok, false)
-  assert.equal(result.error.length, 1)
-  assert.equal(result.error[0].type, 'reserved_key')
-  assert.ok(result.error[0].message.includes('successUrl'))
-})
-
 // Key format tests
 test('rejects key with special characters', () => {
   const metadata = {
