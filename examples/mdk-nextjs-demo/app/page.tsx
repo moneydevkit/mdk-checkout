@@ -24,7 +24,6 @@ export default function HomePage() {
 
   const metadata = useMemo(
     () => ({
-      successUrl: "/checkout/success",
       customerName: customerName.trim() || "Guest",
       note: note.trim(),
       product: "Lightning IBD download",
@@ -38,6 +37,7 @@ export default function HomePage() {
       description: "A quick Money Dev Kit checkout running on Vercel.",
       amount: 2500,
       currency: "USD",
+      successUrl: "/checkout/success",
       metadata,
       checkoutPath: "/checkout",
     });
