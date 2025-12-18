@@ -31,10 +31,10 @@ export default function HomePage() {
       description: 'A description of the purchase',
       amount: 500,         // 500 USD cents or Bitcoin sats
       currency: 'USD',     // or 'SAT'
+      successUrl: '/checkout/success',
       metadata: {
         type: 'my_type',
         customField: 'internal reference for this checkout',
-        successUrl: '/checkout/success',
         name: 'John Doe'
       }
     })
@@ -47,6 +47,10 @@ export default function HomePage() {
   )
 }
 ```
+
+> ℹ️ Metadata is passed through to the success page unchanged. Use it for
+> customer-facing context only—reserved fields like `successUrl` must be set
+> on the checkout payload itself.
 
 ### 2. Render the hosted checkout page
 ```jsx

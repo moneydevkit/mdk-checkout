@@ -120,7 +120,7 @@ function CheckoutInternal({ id }: CheckoutProps) {
       return
     }
 
-    const configuredSuccessUrl = (paidCheckout.userMetadata?.successUrl as string) ?? paidCheckout.successUrl ?? '/success'
+    const configuredSuccessUrl = paidCheckout.successUrl ?? '/success'
     let destination = configuredSuccessUrl
 
     try {
@@ -158,7 +158,7 @@ function CheckoutInternal({ id }: CheckoutProps) {
         description: (checkout.userMetadata?.description as string) || '',
         amount,
         currency: checkout.currency as 'USD' | 'SAT',
-        successUrl: (checkout.userMetadata?.successUrl as string) ?? checkout.successUrl ?? undefined,
+        successUrl: checkout.successUrl ?? undefined,
         metadata: checkout.userMetadata ?? undefined,
       })
 

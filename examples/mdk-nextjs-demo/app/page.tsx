@@ -24,7 +24,6 @@ export default function HomePage() {
 
   const metadata = useMemo(
     () => ({
-      successUrl: "/checkout/success",
       customerName: customerName.trim() || "Guest",
       note: note.trim(),
       product: "Lightning IBD download",
@@ -39,6 +38,7 @@ export default function HomePage() {
       amount: 2500,
       currency: "USD",
       metadata,
+      successUrl: "/checkout/success",
       checkoutPath: "/checkout",
     });
   };

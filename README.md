@@ -35,8 +35,9 @@ export default function HomePage() {
       prompt: "Describe the purchase shown to the buyer",
       amount: 500,
       currency: "USD",
+      successUrl: "/checkout/success",
       metadata: {
-        successUrl: "/checkout/success",
+        customerTier: "gold",
       },
     });
   };
@@ -48,6 +49,10 @@ export default function HomePage() {
   );
 }
 ```
+
+Metadata is forwarded to your success page unchanged. Treat it as read-only
+context for provisioning and avoid trying to override reserved checkout
+parameters (like `successUrl`) through metadata.
 
 #### 2. Render the hosted checkout page
 ```jsx

@@ -46,7 +46,8 @@ export default function App() {
           description: 'Description of the purchase',
           amount: 500,
           currency: 'USD',
-          metadata: { successUrl: '/checkout/success' },
+          successUrl: '/checkout/success',
+          metadata: { customerId: 'abc_123' },
         })
       }
       disabled={isNavigating}
@@ -56,6 +57,9 @@ export default function App() {
   )
 }
 ```
+
+> ℹ️ Metadata is forwarded to the success page unchanged. Configure checkout
+> behavior (like `successUrl`) with the top-level parameters instead of metadata.
 
 Render the hosted checkout page:
 ```tsx
