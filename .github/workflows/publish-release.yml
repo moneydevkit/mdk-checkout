@@ -12,7 +12,8 @@
 # 4. Updates ALL packages to the release version (unified versioning)
 # 5. Updates @moneydevkit/core dependency in nextjs and replit packages
 # 6. Builds and publishes all packages to npm with the "latest" tag
-# 7. Bumps version to next minor (e.g., 0.4.0 → 0.5.0) and pushes to main
+# 7. Commits release version and updates tag to point to it (for reproducibility)
+# 8. Bumps version to next minor (e.g., 0.4.0 → 0.5.0) and pushes to main
 #    This prepares main for the next development cycle (betas will be 0.5.0-beta.0, etc.)
 #
 # Example: gh release create v0.4.0 --title "v0.4.0" --notes "Release notes"
@@ -140,12 +141,23 @@ jobs:
       - name: Publish @moneydevkit/replit
         run: npm publish ./packages/replit --provenance --access public
 
+      - name: Update tag to point to release version
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit the release version changes
+          git add -A
+          git commit -m "release: v$VERSION"
+
+          # Update the tag to point to this commit (so tag matches published versions)
+          git tag -f v$VERSION
+          git push origin v$VERSION --force
+
       - name: Bump version for next development cycle
         run: |
-          # Discard release version changes (we'll set new versions on main)
-          git checkout -- .
-
-          # Checkout main branch (we were on a tag)
+          # Checkout main branch
           git checkout main
           git pull origin main
 
@@ -170,9 +182,7 @@ jobs:
           # Update package-lock.json
           npm install --package-lock-only
 
-          # Configure git and commit
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Commit and push
           git add -A
           git commit -m "chore: bump version to $NEXT_VERSION for next development cycle [skip ci]"
           git push origin main
