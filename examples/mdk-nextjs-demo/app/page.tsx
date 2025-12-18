@@ -37,6 +37,7 @@ export default function HomePage() {
       description: "A quick Money Dev Kit checkout running on Vercel.",
       amount: 2500,
       currency: "USD",
+      successUrl: "/checkout/success",
       metadata,
       successUrl: "/checkout/success",
       checkoutPath: "/checkout",
