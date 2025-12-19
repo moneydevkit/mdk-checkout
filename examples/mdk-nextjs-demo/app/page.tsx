@@ -19,6 +19,8 @@ const chips = [
 
 export default function HomePage() {
   const [customerName, setCustomerName] = useState("Satoshi Nakamoto");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [requireEmail, setRequireEmail] = useState(true);
   const [note, setNote] = useState("Fast IBD snapshot with hosted checkout.");
   const { navigate, isNavigating } = useCheckout();
 
@@ -40,6 +42,13 @@ export default function HomePage() {
       currency: "USD",
       metadata,
       checkoutPath: "/checkout",
+      // Pass customer data if provided
+      customerName: customerName.trim() || undefined,
+      customerEmail: customerEmail.trim() || undefined,
+      // Require customer email if checkbox is checked and email not provided
+      requireCustomerFields: requireEmail ? {
+        customerEmail: true,
+      } : undefined,
     });
   };
 
@@ -77,6 +86,27 @@ export default function HomePage() {
                 placeholder="Your customer name"
                 autoComplete="name"
               />
+              <label className="label" htmlFor="email">
+                Customer email (optional)
+              </label>
+              <input
+                id="email"
+                className="input"
+                type="email"
+                value={customerEmail}
+                onChange={(event) => setCustomerEmail(event.target.value)}
+                placeholder="customer@example.com"
+                autoComplete="email"
+              />
+              <label className="label checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={requireEmail}
+                  onChange={(event) => setRequireEmail(event.target.checked)}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                Require email at checkout (if not provided above)
+              </label>
               <label className="label" htmlFor="note">
                 What are they buying?
               </label>
