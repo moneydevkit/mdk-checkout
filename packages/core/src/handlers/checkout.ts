@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { confirmCheckout, createCheckout, getCheckout } from '../actions'
 import type { CreateCheckoutParams } from '../actions'
 
-const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
+const createCheckoutSchema = z.object({
   title: z.string(),
   description: z.string(),
   amount: z.number(),
@@ -11,6 +11,13 @@ const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
   metadata: z.record(z.any()).optional(),
+  // Customer data fields
+  customerName: z.string().optional(),
+  customerEmail: z.string().optional(),
+  customerExternalId: z.string().optional(),
+  customerIpAddress: z.string().optional(),
+  // Customer data requirements
+  requireCustomerFields: z.any().optional(),
 })
 
 const confirmCheckoutSchema = z.object({
