@@ -41,6 +41,16 @@ export interface CreateCheckoutParams {
   successUrl?: string
   checkoutPath?: string
   metadata?: Record<string, any>
+  // Customer data fields
+  customerName?: string
+  customerEmail?: string
+  customerExternalId?: string
+  customerIpAddress?: string
+  // Customer data requirements
+  requireCustomerFields?: {
+    customerName?: boolean
+    customerEmail?: boolean
+  }
 }
 
 export async function createCheckout(params: CreateCheckoutParams) {
@@ -61,6 +71,13 @@ export async function createCheckout(params: CreateCheckoutParams) {
         successUrl: params.successUrl,
         ...metadataOverrides,
       },
+      // Customer data fields
+      customerName: params.customerName,
+      customerEmail: params.customerEmail,
+      customerExternalId: params.customerExternalId,
+      customerIpAddress: params.customerIpAddress,
+      // Customer data requirements
+      requireCustomerFields: params.requireCustomerFields,
     },
     node.id,
   )
