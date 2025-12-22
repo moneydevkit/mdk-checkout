@@ -18,15 +18,19 @@
         pkgs = import nixpkgs {
           inherit system;
         };
+        isLinux = pkgs.stdenv.isLinux;
       in
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             nodejs_24 # JavaScript runtime
+          ] ++ pkgs.lib.optionals isLinux [
             cypress # E2E testing framework
           ];
 
           env = {
+
+          } // pkgs.lib.optionalAttrs isLinux {
             # The auto-downloaded Cypress binary is not compatible Nix. We tell Cypress to use the binary from nixpkgs instead.
             CYPRESS_INSTALL_BINARY = 0;
             CYPRESS_RUN_BINARY = "${pkgs.cypress}/bin/Cypress";
@@ -34,6 +38,7 @@
 
           shellHook = ''
             echo "================================================"
+            ${pkgs.lib.optionalString isLinux ''
             # Check for Cypress version mismatch. A mismatch could cause compatibility issues which can occur when updating Cypress.
             if [ -f package.json ]; then
               PKG_VERSION=$(npm pkg get devDependencies.cypress 2>/dev/null | tr -d '"')
@@ -51,6 +56,7 @@
                 echo ""
               fi
             fi
+            ''}
 
             # Install node modules if they don't exist or are out of date
             if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
