@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEMO_DIR="$ROOT_DIR/examples/mdk-nextjs-demo"
+
+cd "$ROOT_DIR"
+
+# Build @moneydevkit/core
+echo "Building @moneydevkit/core..."
+npm run build --workspace packages/core
+
+# Pack @moneydevkit/core tarball
+echo ""
+echo "Packing @moneydevkit/core..."
+rm -f "$DEMO_DIR/moneydevkit-core-local.tgz"
+npm pack ./packages/core --pack-destination "$DEMO_DIR"
+mv "$DEMO_DIR"/moneydevkit-core-*.tgz "$DEMO_DIR/moneydevkit-core-local.tgz"
+
+# Build @moneydevkit/nextjs
+echo ""
+echo "Building @moneydevkit/nextjs..."
+npm run build --workspace packages/nextjs
+
+# Pack @moneydevkit/nextjs tarball
+echo ""
+echo "Packing @moneydevkit/nextjs..."
+rm -f "$DEMO_DIR/moneydevkit-nextjs-local.tgz"
+npm pack ./packages/nextjs --pack-destination "$DEMO_DIR"
+mv "$DEMO_DIR"/moneydevkit-nextjs-*.tgz "$DEMO_DIR/moneydevkit-nextjs-local.tgz"
+
+# Sync package-lock integrity for local tarballs
+echo ""
+echo "Syncing package-lock.json..."
+cd "$DEMO_DIR"
+node ./scripts/sync-local-tarball.mjs
+
+# Install demo dependencies
+echo ""
+echo "Installing demo dependencies..."
+npm ci
+
+echo ""
+echo "✅ Demo app prepared successfully!"
+
