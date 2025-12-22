@@ -103,9 +103,6 @@ jobs:
           npm pkg set dependencies.@moneydevkit/core=$NEW_VERSION --workspace packages/nextjs
           npm pkg set dependencies.@moneydevkit/core=$NEW_VERSION --workspace packages/replit
 
-          # Update package-lock.json
-          npm install --package-lock-only
-
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
       - name: Build all packages
@@ -127,6 +124,10 @@ jobs:
       - name: Publish @moneydevkit/replit
         if: steps.skip_check.outputs.skip != 'true'
         run: npm publish ./packages/replit --tag beta --provenance --access public
+
+      - name: Update package-lock.json
+        if: steps.skip_check.outputs.skip != 'true'
+        run: npm install --package-lock-only
 
       - name: Commit and push version bump
         if: steps.skip_check.outputs.skip != 'true'
