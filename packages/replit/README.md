@@ -47,6 +47,7 @@ export default function App() {
           amount: 500,
           currency: 'USD',
           successUrl: '/checkout/success',
+          metadata: { name: 'John Doe' },
         })
       }
       disabled={isNavigating}
