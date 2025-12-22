@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.skip_check.outputs.skip != 'true'
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Configure git
         if: steps.skip_check.outputs.skip != 'true'
