@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.skip_check.outputs.skip != 'true'
-        run: npm ci
+        run: npm ci && npm rebuild
 
       - name: Configure git
         if: steps.skip_check.outputs.skip != 'true'
