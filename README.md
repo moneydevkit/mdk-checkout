@@ -35,9 +35,7 @@ export default function HomePage() {
       prompt: "Describe the purchase shown to the buyer",
       amount: 500,
       currency: "USD",
-      metadata: {
-        successUrl: "/checkout/success",
-      },
+      successUrl: "/checkout/success",
     });
   };
 
