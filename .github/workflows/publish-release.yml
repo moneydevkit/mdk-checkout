@@ -1,0 +1,188 @@
+# Publish Release Workflow
+#
+# This workflow publishes stable releases of all @moneydevkit packages
+# when a GitHub release is created with a tag matching v*.
+#
+# How it works:
+# 1. Triggers on GitHub release publish (tag must start with 'v') or manual dispatch
+# 2. Extracts the version number from the tag (e.g., v0.4.0 → 0.4.0)
+# 3. Validates the version:
+#    - Must be valid semver format
+#    - Must match the version in package.json (e.g., tag v0.4.0 requires package.json 0.4.0-beta.X)
+# 4. Updates ALL packages to the release version (unified versioning)
+# 5. Updates @moneydevkit/core dependency in nextjs and replit packages
+# 6. Builds and publishes all packages to npm with the "latest" tag
+# 7. Commits release version and updates tag to point to it (for reproducibility)
+# 8. Bumps version to next minor (e.g., 0.4.0 → 0.5.0) and pushes to main
+#    This prepares main for the next development cycle (betas will be 0.5.0-beta.0, etc.)
+#
+# Example: gh release create v0.4.0 --title "v0.4.0" --notes "Release notes"
+
+name: Publish Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish from (must match v*)"
+        required: false
+
+jobs:
+  publish:
+    if: |
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use workflow_dispatch tag if provided
+        if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+        run: git checkout ${{ inputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: ${{ env.NPM_PUBLISH_REGISTRY }}
+
+      - name: Upgrade npm (required for trusted publishing)
+        run: npm install -g npm@11.6.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate and extract version from tag
+        run: |
+          # Get tag name from release event or workflow_dispatch input
+          if [ "${{ github.event_name }}" == "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+
+          # Extract version (remove 'v' prefix)
+          VERSION="${TAG#v}"
+          echo "Release version: $VERSION"
+
+          # Validate version format (basic semver check)
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Invalid version format: $VERSION"
+            echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
+            exit 1
+          fi
+
+          # Get current version from core package (strip any -beta.X suffix for comparison)
+          CURRENT_VERSION=$(node -p "require('./packages/core/package.json').version.replace(/-beta\.\d+$/, '')")
+          echo "Current version (without beta): $CURRENT_VERSION"
+
+          # Validate that tag version matches package.json version
+          node -e "
+            const semver = require('semver');
+            const current = '$CURRENT_VERSION';
+            const release = '$VERSION';
+
+            if (!semver.valid(release)) {
+              console.error('Error: Invalid semver version: ' + release);
+              process.exit(1);
+            }
+
+            if (release !== current) {
+              console.error('Error: Tag version ' + release + ' does not match package.json version ' + current);
+              console.error('The release tag must match the version in package.json (without beta suffix).');
+              console.error('Example: if package.json has 0.4.0-beta.3, create release with tag v0.4.0');
+              process.exit(1);
+            }
+
+            console.log('Version validation passed: tag ' + release + ' matches package.json ' + current);
+          "
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Update all packages to release version
+        run: |
+          echo "Updating all packages to version $VERSION"
+
+          # Update all packages to the release version
+          cd packages/core && npm version $VERSION --no-git-tag-version --allow-same-version && cd ../..
+          cd packages/nextjs && npm version $VERSION --no-git-tag-version --allow-same-version && cd ../..
+          cd packages/create && npm version $VERSION --no-git-tag-version --allow-same-version && cd ../..
+          cd packages/replit && npm version $VERSION --no-git-tag-version --allow-same-version && cd ../..
+
+          # Update @moneydevkit/core dependency in nextjs and replit
+          npm pkg set dependencies.@moneydevkit/core=$VERSION --workspace packages/nextjs
+          npm pkg set dependencies.@moneydevkit/core=$VERSION --workspace packages/replit
+
+          echo "All packages updated to $VERSION"
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Publish @moneydevkit/core
+        run: npm publish ./packages/core --provenance --access public
+
+      - name: Publish @moneydevkit/nextjs
+        run: npm publish ./packages/nextjs --provenance --access public
+
+      - name: Publish @moneydevkit/create
+        run: npm publish ./packages/create --provenance --access public
+
+      - name: Publish @moneydevkit/replit
+        run: npm publish ./packages/replit --provenance --access public
+
+      - name: Update tag to point to release version
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit the release version changes
+          git add -A
+          git commit -m "release: v$VERSION"
+
+          # Update the tag to point to this commit (so tag matches published versions)
+          git tag -f v$VERSION
+          git push origin v$VERSION --force
+
+      - name: Bump version for next development cycle
+        run: |
+          # Checkout main branch
+          git checkout main
+          git pull origin main
+
+          # Calculate next minor version
+          NEXT_VERSION=$(node -e "
+            const semver = require('semver');
+            const next = semver.inc('$VERSION', 'minor');
+            console.log(next);
+          ")
+          echo "Next development version: $NEXT_VERSION"
+
+          # Update all packages to next version
+          cd packages/core && npm version $NEXT_VERSION --no-git-tag-version && cd ../..
+          cd packages/nextjs && npm version $NEXT_VERSION --no-git-tag-version && cd ../..
+          cd packages/create && npm version $NEXT_VERSION --no-git-tag-version && cd ../..
+          cd packages/replit && npm version $NEXT_VERSION --no-git-tag-version && cd ../..
+
+          # Update @moneydevkit/core dependency in nextjs and replit
+          npm pkg set dependencies.@moneydevkit/core=$NEXT_VERSION --workspace packages/nextjs
+          npm pkg set dependencies.@moneydevkit/core=$NEXT_VERSION --workspace packages/replit
+
+          # Update package-lock.json
+          npm install --package-lock-only
+
+          # Commit and push
+          git add -A
+          git commit -m "chore: bump version to $NEXT_VERSION for next development cycle [skip ci]"
+          git push origin main

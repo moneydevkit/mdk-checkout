@@ -75,8 +75,25 @@ npm run run:local    # talk to a dashboard at http://localhost:3900
 
 ## Releasing to npm
 
-1. Bump the version in `packages/create/package.json` (for example: `npm version 0.2.0 --workspace packages/create --no-git-tag-version`) and commit the resulting `package-lock.json` change.
-2. Push the commit, then create a GitHub release (or annotated tag) named `create-vX.Y.Z` that matches the new version string.
-3. The `publish-create` workflow will detect that tag, run the build, and execute `npm publish packages/create --access public` using trusted publishing.
+All `@moneydevkit/*` packages share a unified version number and are released together.
+
+### Beta releases (automatic)
+
+Every push to `main` that modifies files in `packages/` triggers the `publish-beta` workflow:
+1. All packages are bumped to the next beta version (e.g., `0.4.0-beta.0` → `0.4.0-beta.1`)
+2. All packages are published to npm with the `beta` tag
+
+Install the latest beta with:
+```bash
+npx @moneydevkit/create@beta
+npm install @moneydevkit/nextjs@beta
+```
+
+### Stable releases
+
+1. Create a GitHub release with a tag matching the version in package.json (e.g., if package.json has `0.4.0-beta.3`, create tag `v0.4.0`)
+2. The `publish-release` workflow validates, publishes, and bumps to the next minor version
 
 Once that workflow succeeds, `npx @moneydevkit/create@latest` automatically downloads the freshly published build.
+
+See the [main README](../../README.md#releasing) for version flow examples and error cases.
