@@ -2,6 +2,11 @@
   "name": "@moneydevkit/replit",
   "version": "0.4.0",
   "description": "Money Dev Kit checkout package for Replit (Vite + Express).",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
+    "directory": "packages/replit"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
