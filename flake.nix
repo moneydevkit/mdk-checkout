@@ -33,10 +33,7 @@
           };
 
           shellHook = ''
-            echo "Money Dev Kit Checkout Development Environment"
-            echo "Node.js version: $(node --version)"
-            echo "npm version: $(npm --version)"
-
+            echo "================================================"
             # Check for Cypress version mismatch. A mismatch could cause compatibility issues which can occur when updating Cypress.
             if [ -f package.json ]; then
               PKG_VERSION=$(npm pkg get devDependencies.cypress 2>/dev/null | tr -d '"')
@@ -56,7 +53,7 @@
             fi
 
             # Install node modules if they don't exist or are out of date
-            if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
+            if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
               echo "Installing dependencies"
               npm ci
             fi
