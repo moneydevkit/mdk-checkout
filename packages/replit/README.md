@@ -46,7 +46,7 @@ export default function App() {
           description: 'Description of the purchase',
           amount: 500,
           currency: 'USD',
-          metadata: { successUrl: '/checkout/success' },
+          successUrl: '/checkout/success',
         })
       }
       disabled={isNavigating}

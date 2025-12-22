@@ -1,0 +1,12 @@
+MDK-333: Move successUrl from metadata to top-level parameter
+
+Update demo app and all READMEs to pass successUrl as a top-level
+option in the navigate() call instead of inside metadata. This aligns
+with the new validation that prevents reserved keys in metadata and
+ensures metadata remains a readonly payload for custom user data only.
+
+Changed files:
+- examples/mdk-nextjs-demo/app/page.tsx
+- README.md
+- packages/nextjs/README.md
+- packages/replit/README.md
