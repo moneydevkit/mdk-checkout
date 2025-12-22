@@ -70,6 +70,15 @@ NEXT_PUBLIC_MDK_API_PATH=/api/mdk-mock
 MDK_API_PATH=/api/mdk-mock
 EOF
             fi
+
+            # Prepare demo app if dependency tarballs don't exist
+            if [ ! -f examples/mdk-nextjs-demo/moneydevkit-core-local.tgz ] || [ ! -f examples/mdk-nextjs-demo/moneydevkit-nextjs-local.tgz ]; then
+              echo "Dependency tarballs not found, preparing demo app..."
+              ./scripts/prepare-demo
+            fi
+
+            echo "Development environment ready"
+            echo "================================================"
           '';
         };
       }
