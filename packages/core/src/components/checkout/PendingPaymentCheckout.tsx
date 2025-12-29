@@ -143,7 +143,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
         <div className="w-full">
           <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
             <CollapsibleTrigger className="flex items-center justify-center gap-2 text-gray-400 hover:text-white transition-colors text-sm w-full font-medium">
-              View Detailssssss
+              View Details
               <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-in-out ${detailsOpen ? 'rotate-180' : ''}`} />
             </CollapsibleTrigger>
             <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">

@@ -69,18 +69,22 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   })
 }
 
-function validateWebhookSecret(request: Request): Response | null {
+function validateWebhookSecret(request: Request, { silent = false } = {}): Response | null {
   const expectedSecret = process.env.MDK_ACCESS_TOKEN
 
   if (!expectedSecret) {
-    error('MDK_ACCESS_TOKEN environment variable is not configured.')
+    if (!silent) {
+      error('MDK_ACCESS_TOKEN environment variable is not configured.')
+    }
     return jsonResponse(500, { error: 'Webhook secret is not configured.' })
   }
 
   const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER)
 
   if (!providedSecret || providedSecret !== expectedSecret) {
-    log('Unauthorized webhook request received. Please confirm that MDK_ACCESS_TOKEN is set to the correct value.')
+    if (!silent) {
+      log('Unauthorized webhook request received. Please confirm that MDK_ACCESS_TOKEN is set to the correct value.')
+    }
     return jsonResponse(401, { error: 'Unauthorized' })
   }
 
@@ -188,7 +192,7 @@ async function handleRequest(request: Request) {
     }
   } else if (routeRequiresCsrf(route)) {
     // Allow webhook secret as an override for server-to-server calls; otherwise require a CSRF token.
-    const secretError = validateWebhookSecret(request)
+    const secretError = validateWebhookSecret(request, { silent: true })
     if (secretError) {
       const csrfError = validateCsrf(request)
       if (csrfError) {
