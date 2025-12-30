@@ -60,7 +60,7 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
   return (await response.json()) as T
 }
 
-export async function clientCreateCheckout(params: CreateCheckoutParams) {
+export async function clientCreateCheckout(params: CreateCheckoutParams): Promise<CheckoutType> {
   const response = await postToMdk<{ data: CheckoutType }>('create_checkout', { params })
   if (!response?.data) {
     throw new Error('Invalid create checkout response')
@@ -68,7 +68,7 @@ export async function clientCreateCheckout(params: CreateCheckoutParams) {
   return response.data
 }
 
-export async function clientGetCheckout(checkoutId: string) {
+export async function clientGetCheckout(checkoutId: string): Promise<CheckoutType> {
   const response = await postToMdk<{ data: CheckoutType }>('get_checkout', { checkoutId })
   if (!response?.data) {
     throw new Error('Checkout not found')
@@ -76,7 +76,7 @@ export async function clientGetCheckout(checkoutId: string) {
   return response.data
 }
 
-export async function clientConfirmCheckout(confirm: ConfirmCheckout) {
+export async function clientConfirmCheckout(confirm: ConfirmCheckout): Promise<CheckoutType> {
   const response = await postToMdk<{ data: CheckoutType }>('confirm_checkout', { confirm })
   if (!response?.data) {
     throw new Error('Failed to confirm checkout')

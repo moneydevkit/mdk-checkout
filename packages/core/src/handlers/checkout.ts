@@ -1,9 +1,18 @@
 import { z } from 'zod'
 
 import { confirmCheckout, createCheckout, getCheckout } from '../actions'
-import type { CreateCheckoutParams } from '../actions'
 
-const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
+/**
+ * Customer data schema - matches api-contract but without complex transforms
+ * to avoid TypeScript type instantiation issues.
+ */
+const customerInputSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  externalId: z.string().optional(),
+}).catchall(z.string())
+
+const createCheckoutSchema = z.object({
   title: z.string(),
   description: z.string(),
   amount: z.number(),
@@ -11,12 +20,13 @@ const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
   metadata: z.record(z.any()).optional(),
+  customer: customerInputSchema.optional(),
+  requireCustomerData: z.array(z.string()).optional(),
 })
 
 const confirmCheckoutSchema = z.object({
   checkoutId: z.string(),
-  customerEmail: z.string().optional(),
-  customerName: z.string().optional(),
+  customer: customerInputSchema.optional(),
 })
 
 function jsonResponse(status: number, body: Record<string, unknown>) {

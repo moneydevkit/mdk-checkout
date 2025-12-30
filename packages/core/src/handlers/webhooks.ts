@@ -28,6 +28,7 @@ async function handleIncomingPayment() {
         paymentHash: payment.paymentHash,
         // amount comes in msat from the node, convert to sats
         amountSats: payment.amount / 1000,
+        sandbox: false,
       })),
     });
   } catch (error) {
