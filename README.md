@@ -146,3 +146,4 @@ package.json: 0.4.0-beta.2
     ↓ gh release create v0.4.0
 SUCCESS: Publishes 0.4.0, then bumps to 0.5.0
 ```
+.
