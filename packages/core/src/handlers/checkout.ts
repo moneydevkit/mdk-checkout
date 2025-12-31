@@ -15,8 +15,12 @@ const createCheckoutSchema: z.ZodType<CreateCheckoutParams> = z.object({
 
 const confirmCheckoutSchema = z.object({
   checkoutId: z.string(),
-  customerEmail: z.string().optional(),
-  customerName: z.string().optional(),
+  customer: z
+    .object({
+      email: z.string().optional(),
+      name: z.string().optional(),
+    })
+    .optional(),
 })
 
 function jsonResponse(status: number, body: Record<string, unknown>) {

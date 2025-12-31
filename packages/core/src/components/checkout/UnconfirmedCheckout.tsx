@@ -31,23 +31,29 @@ export interface UnconfirmedCheckoutProps {
 export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutProps) {
   const queryClient = useQueryClient()
 
-  const needsEmail = checkout.requireCustomerFields?.customerEmail && !checkout.customerEmail
-  const needsName = checkout.requireCustomerFields?.customerName && !checkout.customerName
+  const needsEmail = checkout.requireCustomerData?.includes('email') && !checkout.customer?.email
+  const needsName = checkout.requireCustomerData?.includes('name') && !checkout.customer?.name
 
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(CustomerFormSchema),
     defaultValues: {
-      customerEmail: checkout.customerEmail || '',
-      customerName: checkout.customerName || '',
+      customerEmail: checkout.customer?.email || '',
+      customerName: checkout.customer?.name || '',
     },
   })
 
   const confirmMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
+      const customer: { email?: string; name?: string } = {}
+      if (data.customerEmail) {
+        customer.email = data.customerEmail
+      }
+      if (data.customerName) {
+        customer.name = data.customerName
+      }
       return await clientConfirmCheckout({
         checkoutId: checkout.id,
-        customerEmail: data.customerEmail || undefined,
-        customerName: data.customerName || undefined,
+        ...(Object.keys(customer).length > 0 && { customer }),
       })
     },
     onSuccess: () => {
