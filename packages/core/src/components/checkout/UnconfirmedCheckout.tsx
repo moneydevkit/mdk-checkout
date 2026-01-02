@@ -105,11 +105,11 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
       <div className="text-center mb-6">
         {checkout.type === 'PRODUCTS' && checkout.products && (
           <div className="space-y-2">
-            {checkout.products.map((product: { id: string; name: string; description?: string | null; recurringInterval?: string | null; prices: Array<{ id: string; amountType: string; priceAmount?: number | null }> }) => (
+            {checkout.products.map((product) => (
               <div key={product.id} className="text-left">
                 <h3 className="font-medium text-white">{product.name}</h3>
                 {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
-                {product.prices.map((price: { id: string; amountType: string; priceAmount?: number | null }) => (
+                {product.prices.map((price) => (
                   <div key={price.id} className="text-sm text-gray-300">
                     {price.amountType === 'FIXED' && price.priceAmount && (
                       <span>{formatCurrency(price.priceAmount, checkout.currency)}</span>
