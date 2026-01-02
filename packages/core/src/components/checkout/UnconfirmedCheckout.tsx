@@ -17,37 +17,66 @@ import { Input } from '../ui/input'
 
 type UnconfirmedCheckoutType = Extract<Checkout, { status: 'UNCONFIRMED' }>
 
-const CustomerFormSchema = z.object({
-  customerEmail: z.string().email('Please enter a valid email address').optional(),
-  customerName: z.string().optional(),
-})
-
-type CustomerFormData = z.infer<typeof CustomerFormSchema>
-
 export interface UnconfirmedCheckoutProps {
   checkout: UnconfirmedCheckoutType
 }
 
+/**
+ * Convert camelCase field name to readable label.
+ * e.g., "billingAddress" -> "Billing Address"
+ */
+function fieldToLabel(field: string): string {
+  return field
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim()
+}
+
+/**
+ * Get fields that need to be shown in the form.
+ * A field is shown if it's in requireCustomerData and not already provided.
+ */
+function getMissingRequiredFields(checkout: UnconfirmedCheckoutType): string[] {
+  if (!checkout.requireCustomerData) return []
+
+  return checkout.requireCustomerData.filter((field: string) => {
+    const value = checkout.customer?.[field]
+    return value === undefined || value === null || value === ''
+  })
+}
+
 export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutProps) {
   const queryClient = useQueryClient()
+  const missingFields = getMissingRequiredFields(checkout)
 
-  const needsEmail = checkout.requireCustomerFields?.customerEmail && !checkout.customerEmail
-  const needsName = checkout.requireCustomerFields?.customerName && !checkout.customerName
+  // Build dynamic schema based on missing required fields
+  const schemaShape: Record<string, z.ZodTypeAny> = {}
+  for (const field of missingFields) {
+    if (field === 'email') {
+      schemaShape[field] = z.string().email('Please enter a valid email address')
+    } else {
+      schemaShape[field] = z.string().min(1, `${fieldToLabel(field)} is required`)
+    }
+  }
+  const CustomerFormSchema = z.object(schemaShape)
+  type CustomerFormData = z.infer<typeof CustomerFormSchema>
+
+  // Build default values from existing customer data
+  const defaultValues: Record<string, string> = {}
+  for (const field of missingFields) {
+    defaultValues[field] = ''
+  }
 
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(CustomerFormSchema),
-    defaultValues: {
-      customerEmail: checkout.customerEmail || '',
-      customerName: checkout.customerName || '',
-    },
+    defaultValues,
   })
 
   const confirmMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
       return await clientConfirmCheckout({
         checkoutId: checkout.id,
-        customerEmail: data.customerEmail || undefined,
-        customerName: data.customerName || undefined,
+        customer: data,
       })
     },
     onSuccess: () => {
@@ -104,18 +133,19 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {needsEmail && (
+          {missingFields.map((field) => (
             <FormField
+              key={field}
               control={form.control}
-              name="customerEmail"
-              render={({ field }) => (
+              name={field}
+              render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel className="text-gray-300">Email Address *</FormLabel>
+                  <FormLabel className="text-gray-300">{fieldToLabel(field)} *</FormLabel>
                   <FormControl>
                     <Input
-                      {...field}
-                      type="email"
-                      placeholder="Enter your email"
+                      {...formField}
+                      type={field === 'email' ? 'email' : 'text'}
+                      placeholder={`Enter your ${fieldToLabel(field).toLowerCase()}`}
                       className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
                     />
                   </FormControl>
@@ -123,28 +153,7 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                 </FormItem>
               )}
             />
-          )}
-
-          {needsName && (
-            <FormField
-              control={form.control}
-              name="customerName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-300">Full Name *</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="text"
-                      placeholder="Enter your full name"
-                      className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          ))}
 
           {form.formState.errors.root && (
             <div className="text-red-400 text-sm">Error: {form.formState.errors.root.message}</div>

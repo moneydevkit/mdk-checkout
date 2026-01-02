@@ -68,6 +68,64 @@ export default function CheckoutPage({ params }: { params: { id: string } }) {
 }
 ```
 
+## Customer Data
+Collect and store customer information with each checkout. Pass `customer` to pre-fill data and `requireCustomerData` to prompt the user for specific fields:
+
+```tsx
+navigate({
+  title: "Premium Plan",
+  description: 'Monthly subscription',
+  amount: 1000,
+  currency: 'USD',
+  successUrl: '/checkout/success',
+  // Pre-fill customer data (optional)
+  customer: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+  // Require fields at checkout (shows form if not provided)
+  requireCustomerData: ['name', 'email', 'company'],
+})
+```
+
+### How it works
+- If all `requireCustomerData` fields are already provided in `customer`, the form is skipped
+- If some required fields are missing, a form is shown to collect only those fields
+- **Email is required** to create a customer record. Without email, customer data is attached to the checkout but no customer record is created
+- Field names are flexible: `tax_id`, `tax-id`, `taxId`, or `Tax ID` all normalize to `taxId`
+- Custom fields (beyond `name`, `email`, `externalId`) are stored in customer metadata
+
+### Returning customers
+Customers are matched by `email` or `externalId`. When a match is found:
+- Existing customer data is preserved and not overwritten
+- Only missing fields from `requireCustomerData` are requested
+- All checkouts and orders are linked to the same customer record
+
+### Using externalId for authenticated users
+When your user is already authenticated in your app, pass `externalId` to link checkouts to their account:
+
+```tsx
+navigate({
+  title: "Premium Plan",
+  description: 'Monthly subscription',
+  amount: 1000,
+  currency: 'USD',
+  successUrl: '/checkout/success',
+  customer: {
+    externalId: user.id,  // Your app's user ID
+    name: user.name,
+    email: user.email,
+  },
+  requireCustomerData: ['name', 'email'],
+})
+```
+
+When `externalId` is provided:
+- The system assumes the user is authenticated
+- If the customer already exists (matched by `externalId`), their stored `name` and `email` are used
+- Only fields missing from the customer record are requested
+- This prevents authenticated users from being asked for data you already have
+
 Verify successful payments:
 ```tsx
 import { useCheckoutSuccess } from '@moneydevkit/replit'
