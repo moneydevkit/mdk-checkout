@@ -39,7 +39,6 @@ export default function HomePage() {
       currency: "USD",
       successUrl: "/checkout/success",
       metadata,
-      successUrl: "/checkout/success",
       checkoutPath: "/checkout",
     });
   };
