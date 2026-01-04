@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { confirmCheckout, createCheckout, getCheckout } from '../actions'
+import { validateMetadata } from '@moneydevkit/api-contract'
 
 /**
  * Customer data schema - matches api-contract but without complex transforms
@@ -19,7 +20,19 @@ const createCheckoutSchema = z.object({
   currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string()).optional()
+    .superRefine((metadata, ctx) => {
+      const validation = validateMetadata(metadata)
+      if (!validation.ok) {
+        for (const error of validation.error) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: error.message,
+            path: ['metadata'],
+          })
+        }
+      }
+    }),
   customer: customerInputSchema.optional(),
   requireCustomerData: z.array(z.string()).optional(),
 })
