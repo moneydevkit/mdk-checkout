@@ -2,9 +2,8 @@ import type { Checkout } from '@moneydevkit/api-contract'
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { clientPayInvoice } from '../../client-actions'
-import { warn } from '../../logging'
 import { is_preview_environment } from '../../preview'
 import { Button } from '../ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
@@ -15,6 +14,22 @@ export interface PendingPaymentCheckoutProps {
   checkout: PendingPaymentCheckoutType
 }
 
+/**
+ * Generate a deterministic fake invoice string for sandbox mode.
+ * This creates a realistic-looking but clearly fake Lightning invoice.
+ */
+function generateSandboxInvoice(checkoutId: string, amountSats: number): string {
+  // Create a fake but realistic-looking BOLT11 invoice prefix
+  // Real invoices start with lnbc (mainnet) or lntb (testnet)
+  // We use lnsb (sandbox) to make it clearly identifiable
+  const prefix = 'lnsb'
+  const amountPart = `${amountSats}n`
+  // Use checkout ID to create deterministic fake data
+  const hash = checkoutId.replace(/-/g, '').slice(0, 52)
+  const padding = '0'.repeat(Math.max(0, 52 - hash.length))
+  return `${prefix}${amountPart}1p${hash}${padding}sandbox`
+}
+
 export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheckoutProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
@@ -23,8 +38,23 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   const [markPaidError, setMarkPaidError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const isPreview = is_preview_environment()
-  warn('isPreview_environment()', is_preview_environment())
+
+  // In preview mode, generate a fake invoice for display purposes
+  const invoiceAmountSats = checkout.invoice?.amountSats ?? checkout.invoiceAmountSats ?? 0
+  const sandboxInvoice = useMemo(
+    () => generateSandboxInvoice(checkout.id, invoiceAmountSats),
+    [checkout.id, invoiceAmountSats]
+  )
+
+  // Use sandbox invoice in preview mode, real invoice otherwise
+  const displayInvoice = isPreview ? sandboxInvoice : (checkout.invoice?.invoice ?? '')
   useEffect(() => {
+    // In preview mode, don't show expiry timer since the invoice is fake
+    if (isPreview) {
+      setTimeRemaining('')
+      return
+    }
+
     const updateTimer = () => {
       if (!checkout.invoice?.expiresAt) return
 
@@ -46,7 +76,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     const interval = setInterval(updateTimer, 1000)
 
     return () => clearInterval(interval)
-  }, [checkout.invoice?.expiresAt])
+  }, [checkout.invoice?.expiresAt, isPreview])
 
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -60,9 +90,9 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   }
 
   const copyToClipboard = async () => {
-    if (checkout.invoice?.invoice) {
+    if (displayInvoice) {
       try {
-        await navigator.clipboard.writeText(checkout.invoice.invoice)
+        await navigator.clipboard.writeText(displayInvoice)
         setCopySuccess(true)
         setTimeout(() => setCopySuccess(false), 2000)
       } catch (error) {
@@ -94,7 +124,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     </svg>
   )
 
-  const invoiceAmountSats = checkout.invoice?.amountSats ?? checkout.invoiceAmountSats ?? null
   const paymentHash = checkout.invoice?.paymentHash
 
   const handleMarkAsPaid = useCallback(async () => {
@@ -127,16 +156,28 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     </svg>
   )
 
-  warn('isPreview', isPreview)
-  warn('paymentHash', paymentHash)
-  warn('invoiceAmountSats', invoiceAmountSats)
+  const SandboxBanner = () => (
+    <div className="mb-4 p-3 bg-amber-900/30 border border-amber-600/50 rounded-lg">
+      <div className="flex items-center gap-2 mb-1">
+        <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span className="text-amber-400 font-medium text-sm">Sandbox Mode</span>
+      </div>
+      <p className="text-amber-200/80 text-xs leading-relaxed">
+        This is a demo QR code. Real payments require deploying your app to a stable URL.
+      </p>
+    </div>
+  )
 
   return (
     <>
+      {isPreview && <SandboxBanner />}
+
       <div className="text-center mb-6 w-full">
         <div className="mb-4 w-full">
           <div className="text-2xl font-semibold mb-2 font-sans tracking-tight">
-            {checkout.invoice?.amountSats && `${formatSats(checkout.invoice.amountSats)} sats`}
+            {invoiceAmountSats > 0 && `${formatSats(invoiceAmountSats)} sats`}
           </div>
         </div>
 
@@ -148,20 +189,30 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
             </CollapsibleTrigger>
             <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">
               <div className="mt-4 space-y-3 text-sm w-full">
-                <div className="flex justify-between w-full">
-                  <span className="text-gray-400">Total Fiat</span>
-                  <span className="text-white">
-                    {checkout.invoice?.fiatAmount && checkout.currency &&
-                      formatCurrency(checkout.invoice.fiatAmount, checkout.currency)}
-                  </span>
-                </div>
-                <div className="flex justify-between w-full">
-                  <span className="text-gray-400">Exchange Rate</span>
-                  <span className="text-white">
-                    {checkout.invoice?.btcPrice && `$${new Intl.NumberFormat('en-US').format(checkout.invoice.btcPrice)}`}
-                  </span>
-                </div>
-                {timeRemaining && (
+                {!isPreview && (
+                  <>
+                    <div className="flex justify-between w-full">
+                      <span className="text-gray-400">Total Fiat</span>
+                      <span className="text-white">
+                        {checkout.invoice?.fiatAmount && checkout.currency &&
+                          formatCurrency(checkout.invoice.fiatAmount, checkout.currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between w-full">
+                      <span className="text-gray-400">Exchange Rate</span>
+                      <span className="text-white">
+                        {checkout.invoice?.btcPrice && `$${new Intl.NumberFormat('en-US').format(checkout.invoice.btcPrice)}`}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {isPreview && (
+                  <div className="flex justify-between w-full">
+                    <span className="text-gray-400">Mode</span>
+                    <span className="text-amber-400">Sandbox (Demo)</span>
+                  </div>
+                )}
+                {timeRemaining && !isPreview && (
                   <div className="flex justify-between w-full">
                     <span className="text-gray-400">Expires in</span>
                     <span className="text-white">{timeRemaining}</span>
@@ -173,26 +224,31 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
         </div>
       </div>
 
-      <div className="flex justify-center mb-4 w-full">
+      <div className="flex justify-center mb-4 w-full relative">
         <div
-          className="bg-white p-3 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow"
+          className={`bg-white p-3 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow ${isPreview ? 'ring-2 ring-amber-500/50' : ''}`}
           onClick={copyToClipboard}
-          title="Click to copy invoice"
+          title={isPreview ? 'Demo QR code - click to copy' : 'Click to copy invoice'}
         >
           <QRCodeSVG
-            value={checkout.invoice?.invoice ?? ''}
+            value={displayInvoice}
             size={320}
             bgColor="#ffffff"
-            fgColor="#000000"
+            fgColor={isPreview ? '#78350f' : '#000000'}
             level="Q"
           />
         </div>
+        {isPreview && (
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+            DEMO
+          </div>
+        )}
       </div>
 
-      {checkout.invoice?.invoice && (
-        <div className="flex items-center gap-2 mb-6 bg-gray-700 p-3 rounded-lg w-full">
-          <code className="text-xs text-gray-300 font-mono flex-1 text-center min-w-0">
-            {truncateInvoice(checkout.invoice.invoice)}
+      {displayInvoice && (
+        <div className={`flex items-center gap-2 mb-6 p-3 rounded-lg w-full ${isPreview ? 'bg-amber-900/20 border border-amber-600/30' : 'bg-gray-700'}`}>
+          <code className={`text-xs font-mono flex-1 text-center min-w-0 ${isPreview ? 'text-amber-200/70' : 'text-gray-300'}`}>
+            {truncateInvoice(displayInvoice)}
           </code>
           <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
             {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}
@@ -201,17 +257,20 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
       )}
 
       {isPreview && paymentHash && invoiceAmountSats && (
-        <div className="mt-4 flex justify-center">
+        <div className="mt-4 flex flex-col items-center gap-2">
           <Button
             onClick={handleMarkAsPaid}
             disabled={markingPaid}
-            className="bg-gray-700 hover:bg-gray-900 text-gray-300"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
           >
-            {markingPaid ? 'Marking as paid...' : 'Mark as Paid (Sandbox)'}
+            {markingPaid ? 'Simulating payment...' : 'Simulate Payment'}
           </Button>
           {markPaidError && (
-            <p className="text-red-400 text-xs text-center mt-2">{markPaidError}</p>
+            <p className="text-red-400 text-xs text-center">{markPaidError}</p>
           )}
+          <p className="text-gray-500 text-xs text-center mt-1">
+            Click to simulate a successful payment in sandbox mode
+          </p>
         </div>
       )}
     </>

@@ -1,0 +1,16 @@
+MDK-370: Show sandbox QR code in preview mode
+
+Sandbox users testing from Replit preview URLs were seeing real
+Lightning invoices that would fail or retry indefinitely because
+preview URLs are temporary and unstable.
+
+Changes:
+- Display a fake/demo QR code in preview mode instead of a real
+  Lightning invoice that could fail
+- Add a prominent "Sandbox Mode" banner explaining that real
+  payments require deploying to a stable URL
+- Add visual indicators (amber coloring, "DEMO" badge) to make
+  it clear the checkout is in sandbox mode
+- Rename "Mark as Paid" button to "Simulate Payment" for clarity
+- Hide expiry timer and exchange rate details in preview mode
+  since they don't apply to sandbox invoices
