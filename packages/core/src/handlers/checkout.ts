@@ -64,13 +64,14 @@ export async function handleCreateCheckout(request: Request): Promise<Response> 
     return jsonResponse(400, { error: 'Invalid checkout params', details: parsed.error.issues })
   }
 
-  try {
-    const checkout = await createCheckout(parsed.data.params)
-    return jsonResponse(200, { data: checkout })
-  } catch (error) {
-    console.error(error)
-    return jsonResponse(500, { error: 'Failed to create checkout' })
+  const result = await createCheckout(parsed.data.params)
+
+  if (result.error) {
+    const statusCode = result.error.code === 'webhook_unreachable' ? 400 : 500
+    return jsonResponse(statusCode, { error: result.error.message, code: result.error.code })
   }
+
+  return jsonResponse(200, { data: result.data.checkout })
 }
 
 export async function handleGetCheckout(request: Request): Promise<Response> {

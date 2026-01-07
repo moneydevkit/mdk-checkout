@@ -34,26 +34,39 @@ Trigger a checkout from your client code (the checkout component pulls in its ow
 ```tsx
 // src/App.tsx
 import { useCheckout } from '@moneydevkit/replit'
+import { useState } from 'react'
 
 export default function App() {
-  const { navigate, isNavigating } = useCheckout()
+  const { createCheckout, isLoading } = useCheckout()
+  const [error, setError] = useState<string | null>(null)
+
+  const handlePurchase = async () => {
+    setError(null)
+
+    const result = await createCheckout({
+      title: 'Purchase title for the buyer',
+      description: 'Description of the purchase',
+      amount: 500,
+      currency: 'USD',
+      successUrl: '/checkout/success',
+      metadata: { name: 'John Doe' },
+    })
+
+    if (result.error) {
+      setError(result.error.message)
+      return
+    }
+
+    window.location.href = result.checkoutUrl
+  }
 
   return (
-    <button
-      onClick={() =>
-        navigate({
-          title: 'Purchase title for the buyer',
-          description: 'Description of the purchase',
-          amount: 500,
-          currency: 'USD',
-          successUrl: '/checkout/success',
-          metadata: { name: 'John Doe' },
-        })
-      }
-      disabled={isNavigating}
-    >
-      {isNavigating ? 'Creating checkout…' : 'Buy Now'}
-    </button>
+    <div>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <button onClick={handlePurchase} disabled={isLoading}>
+        {isLoading ? 'Creating checkout…' : 'Buy Now'}
+      </button>
+    </div>
   )
 }
 ```
@@ -72,7 +85,7 @@ export default function CheckoutPage({ params }: { params: { id: string } }) {
 Collect and store customer information with each checkout. Pass `customer` to pre-fill data and `requireCustomerData` to prompt the user for specific fields:
 
 ```tsx
-navigate({
+const result = await createCheckout({
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,
@@ -105,7 +118,7 @@ Customers are matched by `email` or `externalId`. When a match is found:
 When your user is already authenticated in your app, pass `externalId` to link checkouts to their account:
 
 ```tsx
-navigate({
+const result = await createCheckout({
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,

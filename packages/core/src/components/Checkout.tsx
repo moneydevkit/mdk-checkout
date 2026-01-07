@@ -150,23 +150,24 @@ function CheckoutInternal({ id }: CheckoutProps) {
       ? window.location.pathname.split('/').slice(0, -1).join('/') || '/checkout'
       : '/checkout'
 
-    try {
-      setIsRestarting(true)
+    setIsRestarting(true)
 
-      const newCheckout = await clientCreateCheckout({
-        title: (checkout.userMetadata?.title as string) || 'Checkout',
-        description: (checkout.userMetadata?.description as string) || '',
-        amount,
-        currency: checkout.currency as 'USD' | 'SAT',
-        successUrl: (checkout.userMetadata?.successUrl as string) ?? checkout.successUrl ?? undefined,
-        metadata: checkout.userMetadata ?? undefined,
-      })
+    const result = await clientCreateCheckout({
+      title: (checkout.userMetadata?.title as string) || 'Checkout',
+      description: (checkout.userMetadata?.description as string) || '',
+      amount,
+      currency: checkout.currency as 'USD' | 'SAT',
+      successUrl: (checkout.userMetadata?.successUrl as string) ?? checkout.successUrl ?? undefined,
+      metadata: checkout.userMetadata ?? undefined,
+    })
 
-      window.location.href = `${checkoutPath}/${newCheckout.id}`
-    } catch (error) {
-      console.error('Failed to restart checkout', error)
+    if (result.error) {
+      console.error('Failed to restart checkout', result.error)
       setIsRestarting(false)
+      return
     }
+
+    window.location.href = `${checkoutPath}/${result.data.id}`
   }, [checkout])
 
   if (!checkout) {

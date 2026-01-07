@@ -26,23 +26,38 @@ MDK_MNEMONIC=your_mnemonic_here
 "use client";
 
 import { useCheckout } from "@moneydevkit/nextjs";
+import { useState } from "react";
 
 export default function HomePage() {
-  const { navigate, isNavigating } = useCheckout();
+  const { createCheckout, isLoading } = useCheckout();
+  const [error, setError] = useState(null);
 
-  const handlePurchase = () => {
-    navigate({
-      prompt: "Describe the purchase shown to the buyer",
+  const handlePurchase = async () => {
+    setError(null);
+
+    const result = await createCheckout({
+      title: "Product Name",
+      description: "Describe the purchase shown to the buyer",
       amount: 500,
       currency: "USD",
       successUrl: "/checkout/success",
     });
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    window.location.href = result.checkoutUrl;
   };
 
   return (
-    <button onClick={handlePurchase} disabled={isNavigating}>
-      {isNavigating ? "Creating checkout…" : "Buy now"}
-    </button>
+    <div>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      <button onClick={handlePurchase} disabled={isLoading}>
+        {isLoading ? "Creating checkout…" : "Buy now"}
+      </button>
+    </div>
   );
 }
 ```
