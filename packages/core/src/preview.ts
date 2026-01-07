@@ -23,6 +23,11 @@ function isTruthyFlag(value: string | undefined): boolean {
 }
 
 export function is_preview_environment(): boolean {
+  // Explicit preview/sandbox flag
+  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW'))) {
+    return true
+  }
+
   // Replit sets REPLIT_DEPLOYMENT=1 on published apps.
   if (isTruthyFlag(getEnvFlag('REPLIT_DEPLOYMENT'))) {
     return false
