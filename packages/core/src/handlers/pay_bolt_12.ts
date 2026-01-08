@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { log } from "../logging";
 import { createMoneyDevKitNode } from "../mdk";
+import { getPayoutAddressForType } from "../payout-address";
 
 const bolt12Schema = z.object({
   amount: z.number().positive(),
@@ -13,7 +14,7 @@ export async function handlePayBolt12(request: Request): Promise<Response> {
     const parsed = bolt12Schema.parse(body);
 
     const node = createMoneyDevKitNode();
-    const bolt12Offer = process.env.WITHDRAWAL_BOLT_12;
+    const bolt12Offer = getPayoutAddressForType('bolt12');
 
     log("Initiating Bolt 12 payment flow");
 

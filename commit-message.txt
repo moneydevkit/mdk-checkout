@@ -1,0 +1,16 @@
+MDK-405: Add unified PAYOUT_ADDRESS environment variable
+
+Introduce a new PAYOUT_ADDRESS env var that simplifies payout configuration
+by accepting multiple formats: LNURL, Lightning Address, Bolt12 Offer, and
+BIP-353. The address type is automatically detected based on format.
+
+Legacy WITHDRAWAL_BOLT_11, WITHDRAWAL_BOLT_12, and WITHDRAWAL_LNURL env
+vars are maintained for backwards compatibility but now emit deprecation
+warnings encouraging migration to PAYOUT_ADDRESS.
+
+Changes:
+- Add payout-address.ts module with address type detection
+- Update pay_bolt_11, pay_bolt_12, and pay_ln_url handlers
+- Export payout-address utilities from @moneydevkit/core
+- Update .env.example with new variable and deprecation notes
+- Add comprehensive tests for address detection and config resolution
