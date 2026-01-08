@@ -23,8 +23,12 @@ function isTruthyFlag(value: string | undefined): boolean {
 }
 
 export function is_preview_environment(): boolean {
-  // Explicit preview/sandbox flag
-  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW'))) {
+  // Explicit preview/sandbox flag (check both with and without NEXT_PUBLIC_ prefix)
+  // Direct check for Next.js compatibility (must be literal for build-time replacement)
+  if (
+    isTruthyFlag(getEnvFlag('MDK_PREVIEW')) ||
+    (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_PREVIEW === '1' || process.env.NEXT_PUBLIC_MDK_PREVIEW === 'true'))
+  ) {
     return true
   }
 
