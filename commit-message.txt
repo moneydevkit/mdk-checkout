@@ -4,13 +4,19 @@ Introduce a new PAYOUT_ADDRESS env var that simplifies payout configuration
 by accepting multiple formats: LNURL, Lightning Address, Bolt12 Offer, and
 BIP-353. The address type is automatically detected based on format.
 
+Add a new unified `payout` handler that mdk.com can call without needing
+to specify the payment type. The handler reads PAYOUT_ADDRESS, detects
+the address type, and routes to the appropriate payment method.
+
 Legacy WITHDRAWAL_BOLT_11, WITHDRAWAL_BOLT_12, and WITHDRAWAL_LNURL env
 vars are maintained for backwards compatibility but now emit deprecation
 warnings encouraging migration to PAYOUT_ADDRESS.
 
 Changes:
 - Add payout-address.ts module with address type detection
+- Add unified payout handler (handlers/payout.ts)
+- Register `payout` route in route.ts
 - Update pay_bolt_11, pay_bolt_12, and pay_ln_url handlers
 - Export payout-address utilities from @moneydevkit/core
 - Update .env.example with new variable and deprecation notes
-- Add comprehensive tests for address detection and config resolution
+- Add comprehensive tests for address detection and payout handler

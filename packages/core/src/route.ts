@@ -7,6 +7,7 @@ import { handlePayBolt11 } from './handlers/pay_bolt_11'
 import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
+import { handlePayout } from './handlers/payout'
 import { handlePing } from './handlers/ping'
 import { handleMdkWebhook } from './handlers/webhooks'
 import { error, log } from './logging'
@@ -26,6 +27,7 @@ const routeSchema = z.enum([
   'pay_ln_url',
   'list_channels',
   'pay_bolt11',
+  'payout',
   'create_checkout',
   'get_checkout',
   'confirm_checkout',
@@ -42,6 +44,7 @@ const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   pay_ln_url: { handler: handlePayLNUrl, auth: 'secret' },
   list_channels: { handler: listChannels, auth: 'secret' },
   pay_bolt11: { handler: handlePayBolt11, auth: 'secret' },
+  payout: { handler: handlePayout, auth: 'secret' },
   create_checkout: { handler: handleCreateCheckout, auth: 'csrf' },
   get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
