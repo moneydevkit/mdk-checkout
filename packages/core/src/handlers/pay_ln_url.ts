@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { log } from "../logging";
 import { createMoneyDevKitNode } from "../mdk";
+import { getPayoutAddressForType, getPayoutConfig } from "../payout-address";
 
 const lnurlSchema = z.object({
   amount: z.number().positive(),
@@ -13,7 +14,22 @@ export async function handlePayLNUrl(request: Request): Promise<Response> {
     const parsed = lnurlSchema.parse(body);
 
     const node = createMoneyDevKitNode();
-    const lnurl = process.env.WITHDRAWAL_LNURL;
+
+    // LNURL handler supports LNURL, Lightning Address, and BIP-353 formats
+    const config = getPayoutConfig();
+    let lnurl: string | null = null;
+
+    if (config.address) {
+      const { type, address } = config.address;
+      if (type === 'lnurl' || type === 'lightning_address' || type === 'bip353') {
+        lnurl = address;
+      }
+    }
+
+    // Fall back to type-specific lookup for legacy compatibility
+    if (!lnurl) {
+      lnurl = getPayoutAddressForType('lnurl');
+    }
 
     log("Initiating LNURL payment flow");
 
