@@ -5,7 +5,7 @@ export const MAINNET_MDK_NODE_OPTIONS = {
   network: 'mainnet',
   vssUrl: 'https://vss.moneydevkit.com/vss',
   esploraUrl: 'https://esplora.moneydevkit.com/api',
-  rgsUrl: 'https://rapidsync.lightningdevkit.org/snapshot',
+  rgsUrl: 'https://rapidsync.lightningdevkit.org/snapshot/v2',
   lspNodeId: '02a63339cc6b913b6330bd61b2f469af8785a6011a6305bb102298a8e76697473b',
   lspAddress: 'lsp.moneydevkit.com:9735',
 } as const

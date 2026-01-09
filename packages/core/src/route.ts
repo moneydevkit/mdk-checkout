@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { handleBalance } from './handlers/balance'
 import { handleConfirmCheckout, handleCreateCheckout, handleGetCheckout } from './handlers/checkout'
 import { listChannels } from './handlers/list_channels'
+import { handleSyncRgs } from './handlers/sync_rgs'
 import { handlePayBolt11 } from './handlers/pay_bolt_11'
 import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
@@ -30,6 +31,7 @@ const routeSchema = z.enum([
   'get_checkout',
   'confirm_checkout',
   'pay_invoice',
+  'sync_rgs',
 ])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
@@ -46,6 +48,7 @@ const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
   pay_invoice: { handler: handlePreviewPayInvoice, auth: 'csrf' },
+  sync_rgs: { handler: handleSyncRgs, auth: 'secret' },
 }
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}

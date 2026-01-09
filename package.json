@@ -16,8 +16,8 @@
     "test:e2e": "concurrently -k -s first \"npm run dev --prefix examples/mdk-nextjs-demo -- --hostname 0.0.0.0 --port 3010\" \"wait-on http://localhost:3010 && CYPRESS_BASE_URL=http://localhost:3010 cypress run --spec cypress/e2e/checkout.cy.ts\""
   },
   "optionalDependencies": {
-    "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.56",
-    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.56"
+    "@moneydevkit/lightning-js-linux-arm64-gnu": "^0.1.57",
+    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.57"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
