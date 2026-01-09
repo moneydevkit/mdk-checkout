@@ -1,4 +1,4 @@
-import type { Checkout, ConfirmCheckout } from '@moneydevkit/api-contract'
+import type { Checkout, ConfirmCheckout, Product } from '@moneydevkit/api-contract'
 
 import { log, error as logError } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
@@ -49,6 +49,12 @@ export async function getCheckout(checkoutId: string): Promise<Checkout> {
   // createMoneyDevKitClient can throw on invalid config
   const client = createMoneyDevKitClient()
   return await client.checkouts.get({ id: checkoutId })
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const client = createMoneyDevKitClient()
+  const result = await client.products.list()
+  return result.products
 }
 
 export async function confirmCheckout(confirm: ConfirmCheckout): Promise<Checkout> {
