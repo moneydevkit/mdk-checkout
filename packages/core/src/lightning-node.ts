@@ -3,7 +3,7 @@ import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
 
 process.env.RUST_LOG ??=
-  'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug'
+  'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug,lightning_rapid_gossip_sync=debug'
 
 type LightningModule = typeof import('@moneydevkit/lightning-js')
 type LightningNodeConstructor = LightningModule['MdkNode']
@@ -146,6 +146,10 @@ export class MoneyDevKitNode {
 
   syncWallets() {
     return this.node.syncWallets()
+  }
+
+  syncRgs(doFullSync: boolean) {
+    return this.node.syncRgs(doFullSync)
   }
 
   getBalance() {
