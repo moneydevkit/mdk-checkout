@@ -3,12 +3,12 @@ import { z } from 'zod'
 import { handleBalance } from './handlers/balance'
 import { handleConfirmCheckout, handleCreateCheckout, handleGetCheckout } from './handlers/checkout'
 import { listChannels } from './handlers/list_channels'
-import { handleSyncRgs } from './handlers/sync_rgs'
 import { handlePayBolt11 } from './handlers/pay_bolt_11'
 import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
 import { handlePing } from './handlers/ping'
+import { handleSyncRgs } from './handlers/sync_rgs'
 import { handleMdkWebhook } from './handlers/webhooks'
 import { error, log } from './logging'
 
@@ -214,9 +214,10 @@ async function handleRequest(request: Request) {
 
   try {
     return await handler(request)
-  } catch (error) {
-    console.error(error)
-    return jsonResponse(500, { error: 'Internal Server Error' })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    error('Unhandled error in route handler:', message)
+    return jsonResponse(500, { error: message })
   }
 }
 
