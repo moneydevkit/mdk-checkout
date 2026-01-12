@@ -7,3 +7,6 @@ export * from './mdk-config'
 export * from './money-dev-kit'
 export * from './payment-state'
 export * from './preview'
+export * from './startup-validation'
+export * from './types'
+
