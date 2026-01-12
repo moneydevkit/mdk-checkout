@@ -21,13 +21,17 @@ moneydevkit checkout library for embedding Lightning-powered payments inside Nex
 'use client'
 
 import { useCheckout } from '@moneydevkit/nextjs'
+import { useState } from 'react'
 
 export default function HomePage() {
-  const { navigate, isNavigating } = useCheckout()
+  const { createCheckout, isLoading } = useCheckout()
+  const [error, setError] = useState(null)
 
-  const handlePurchase = () => {
-    navigate({
-      title: "Describe the purchase shown to the buyer",
+  const handlePurchase = async () => {
+    setError(null)
+
+    const result = await createCheckout({
+      title: 'Describe the purchase shown to the buyer',
       description: 'A description of the purchase',
       amount: 500,         // 500 USD cents or Bitcoin sats
       currency: 'USD',     // or 'SAT'
@@ -38,12 +42,22 @@ export default function HomePage() {
         name: 'John Doe'
       }
     })
+
+    if (result.error) {
+      setError(result.error.message)
+      return
+    }
+
+    window.location.href = result.checkoutUrl
   }
 
   return (
-    <button onClick={handlePurchase} disabled={isNavigating}>
-      {isNavigating ? 'Creating checkout…' : 'Buy Now'}
-    </button>
+    <div>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <button onClick={handlePurchase} disabled={isLoading}>
+        {isLoading ? 'Creating checkout…' : 'Buy Now'}
+      </button>
+    </div>
   )
 }
 ```
@@ -82,7 +96,7 @@ You now have a complete Lightning checkout loop: the button creates a session, t
 Collect and store customer information with each checkout. Pass `customer` to pre-fill data and `requireCustomerData` to prompt the user for specific fields:
 
 ```jsx
-navigate({
+const result = await createCheckout({
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,
@@ -115,7 +129,7 @@ Customers are matched by `email` or `externalId`. When a match is found:
 When your user is already authenticated in your app, pass `externalId` to link checkouts to their account:
 
 ```jsx
-navigate({
+const result = await createCheckout({
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,
