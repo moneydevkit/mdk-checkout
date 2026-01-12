@@ -1,11 +1,10 @@
 import type { Checkout, ConfirmCheckout } from '@moneydevkit/api-contract'
 
-import { log } from './logging'
+import { log, error as logError } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 import { is_preview_environment } from './preview'
-
-const isPreview = is_preview_environment()
+import type { Result } from './types'
 
 /**
  * Convert any string format to camelCase.
@@ -46,6 +45,7 @@ function normalizeFieldName(field: string): string {
 }
 
 export async function getCheckout(checkoutId: string): Promise<Checkout> {
+  // createMoneyDevKitClient can throw on invalid config
   const client = createMoneyDevKitClient()
   return await client.checkouts.get({ id: checkoutId })
 }
@@ -126,54 +126,65 @@ export interface CreateCheckoutParams {
 
 export async function createCheckout(
   params: CreateCheckoutParams
-): Promise<Checkout> {
+): Promise<Result<{ checkout: Checkout }>> {
   const amount = params.amount ?? 200
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
 
-  const client = createMoneyDevKitClient()
-  const node = createMoneyDevKitNode()
-
-  const checkout = await client.checkouts.create(
-    {
-      amount,
-      currency,
-      metadata: {
-        title: params.title,
-        description: params.description,
-        successUrl: params.successUrl,
-        ...metadataOverrides,
+  try {
+    const client = createMoneyDevKitClient()
+    const node = createMoneyDevKitNode()
+    const checkout = await client.checkouts.create(
+      {
+        amount,
+        currency,
+        metadata: {
+          title: params.title,
+          description: params.description,
+          successUrl: params.successUrl,
+          ...metadataOverrides,
+        },
+        // Customer data (nested object) - strip empty strings and normalize keys
+        customer: cleanCustomerInput(params.customer),
+        // Required customer fields - normalize to camelCase
+        requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
       },
-      // Customer data (nested object) - strip empty strings and normalize keys
-      customer: cleanCustomerInput(params.customer),
-      // Required customer fields - normalize to camelCase
-      requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
-    },
-    node.id,
-  )
+      node.id,
+    )
 
-  if (checkout.status === 'CONFIRMED') {
-    const invoice = checkout.invoiceScid
-      ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
-      : node.invoices.create(checkout.invoiceAmountSats)
+    if (checkout.status === 'CONFIRMED') {
+      const invoice = checkout.invoiceScid
+        ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
+        : node.invoices.create(checkout.invoiceAmountSats)
 
-    const pendingPaymentCheckout = await client.checkouts.registerInvoice({
-      paymentHash: invoice.paymentHash,
-      invoice: invoice.invoice,
-      invoiceExpiresAt: invoice.expiresAt,
-      checkoutId: checkout.id,
-      nodeId: node.id,
-      scid: invoice.scid,
-    })
+      const pendingPaymentCheckout = await client.checkouts.registerInvoice({
+        paymentHash: invoice.paymentHash,
+        invoice: invoice.invoice,
+        invoiceExpiresAt: invoice.expiresAt,
+        checkoutId: checkout.id,
+        nodeId: node.id,
+        scid: invoice.scid,
+      })
 
-    return pendingPaymentCheckout
+      return { data: { checkout: pendingPaymentCheckout }, error: null }
+    }
+
+    return { data: { checkout }, error: null }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    logError('Checkout creation failed:', message)
+    return {
+      data: null,
+      error: {
+        code: 'checkout_creation_failed',
+        message: `Failed to create checkout: ${message}`,
+      },
+    }
   }
-
-  return checkout
 }
 
 export async function markInvoicePaidPreview(paymentHash: string, amountSats: number) {
-  if (!isPreview) {
+  if (!is_preview_environment()) {
     throw new Error('markInvoicePaidPreview can only be used in preview environments.')
   }
 
