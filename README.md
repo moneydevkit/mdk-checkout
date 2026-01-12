@@ -6,6 +6,29 @@ This repository hosts multiple npm packages that power the Money Dev Kit develop
 - `@moneydevkit/nextjs` – Next.js checkout components and helpers located in `packages/nextjs`.
 - `@moneydevkit/create` – Developer onboarding CLI located in `packages/create`.
 
+## Quick Start (Next.js)
+
+Render the checkout page:
+```jsx
+// app/checkout/[id]/page.js
+"use client";
+import { Checkout } from "@moneydevkit/nextjs";
+import { use } from "react";
+
+export default function CheckoutPage({ params }) {
+  const { id } = use(params);
+  return <Checkout id={id} />;
+}
+```
+
+Expose the API endpoint:
+```js
+// app/api/mdk/route.js
+export { POST } from "@moneydevkit/nextjs/server/route";
+```
+
+See [packages/nextjs/README.md](packages/nextjs/README.md) for full setup instructions.
+
 ## Workspace scripts
 Run commands from the repo root using npm workspaces:
 

@@ -57,7 +57,7 @@ export default function App() {
       return
     }
 
-    window.location.href = result.checkoutUrl
+    window.location.href = result.data.checkoutUrl
   }
 
   return (

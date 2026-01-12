@@ -11,6 +11,7 @@
   "dependencies": {
     "@moneydevkit/nextjs": "file:moneydevkit-nextjs-local.tgz",
     "@moneydevkit/core": "file:moneydevkit-core-local.tgz",
+    "bip39": "^3.1.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"

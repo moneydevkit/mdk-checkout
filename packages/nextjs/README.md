@@ -48,7 +48,7 @@ export default function HomePage() {
       return
     }
 
-    window.location.href = result.checkoutUrl
+    window.location.href = result.data.checkoutUrl
   }
 
   return (
@@ -79,7 +79,7 @@ export default function CheckoutPage({ params }) {
 ### 3. Expose the unified Money Dev Kit endpoint
 ```js
 // app/api/mdk/route.js
-export { POST } from '@moneydevkit/nextjs/server/route'
+export { POST } from "@moneydevkit/nextjs/server/route";
 ```
 
 ### 4. Configure Next.js
