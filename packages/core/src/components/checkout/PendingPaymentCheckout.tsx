@@ -4,7 +4,6 @@ import { ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useState } from 'react'
 import { clientPayInvoice } from '../../client-actions'
-import { warn } from '../../logging'
 import { is_preview_environment } from '../../preview'
 import { Button } from '../ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
@@ -23,7 +22,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   const [markPaidError, setMarkPaidError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const isPreview = is_preview_environment()
-  warn('isPreview_environment()', is_preview_environment())
   useEffect(() => {
     const updateTimer = () => {
       if (!checkout.invoice?.expiresAt) return
@@ -127,10 +125,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     </svg>
   )
 
-  warn('isPreview', isPreview)
-  warn('paymentHash', paymentHash)
-  warn('invoiceAmountSats', invoiceAmountSats)
-
   return (
     <>
       <div className="text-center mb-6 w-full">
@@ -175,24 +169,36 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
       <div className="flex justify-center mb-4 w-full">
         <div
-          className="bg-white p-3 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white p-3 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow relative"
           onClick={copyToClipboard}
           title="Click to copy invoice"
         >
           <QRCodeSVG
-            value={checkout.invoice?.invoice ?? ''}
+            value={isPreview ? 'SANDBOX_PREVIEW_MODE' : (checkout.invoice?.invoice ?? '')}
             size={320}
             bgColor="#ffffff"
             fgColor="#000000"
             level="Q"
           />
+          {isPreview && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div
+                className="text-white font-bold text-lg px-4 py-2 rounded transform -rotate-12 shadow-lg"
+                style={{ backgroundColor: '#475569', opacity: 0.95 }}
+              >
+                SANDBOX
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {checkout.invoice?.invoice && (
+      {(checkout.invoice?.invoice || isPreview) && (
         <div className="flex items-center gap-2 mb-6 bg-gray-700 p-3 rounded-lg w-full">
           <code className="text-xs text-gray-300 font-mono flex-1 text-center min-w-0">
-            {truncateInvoice(checkout.invoice.invoice)}
+            {isPreview
+              ? truncateInvoice('lnbc1500n1pnxxx...sandbox_invoice...xxxyyyzzz')
+              : truncateInvoice(checkout.invoice?.invoice ?? '')}
           </code>
           <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
             {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}

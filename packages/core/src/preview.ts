@@ -1,4 +1,6 @@
+// Helper to get env var - Next.js requires direct access for client-side inlining
 function getEnvFlag(key: string): string | undefined {
+  // For server-side or non-Next.js environments, dynamic access works
   if (typeof process !== 'undefined' && typeof process.env !== 'undefined') {
     const value = process.env[key]
     if (value !== undefined) {
@@ -23,8 +25,16 @@ function isTruthyFlag(value: string | undefined): boolean {
 }
 
 export function is_preview_environment(): boolean {
-  // Explicit preview/sandbox flag (check both MDK_PREVIEW and NEXT_PUBLIC_MDK_PREVIEW)
-  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW')) || isTruthyFlag(getEnvFlag('NEXT_PUBLIC_MDK_PREVIEW'))) {
+  // Explicit preview/sandbox flag - use direct access for Next.js client-side inlining
+  // Next.js only inlines NEXT_PUBLIC_* vars when accessed directly (not via process.env[key])
+  if (typeof process !== 'undefined' && typeof process.env !== 'undefined') {
+    if (isTruthyFlag(process.env.NEXT_PUBLIC_MDK_PREVIEW)) {
+      return true
+    }
+  }
+
+  // Fallback to dynamic access for server-side and non-Next.js environments
+  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW'))) {
     return true
   }
 
