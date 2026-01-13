@@ -4,6 +4,7 @@ import { log, error as logError } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 import { is_preview_environment } from './preview'
+import { failure, success } from './types'
 import type { Result } from './types'
 
 /**
@@ -166,20 +167,17 @@ export async function createCheckout(
         scid: invoice.scid,
       })
 
-      return { data: { checkout: pendingPaymentCheckout }, error: null }
+      return success({ checkout: pendingPaymentCheckout })
     }
 
-    return { data: { checkout }, error: null }
+    return success({ checkout })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     logError('Checkout creation failed:', message)
-    return {
-      data: null,
-      error: {
-        code: 'checkout_creation_failed',
-        message: `Failed to create checkout: ${message}`,
-      },
-    }
+    return failure({
+      code: 'checkout_creation_failed',
+      message: `Failed to create checkout: ${message}`,
+    })
   }
 }
 

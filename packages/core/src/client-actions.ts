@@ -2,6 +2,7 @@ import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
 import { is_preview_environment } from './preview'
+import { failure, success } from './types'
 import type { Result } from './types'
 
 const API_PATH =
@@ -59,13 +60,10 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
       body: JSON.stringify({ handler, ...payload }),
     })
   } catch {
-    return {
-      data: null,
-      error: {
-        code: 'network_error',
-        message: 'Failed to connect to the server. Please check your internet connection.',
-      },
-    }
+    return failure({
+      code: 'network_error',
+      message: 'Failed to connect to the server. Please check your internet connection.',
+    })
   }
 
   if (!response.ok) {
@@ -82,30 +80,24 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
     // Extract the first validation error message if available
     const validationMessage = hasValidationDetails ? details[0]?.message : undefined
 
-    return {
-      data: null,
-      error: {
-        code: hasValidationDetails ? 'validation_error' : response.status >= 500 ? 'server_error' : 'invalid_request',
-        message: validationMessage || errorBody.error || `Request failed with status ${response.status}`,
-        details: errorBody.details,
-      },
-    }
+    return failure({
+      code: hasValidationDetails ? 'validation_error' : response.status >= 500 ? 'server_error' : 'invalid_request',
+      message: validationMessage || errorBody.error || `Request failed with status ${response.status}`,
+      details: errorBody.details,
+    })
   }
 
   // Server returns { data: T }, unwrap it
   const body = (await response.json()) as { data?: T }
 
   if (!body.data) {
-    return {
-      data: null,
-      error: {
-        code: 'invalid_response',
-        message: 'Invalid response from server',
-      },
-    }
+    return failure({
+      code: 'invalid_response',
+      message: 'Invalid response from server',
+    })
   }
 
-  return { data: body.data, error: null }
+  return success(body.data)
 }
 
 export async function clientCreateCheckout(params: CreateCheckoutParams): Promise<Result<CheckoutType>> {

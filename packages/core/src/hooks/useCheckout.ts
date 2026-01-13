@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { CreateCheckoutParams } from '../actions'
 import { clientCreateCheckout } from '../client-actions'
 import { log } from '../logging'
+import { failure, success } from '../types'
 import type { MdkError, Result } from '../types'
 
 export function useCheckout() {
@@ -18,13 +19,13 @@ export function useCheckout() {
 
     if (result.error) {
       setError(result.error)
-      return { data: null, error: result.error }
+      return failure(result.error)
     }
 
     const checkoutPath = params.checkoutPath || '/checkout'
     const checkoutUrl = `${checkoutPath}/${result.data.id}`
 
-    return { data: { checkoutUrl }, error: null }
+    return success({ checkoutUrl })
   }, [])
 
   /**

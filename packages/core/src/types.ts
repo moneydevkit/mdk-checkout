@@ -9,3 +9,16 @@ export type Result<T> =
   | { data: T; error: null }
   | { data: null; error: MdkError }
 
+/**
+ * Creates a successful Result.
+ */
+export function success<T>(data: T): Result<T> {
+  return { data, error: null }
+}
+
+/**
+ * Creates a failed Result.
+ */
+export function failure(error: MdkError): Result<never> {
+  return { data: null, error }
+}
