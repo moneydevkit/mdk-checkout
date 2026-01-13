@@ -85,8 +85,8 @@ export interface MoneyDevKitNodeOptions {
   }
 }
 
-const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 15000
-const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 5000
+const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 6000
+const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 4000
 
 export class MoneyDevKitNode {
   private node: LightningNodeInstance
