@@ -128,6 +128,29 @@ export class MoneyDevKitNode {
     )
   }
 
+  /**
+   * Receive payments with an immediate callback for each payment received.
+   *
+   * This method behaves like `receivePayments` but fires a callback immediately
+   * when each payment is received, allowing for instant customer confirmation
+   * while the node continues to run for the full timeout period.
+   */
+  receivePaymentsWithCallback(
+    onPaymentReceived: (payment: { paymentHash: string; amount: number }) => void
+  ) {
+    return this.node.receivePaymentWithCallback(
+      RECEIVE_PAYMENTS_MIN_THRESHOLD_MS,
+      RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS,
+      (err: unknown, payment: { paymentHash: string; amount: number }) => {
+        if (err) {
+          console.error('[MoneyDevKitNode] Payment callback error:', err)
+          return
+        }
+        onPaymentReceived(payment)
+      }
+    )
+  }
+
   payBolt12Offer(bolt12: string, amountMsat: number): string {
     return this.node.payBolt12Offer(bolt12, amountMsat, 30)
   }
