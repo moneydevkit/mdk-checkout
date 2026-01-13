@@ -132,7 +132,7 @@ export async function clientPayInvoice(paymentHash: string, amountSats: number) 
 }
 
 export async function clientListProducts(): Promise<Product[]> {
-  const response = await postToMdk<{ data: { products: Product[] } }>('list_products', {})
+  const response = await postToMdk<{ products: Product[] }>('list_products', {})
   if (!response?.data?.products) {
     throw new Error('Failed to list products')
   }
