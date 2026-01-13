@@ -58,6 +58,12 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   }
 
   const copyToClipboard = async () => {
+    // Don't copy real invoice in preview mode
+    if (isPreview) {
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+      return
+    }
     if (checkout.invoice?.invoice) {
       try {
         await navigator.clipboard.writeText(checkout.invoice.invoice)

@@ -33,8 +33,8 @@ export function is_preview_environment(): boolean {
     }
   }
 
-  // Fallback to dynamic access for server-side and non-Next.js environments
-  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW'))) {
+  // Fallback to dynamic access for server-side and non-Next.js environments (e.g., Vite)
+  if (isTruthyFlag(getEnvFlag('MDK_PREVIEW')) || isTruthyFlag(getEnvFlag('NEXT_PUBLIC_MDK_PREVIEW'))) {
     return true
   }
 
