@@ -2,30 +2,59 @@ import { useCallback, useState } from 'react'
 import type { CreateCheckoutParams } from '../actions'
 import { clientCreateCheckout } from '../client-actions'
 import { log } from '../logging'
+import { failure, success } from '../types'
+import type { MdkError, Result } from '../types'
 
 export function useCheckout() {
-  const [isNavigating, setIsNavigating] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<MdkError | null>(null)
 
-  const navigate = useCallback(async (params: CreateCheckoutParams): Promise<void> => {
-    try {
-      setIsNavigating(true)
+  const createCheckout = useCallback(async (params: CreateCheckoutParams): Promise<Result<{ checkoutUrl: string }>> => {
+    setIsLoading(true)
+    setError(null)
 
-      const checkout = await clientCreateCheckout({
-        ...params,
-      })
+    const result = await clientCreateCheckout(params)
 
-      const checkoutPath = params.checkoutPath || '/checkout'
+    setIsLoading(false)
 
-      window.location.href = `${checkoutPath}/${checkout.id}`
-    } catch (error) {
-      setIsNavigating(false)
-      const err = error instanceof Error ? error : new Error('Checkout creation failed')
-      log('Checkout navigation error:', err)
+    if (result.error) {
+      setError(result.error)
+      return failure(result.error)
     }
+
+    const checkoutPath = params.checkoutPath || '/checkout'
+    const checkoutUrl = `${checkoutPath}/${result.data.id}`
+
+    return success({ checkoutUrl })
   }, [])
 
+  /**
+   * @deprecated Use `createCheckout()` instead for better error handling.
+   * This function auto-redirects on success and silently logs errors.
+   */
+  const navigate = useCallback(async (params: CreateCheckoutParams): Promise<void> => {
+    const result = await createCheckout(params)
+    if (result.error) {
+      log('Checkout navigation error:', result.error)
+      return
+    }
+    window.location.href = result.data.checkoutUrl
+  }, [createCheckout])
+
   return {
+    /** Create a checkout and return the URL. Does not redirect automatically. */
+    createCheckout,
+    /**
+     * @deprecated Use `createCheckout()` instead for better error handling.
+     */
     navigate,
-    isNavigating,
+    /** Whether a checkout operation is in progress */
+    isLoading,
+    /**
+     * @deprecated Use `isLoading` instead.
+     */
+    isNavigating: isLoading,
+    /** The last error that occurred, if any */
+    error,
   }
 }
