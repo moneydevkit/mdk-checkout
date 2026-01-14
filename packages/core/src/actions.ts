@@ -118,11 +118,36 @@ function normalizeRequireCustomerData(fields: string[] | undefined): string[] | 
 
 /**
  * Checkout params for creating a checkout.
+ *
+ * Two checkout types are supported:
+ *
+ * **AMOUNT type** - for donations, tips, custom amounts:
+ * ```ts
+ * createCheckout({ amount: 1000, title: 'Donation', description: 'Thanks!' })
+ * ```
+ *
+ * **PRODUCTS type** - for selling products:
+ * ```ts
+ * createCheckout({ productId: 'prod_123' })  // single product
+ * createCheckout({ products: ['prod_1', 'prod_2'] })  // multiple products
+ * ```
  */
 export interface CreateCheckoutParams {
-  title: string
-  description: string
-  amount: number
+  // AMOUNT type fields
+  /** Amount in cents (e.g., 1000 = $10.00). Required for AMOUNT type checkouts. */
+  amount?: number
+  /** Title shown to customer. Used for AMOUNT type checkouts. */
+  title?: string
+  /** Description shown to customer. Used for AMOUNT type checkouts. */
+  description?: string
+
+  // PRODUCTS type fields
+  /** Single product ID for checkout. Convenience for `products: [id]`. */
+  productId?: string
+  /** Array of product IDs for checkout. Creates a PRODUCTS type checkout. */
+  products?: string[]
+
+  // Common fields
   currency?: 'USD' | 'SAT'
   successUrl?: string
   checkoutPath?: string
@@ -134,21 +159,28 @@ export interface CreateCheckoutParams {
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
-  const amount = params.amount ?? 200
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
+
+  // Determine if this is a PRODUCTS or AMOUNT type checkout
+  const productIds = params.products ?? (params.productId ? [params.productId] : undefined)
+  const isProductsCheckout = productIds && productIds.length > 0
 
   try {
     const client = createMoneyDevKitClient()
     const node = createMoneyDevKitNode()
     const checkout = await client.checkouts.create(
       {
-        amount,
+        // For PRODUCTS checkout, don't send amount (it's calculated from products)
+        // For AMOUNT checkout, use provided amount or default to 200 cents
+        amount: isProductsCheckout ? undefined : (params.amount ?? 200),
         currency,
+        // Product IDs for PRODUCTS type checkout
+        products: productIds,
+        successUrl: params.successUrl,
         metadata: {
           title: params.title,
           description: params.description,
-          successUrl: params.successUrl,
           ...metadataOverrides,
         },
         // Customer data (nested object) - strip empty strings and normalize keys
