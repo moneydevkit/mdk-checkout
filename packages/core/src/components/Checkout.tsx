@@ -107,26 +107,10 @@ function CheckoutError({ error }: { error: CheckoutUrlError }) {
   )
 }
 
-// Check for error params synchronously (before useQuery runs)
-function getErrorFromUrl(): CheckoutUrlError | null {
-  if (typeof window === 'undefined') return null
-
-  const params = new URLSearchParams(window.location.search)
-  const errorCode = params.get('error')
-  const errorMessage = params.get('message')
-
-  if (errorCode) {
-    return {
-      code: errorCode,
-      message: errorMessage ?? 'An error occurred while creating the checkout.',
-    }
-  }
-  return null
-}
-
 function CheckoutInternal({ id }: CheckoutProps) {
-  // Initialize error state synchronously to prevent query from running
-  const [errorFromUrl] = useState<CheckoutUrlError | null>(getErrorFromUrl)
+  // Track whether we've checked for URL errors after hydration
+  const [hasCheckedUrlError, setHasCheckedUrlError] = useState(false)
+  const [errorFromUrl, setErrorFromUrl] = useState<CheckoutUrlError | null>(null)
   const [isWindowVisible, setIsWindowVisible] = useState(() => {
     if (typeof document === 'undefined') {
       return true
@@ -134,6 +118,26 @@ function CheckoutInternal({ id }: CheckoutProps) {
     return document.visibilityState === 'visible'
   })
   const [isRestarting, setIsRestarting] = useState(false)
+
+  // Check for URL errors after mount (to handle SSR hydration correctly)
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setHasCheckedUrlError(true)
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const errorCode = params.get('error')
+    const errorMessage = params.get('message')
+
+    if (errorCode) {
+      setErrorFromUrl({
+        code: errorCode,
+        message: errorMessage ?? 'An error occurred while creating the checkout.',
+      })
+    }
+    setHasCheckedUrlError(true)
+  }, [])
 
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') {
@@ -160,7 +164,7 @@ function CheckoutInternal({ id }: CheckoutProps) {
   const { data: checkout } = useQuery({
     queryKey: ['mdk-checkout', id],
     queryFn: () => clientGetCheckout(id!).then((checkout) => checkout as CheckoutType | undefined),
-    enabled: !!id && !errorFromUrl,
+    enabled: !!id && hasCheckedUrlError && !errorFromUrl,
     refetchInterval: ({ state: { data } }) => {
       if (!isWindowVisible) {
         return false

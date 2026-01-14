@@ -5,6 +5,7 @@ import {
   createCheckoutUrl,
   verifyCheckoutSignature,
   parseCheckoutQueryParams,
+  sanitizeCheckoutPath,
 } from '../src/handlers/checkout'
 
 const originalEnv = { ...process.env }
@@ -444,5 +445,100 @@ describe('createCheckoutUrl + verifyCheckoutSignature integration', () => {
     assert.equal(verifyCheckoutSignature(params, signature), true)
     assert.equal(verifyCheckoutSignature(params, signature), true)
     assert.equal(verifyCheckoutSignature(params, signature), true)
+  })
+})
+
+// ============================================================================
+// sanitizeCheckoutPath Tests (Open Redirect Prevention)
+// ============================================================================
+
+describe('sanitizeCheckoutPath', () => {
+  it('returns default /checkout for null input', () => {
+    assert.equal(sanitizeCheckoutPath(null), '/checkout')
+  })
+
+  it('returns default /checkout for empty string', () => {
+    assert.equal(sanitizeCheckoutPath(''), '/checkout')
+  })
+
+  it('accepts valid relative path /checkout', () => {
+    assert.equal(sanitizeCheckoutPath('/checkout'), '/checkout')
+  })
+
+  it('accepts valid relative path /pay', () => {
+    assert.equal(sanitizeCheckoutPath('/pay'), '/pay')
+  })
+
+  it('accepts nested path /app/checkout', () => {
+    assert.equal(sanitizeCheckoutPath('/app/checkout'), '/app/checkout')
+  })
+
+  it('accepts deeply nested path /api/v1/checkout', () => {
+    assert.equal(sanitizeCheckoutPath('/api/v1/checkout'), '/api/v1/checkout')
+  })
+
+  // Open redirect attack vectors
+  it('rejects absolute URL https://evil.com', () => {
+    assert.equal(sanitizeCheckoutPath('https://evil.com'), '/checkout')
+  })
+
+  it('rejects absolute URL http://evil.com', () => {
+    assert.equal(sanitizeCheckoutPath('http://evil.com'), '/checkout')
+  })
+
+  it('rejects protocol-relative URL //evil.com', () => {
+    assert.equal(sanitizeCheckoutPath('//evil.com'), '/checkout')
+  })
+
+  it('rejects path without leading slash checkout', () => {
+    assert.equal(sanitizeCheckoutPath('checkout'), '/checkout')
+  })
+
+  it('rejects path without leading slash evil.com/checkout', () => {
+    assert.equal(sanitizeCheckoutPath('evil.com/checkout'), '/checkout')
+  })
+
+  it('rejects embedded protocol https://evil.com/path', () => {
+    assert.equal(sanitizeCheckoutPath('https://evil.com/path'), '/checkout')
+  })
+
+  it('rejects path with embedded double slash /checkout//attack', () => {
+    assert.equal(sanitizeCheckoutPath('/checkout//attack'), '/checkout')
+  })
+
+  it('rejects path with protocol in middle /checkout?redirect=https://evil.com', () => {
+    // This contains :// so should be rejected
+    assert.equal(sanitizeCheckoutPath('/checkout?redirect=https://evil.com'), '/checkout')
+  })
+
+  it('accepts path with single colon /checkout:special', () => {
+    // Single colon without // is acceptable
+    assert.equal(sanitizeCheckoutPath('/checkout:special'), '/checkout:special')
+  })
+
+  it('accepts path with query params that do not contain protocol', () => {
+    assert.equal(sanitizeCheckoutPath('/checkout?foo=bar'), '/checkout?foo=bar')
+  })
+
+  it('rejects javascript: protocol', () => {
+    assert.equal(sanitizeCheckoutPath('javascript:alert(1)'), '/checkout')
+  })
+
+  it('rejects data: protocol', () => {
+    assert.equal(sanitizeCheckoutPath('data:text/html'), '/checkout')
+  })
+
+  // Edge cases
+  it('accepts path with dots /checkout/../something', () => {
+    // Path traversal is handled by the browser/server, sanitizeCheckoutPath just prevents open redirect
+    assert.equal(sanitizeCheckoutPath('/checkout/../something'), '/checkout/../something')
+  })
+
+  it('accepts root path /', () => {
+    assert.equal(sanitizeCheckoutPath('/'), '/')
+  })
+
+  it('accepts path with hash /checkout#section', () => {
+    assert.equal(sanitizeCheckoutPath('/checkout#section'), '/checkout#section')
   })
 })

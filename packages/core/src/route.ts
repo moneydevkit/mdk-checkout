@@ -8,6 +8,7 @@ import {
   handleCreateCheckoutFromUrl,
   parseCheckoutQueryParams,
   verifyCheckoutSignature,
+  sanitizeCheckoutPath,
 } from './handlers/checkout'
 
 // Re-export for use in nextjs package
@@ -282,7 +283,8 @@ export async function GET(request: Request): Promise<Response> {
     return new Response('Not found', { status: 404 })
   }
 
-  const checkoutPath = params.get('checkoutPath') ?? '/checkout'
+  // Sanitize checkoutPath early to prevent open redirect attacks
+  const checkoutPath = sanitizeCheckoutPath(params.get('checkoutPath'))
 
   // Verify signature is present
   const signature = params.get('signature')

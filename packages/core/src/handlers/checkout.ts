@@ -272,6 +272,34 @@ export function parseCheckoutQueryParams(params: URLSearchParams): Record<string
 }
 
 /**
+ * Validates and sanitizes checkoutPath to prevent open redirect attacks.
+ * Returns a safe relative path or the default '/checkout'.
+ *
+ * Security considerations:
+ * - Must start with / (relative path)
+ * - Must not contain :// or // (prevents protocol-relative URLs and absolute URLs)
+ */
+export function sanitizeCheckoutPath(checkoutPath: string | null): string {
+  const defaultPath = '/checkout'
+
+  if (!checkoutPath) {
+    return defaultPath
+  }
+
+  // Must start with / (relative path)
+  if (!checkoutPath.startsWith('/')) {
+    return defaultPath
+  }
+
+  // Must not contain :// or // (prevents protocol-relative URLs and absolute URLs)
+  if (checkoutPath.includes('://') || checkoutPath.includes('//')) {
+    return defaultPath
+  }
+
+  return checkoutPath
+}
+
+/**
  * Create a checkout from parsed query params.
  * Validates against the same schema as handleCreateCheckout.
  */
