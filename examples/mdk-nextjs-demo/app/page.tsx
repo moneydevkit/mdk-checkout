@@ -20,7 +20,8 @@ const chips = [
 export default function HomePage() {
   const [customerName, setCustomerName] = useState("Satoshi Nakamoto");
   const [note, setNote] = useState("Fast IBD snapshot with hosted checkout.");
-  const { navigate, isNavigating } = useCheckout();
+  const [error, setError] = useState<string | null>(null);
+  const { createCheckout, isLoading } = useCheckout();
 
   const metadata = useMemo(
     () => ({
@@ -31,8 +32,10 @@ export default function HomePage() {
     [customerName, note],
   );
 
-  const handleCheckout = () => {
-    navigate({
+  const handleCheckout = async () => {
+    setError(null);
+
+    const result = await createCheckout({
       title: "Lightning download",
       description: "A quick Money Dev Kit checkout running on Vercel.",
       amount: 2500,
@@ -41,6 +44,13 @@ export default function HomePage() {
       metadata,
       checkoutPath: "/checkout",
     });
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    window.location.href = result.data.checkoutUrl;
   };
 
   return (
@@ -88,14 +98,19 @@ export default function HomePage() {
                 placeholder="Describe the purchase"
                 autoComplete="off"
               />
+              {error && (
+                <p className="error" style={{ color: "#ef4444", marginBottom: "0.5rem" }}>
+                  {error}
+                </p>
+              )}
               <button
                 type="button"
                 className="button"
                 onClick={handleCheckout}
-                disabled={isNavigating}
+                disabled={isLoading}
                 data-test="start-checkout"
               >
-                {isNavigating ? "Creating checkout…" : "Launch checkout"}
+                {isLoading ? "Creating checkout…" : "Launch checkout"}
               </button>
               <p className="hint">
                 We create a checkout session with the values above and redirect to

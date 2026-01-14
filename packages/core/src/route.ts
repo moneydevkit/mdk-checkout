@@ -9,6 +9,7 @@ import { handlePreviewPayInvoice } from './handlers/pay_invoice'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
 import { handlePayout } from './handlers/payout'
 import { handlePing } from './handlers/ping'
+import { handleSyncRgs } from './handlers/sync_rgs'
 import { handleMdkWebhook } from './handlers/webhooks'
 import { error, log } from './logging'
 
@@ -32,6 +33,7 @@ const routeSchema = z.enum([
   'get_checkout',
   'confirm_checkout',
   'pay_invoice',
+  'sync_rgs',
 ])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
@@ -49,6 +51,7 @@ const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
   pay_invoice: { handler: handlePreviewPayInvoice, auth: 'csrf' },
+  sync_rgs: { handler: handleSyncRgs, auth: 'secret' },
 }
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}
@@ -214,9 +217,10 @@ async function handleRequest(request: Request) {
 
   try {
     return await handler(request)
-  } catch (error) {
-    console.error(error)
-    return jsonResponse(500, { error: 'Internal Server Error' })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    error('Unhandled error in route handler:', message)
+    return jsonResponse(500, { error: message })
   }
 }
 

@@ -6,48 +6,9 @@ This repository hosts multiple npm packages that power the Money Dev Kit develop
 - `@moneydevkit/nextjs` – Next.js checkout components and helpers located in `packages/nextjs`.
 - `@moneydevkit/create` – Developer onboarding CLI located in `packages/create`.
 
-### @moneydevkit/nextjs (Next.js integration)
-Install the package inside your Next.js App Router project:
+## Quick Start (Next.js)
 
-```bash
-npm install @moneydevkit/nextjs
-```
-
-Configure your `.env` with the credentials provided by the CLI (create an account at [moneydevkit.com](https://moneydevkit.com) **or** run `npx @moneydevkit/create` to generate credentials locally):
-
-```env
-MDK_ACCESS_TOKEN=your_api_key_here
-MDK_MNEMONIC=your_mnemonic_here
-```
-
-#### 1. Trigger a checkout from a client component
-```jsx
-// app/page.js
-"use client";
-
-import { useCheckout } from "@moneydevkit/nextjs";
-
-export default function HomePage() {
-  const { navigate, isNavigating } = useCheckout();
-
-  const handlePurchase = () => {
-    navigate({
-      prompt: "Describe the purchase shown to the buyer",
-      amount: 500,
-      currency: "USD",
-      successUrl: "/checkout/success",
-    });
-  };
-
-  return (
-    <button onClick={handlePurchase} disabled={isNavigating}>
-      {isNavigating ? "Creating checkout…" : "Buy now"}
-    </button>
-  );
-}
-```
-
-#### 2. Render the hosted checkout page
+Render the checkout page:
 ```jsx
 // app/checkout/[id]/page.js
 "use client";
@@ -60,22 +21,13 @@ export default function CheckoutPage({ params }) {
 }
 ```
 
-#### 3. Expose the unified Money Dev Kit endpoint
+Expose the API endpoint:
 ```js
 // app/api/mdk/route.js
 export { POST } from "@moneydevkit/nextjs/server/route";
 ```
 
-#### 4. Configure Next.js
-```js
-// next.config.js / next.config.mjs
-import withMdkCheckout from "@moneydevkit/nextjs/next-plugin";
-
-export default withMdkCheckout({});
-```
-
-### create CLI
-Run `npx @moneydevkit/create` from your project root to provision API keys, webhook secrets, and mnemonics. The CLI writes `.env.local` files that `@moneydevkit/nextjs` consumes.
+See [packages/nextjs/README.md](packages/nextjs/README.md) for full setup instructions.
 
 ## Workspace scripts
 Run commands from the repo root using npm workspaces:

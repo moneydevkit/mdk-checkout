@@ -2,6 +2,8 @@ import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
 import { is_preview_environment } from './preview'
+import { failure, success } from './types'
+import type { Result } from './types'
 
 const API_PATH =
   (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MDK_API_PATH ?? process.env.MDK_API_PATH)) || '/api/mdk'
@@ -39,49 +41,83 @@ function ensureCsrfToken(): string | null {
   return token
 }
 
-async function postToMdk<T>(handler: string, payload: Record<string, unknown>): Promise<T> {
+/**
+ * POST to the MDK API and unwrap the response.
+ * Server returns { data: T }, this function unwraps it to Result<T>.
+ */
+async function postToMdk<T>(handler: string, payload: Record<string, unknown>): Promise<Result<T>> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   const csrfToken = ensureCsrfToken()
   if (csrfToken) {
     headers['x-moneydevkit-csrf-token'] = csrfToken
   }
 
-  const response = await fetch(API_PATH, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ handler, ...payload }),
-  })
+  let response: Response
+  try {
+    response = await fetch(API_PATH, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ handler, ...payload }),
+    })
+  } catch {
+    return failure({
+      code: 'network_error',
+      message: 'Failed to connect to the server. Please check your internet connection.',
+    })
+  }
 
   if (!response.ok) {
-    const errorBody = await response.text()
-    throw new Error(`MDK request failed (${response.status}): ${errorBody}`)
+    let errorBody: { error?: string; details?: Array<{ message?: string }> } = {}
+    try {
+      errorBody = await response.json()
+    } catch {
+      // Response wasn't JSON
+    }
+
+    const details = errorBody.details
+    const hasValidationDetails = Array.isArray(details) && details.length > 0
+
+    // Extract the first validation error message if available
+    const validationMessage = hasValidationDetails ? details[0]?.message : undefined
+
+    return failure({
+      code: hasValidationDetails ? 'validation_error' : response.status >= 500 ? 'server_error' : 'invalid_request',
+      message: validationMessage || errorBody.error || `Request failed with status ${response.status}`,
+      details: errorBody.details,
+    })
   }
 
-  return (await response.json()) as T
+  // Server returns { data: T }, unwrap it
+  const body = (await response.json()) as { data?: T }
+
+  if (!body.data) {
+    return failure({
+      code: 'invalid_response',
+      message: 'Invalid response from server',
+    })
+  }
+
+  return success(body.data)
 }
 
-export async function clientCreateCheckout(params: CreateCheckoutParams): Promise<CheckoutType> {
-  const response = await postToMdk<{ data: CheckoutType }>('create_checkout', { params })
-  if (!response?.data) {
-    throw new Error('Invalid create checkout response')
-  }
-  return response.data
+export async function clientCreateCheckout(params: CreateCheckoutParams): Promise<Result<CheckoutType>> {
+  return postToMdk<CheckoutType>('create_checkout', { params })
 }
 
 export async function clientGetCheckout(checkoutId: string): Promise<CheckoutType> {
-  const response = await postToMdk<{ data: CheckoutType }>('get_checkout', { checkoutId })
-  if (!response?.data) {
-    throw new Error('Checkout not found')
+  const result = await postToMdk<CheckoutType>('get_checkout', { checkoutId })
+  if (result.error) {
+    throw new Error(result.error.message)
   }
-  return response.data
+  return result.data
 }
 
 export async function clientConfirmCheckout(confirm: ConfirmCheckout): Promise<CheckoutType> {
-  const response = await postToMdk<{ data: CheckoutType }>('confirm_checkout', { confirm })
-  if (!response?.data) {
-    throw new Error('Failed to confirm checkout')
+  const result = await postToMdk<CheckoutType>('confirm_checkout', { confirm })
+  if (result.error) {
+    throw new Error(result.error.message)
   }
-  return response.data
+  return result.data
 }
 
 export async function clientPayInvoice(paymentHash: string, amountSats: number) {
@@ -89,5 +125,8 @@ export async function clientPayInvoice(paymentHash: string, amountSats: number) 
     throw new Error('clientPayInvoice is only available in preview environments.')
   }
 
-  await postToMdk('pay_invoice', { paymentHash, amountSats })
+  const result = await postToMdk<{ ok: boolean }>('pay_invoice', { paymentHash, amountSats })
+  if (result.error) {
+    throw new Error(result.error.message)
+  }
 }

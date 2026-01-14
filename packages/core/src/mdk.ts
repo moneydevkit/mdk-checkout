@@ -7,6 +7,7 @@ import {
   SIGNET_MDK_NODE_OPTIONS,
 } from './mdk-config'
 import type { MoneyDevKitOptions } from './money-dev-kit'
+import { validateMnemonic } from './startup-validation'
 
 type EnvConfig = {
   accessToken?: string
@@ -52,6 +53,14 @@ export function resolveMoneyDevKitOptions(): MoneyDevKitOptions {
   if (!accessToken || !mnemonic) {
     throw new Error(
       'MoneyDevKit requires MDK_ACCESS_TOKEN and MDK_MNEMONIC environment variables to be configured.',
+    )
+  }
+
+  // Validate mnemonic before passing to Rust to prevent panics
+  const mnemonicValidation = validateMnemonic(mnemonic)
+  if (mnemonicValidation.error) {
+    throw new Error(
+      `${mnemonicValidation.error.message}${mnemonicValidation.error.suggestion ? ` ${mnemonicValidation.error.suggestion}` : ''}`,
     )
   }
 
