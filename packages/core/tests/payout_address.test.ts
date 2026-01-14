@@ -173,6 +173,30 @@ describe('getPayoutAddressForType', () => {
     process.env.PAYOUT_ADDRESS = '₿user@domain.com'
     assert.equal(getPayoutAddressForType('lnurl'), '₿user@domain.com')
   })
+
+  test('falls back to WITHDRAWAL_BOLT_12 when PAYOUT_ADDRESS is different type', () => {
+    process.env.PAYOUT_ADDRESS = 'user@getalby.com' // lightning_address
+    process.env.WITHDRAWAL_BOLT_12 = 'lno1legacyoffer'
+    assert.equal(getPayoutAddressForType('bolt12'), 'lno1legacyoffer')
+  })
+
+  test('falls back to WITHDRAWAL_BOLT_11 when PAYOUT_ADDRESS is different type', () => {
+    process.env.PAYOUT_ADDRESS = 'lno1pg257enxv4ezq' // bolt12
+    process.env.WITHDRAWAL_BOLT_11 = 'lnbc1legacyinvoice'
+    assert.equal(getPayoutAddressForType('bolt11'), 'lnbc1legacyinvoice')
+  })
+
+  test('falls back to WITHDRAWAL_LNURL when PAYOUT_ADDRESS is different type', () => {
+    process.env.PAYOUT_ADDRESS = 'lno1pg257enxv4ezq' // bolt12
+    process.env.WITHDRAWAL_LNURL = 'lnurl1legacy'
+    assert.equal(getPayoutAddressForType('lnurl'), 'lnurl1legacy')
+  })
+
+  test('returns null when PAYOUT_ADDRESS type differs and no legacy var set', () => {
+    process.env.PAYOUT_ADDRESS = 'user@getalby.com' // lightning_address
+    // No WITHDRAWAL_BOLT_12 set
+    assert.equal(getPayoutAddressForType('bolt12'), null)
+  })
 })
 
 describe('hasPayoutAddress', () => {

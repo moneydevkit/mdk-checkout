@@ -66,7 +66,7 @@ export async function handlePayout(request: Request): Promise<Response> {
       case 'bolt11':
         // Bolt11 invoices are typically one-time use with a fixed amount
         // The amount parameter is ignored for bolt11
-        node.payBolt11(address)
+        await node.payBolt11(address)
         break
 
       default:

@@ -13,7 +13,7 @@ export async function handlePayBolt11(_request: Request): Promise<Response> {
             return new Response("Bolt 11 invoice not configured", { status: 500 });
         }
 
-        node.payBolt11(bolt11Invoice);
+        await node.payBolt11(bolt11Invoice);
 
         return new Response("OK", { status: 200 });
     } catch (error) {

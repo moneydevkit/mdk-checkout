@@ -162,6 +162,26 @@ export function getPayoutConfig(): PayoutConfig {
 }
 
 /**
+ * Gets the legacy env var value for a specific payout type.
+ * Returns the address string if the legacy env var is set, null otherwise.
+ * Does NOT trigger deprecation warnings (caller should handle that).
+ */
+function getLegacyEnvVarForType(type: PayoutAddressType): string | null {
+  switch (type) {
+    case 'bolt12':
+      return process.env.WITHDRAWAL_BOLT_12 ?? null
+    case 'bolt11':
+      return process.env.WITHDRAWAL_BOLT_11 ?? null
+    case 'lnurl':
+    case 'lightning_address':
+    case 'bip353':
+      return process.env.WITHDRAWAL_LNURL ?? null
+    default:
+      return null
+  }
+}
+
+/**
  * Gets the payout address for a specific type.
  * Falls back to legacy env vars with deprecation warnings.
  *
@@ -182,6 +202,21 @@ export function getPayoutAddressForType(type: PayoutAddressType): string | null 
       (config.address.type === 'lightning_address' || config.address.type === 'bip353')
     ) {
       return config.address.address
+    }
+
+    // PAYOUT_ADDRESS is set but doesn't match the requested type.
+    // Fall back to legacy env vars for backwards compatibility.
+    // This allows setups that have both PAYOUT_ADDRESS and legacy vars to continue working.
+    const legacyAddress = getLegacyEnvVarForType(type)
+    if (legacyAddress) {
+      const legacyEnvVarName =
+        type === 'bolt12'
+          ? 'WITHDRAWAL_BOLT_12'
+          : type === 'bolt11'
+            ? 'WITHDRAWAL_BOLT_11'
+            : 'WITHDRAWAL_LNURL'
+      showDeprecationWarning(legacyEnvVarName)
+      return legacyAddress
     }
   }
 
