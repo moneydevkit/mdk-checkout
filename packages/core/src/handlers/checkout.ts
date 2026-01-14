@@ -14,9 +14,16 @@ const customerInputSchema = z.object({
 }).catchall(z.string())
 
 const createCheckoutSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  amount: z.number(),
+  // AMOUNT type fields (optional - only needed for amount-based checkouts)
+  title: z.string().optional(),
+  description: z.string().optional(),
+  amount: z.number().optional(),
+
+  // PRODUCTS type fields
+  productId: z.string().optional(),
+  products: z.array(z.string()).optional(),
+
+  // Common fields
   currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
