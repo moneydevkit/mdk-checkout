@@ -109,10 +109,10 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
               <div key={product.id} className="text-left">
                 <h3 className="font-medium text-white">{product.name}</h3>
                 {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
-                {product.prices.map((price) => (
-                  <div key={price.id} className="text-sm text-gray-300">
-                    {price.amountType === 'FIXED' && price.priceAmount && (
-                      <span>{formatCurrency(price.priceAmount, checkout.currency)}</span>
+                {product.price && (
+                  <div className="text-sm text-gray-300">
+                    {product.price.amountType === 'FIXED' && product.price.priceAmount && (
+                      <span>{formatCurrency(product.price.priceAmount, checkout.currency)}</span>
                     )}
                     {product.recurringInterval && (
                       <span className="text-gray-400">
@@ -120,7 +120,7 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                       </span>
                     )}
                   </div>
-                ))}
+                )}
               </div>
             ))}
           </div>
