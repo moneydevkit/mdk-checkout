@@ -1,0 +1,33 @@
+name: Trigger Lightning Node E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  trigger-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.MDK_BOT_APP_ID }}
+          private-key: ${{ secrets.MDK_BOT_APP_PRIVATE_KEY }}
+          owner: CumuloGlobal
+          repositories: lightning-node
+
+      - name: Trigger lightning-node E2E tests
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          repository: CumuloGlobal/lightning-node
+          event-type: mdk-checkout-pr
+          client-payload: |
+            {
+              "ref": "${{ github.head_ref }}",
+              "sha": "${{ github.event.pull_request.head.sha }}",
+              "pr_number": "${{ github.event.pull_request.number }}",
+              "repo": "${{ github.repository }}"
+            }
