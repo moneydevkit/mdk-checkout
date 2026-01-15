@@ -44,6 +44,7 @@ export default function App() {
     setError(null)
 
     const result = await createCheckout({
+      type: 'AMOUNT',      // or 'PRODUCTS' for product-based checkouts
       title: 'Purchase title for the buyer',
       description: 'Description of the purchase',
       amount: 500,
@@ -86,6 +87,7 @@ Collect and store customer information with each checkout. Pass `customer` to pr
 
 ```tsx
 const result = await createCheckout({
+  type: 'AMOUNT',
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,
@@ -119,6 +121,7 @@ When your user is already authenticated in your app, pass `externalId` to link c
 
 ```tsx
 const result = await createCheckout({
+  type: 'AMOUNT',
   title: "Premium Plan",
   description: 'Monthly subscription',
   amount: 1000,
@@ -139,7 +142,44 @@ When `externalId` is provided:
 - Only fields missing from the customer record are requested
 - This prevents authenticated users from being asked for data you already have
 
-Verify successful payments:
+## Product Checkouts
+Sell products defined in your Money Dev Kit dashboard using `type: 'PRODUCTS'`:
+
+```tsx
+import { useCheckout, useProducts } from '@moneydevkit/replit'
+
+function ProductPage() {
+  const { createCheckout, isLoading } = useCheckout()
+  const { products } = useProducts()
+
+  const handleBuyProduct = async (productId: string) => {
+    const result = await createCheckout({
+      type: 'PRODUCTS',
+      products: [productId],
+      successUrl: '/checkout/success',
+    })
+
+    if (result.error) return
+    window.location.href = result.data.checkoutUrl
+  }
+
+  return (
+    <div>
+      {products?.map(product => (
+        <button key={product.id} onClick={() => handleBuyProduct(product.id)}>
+          Buy {product.name} - ${(product.price?.priceAmount ?? 0) / 100}
+        </button>
+      ))}
+    </div>
+  )
+}
+```
+
+### Checkout Types
+- **`type: 'AMOUNT'`** - For donations, tips, or custom amounts. Requires `amount` field.
+- **`type: 'PRODUCTS'`** - For selling products. Requires `products` array with product IDs. Amount is calculated from product prices.
+
+## Verify successful payments
 ```tsx
 import { useCheckoutSuccess } from '@moneydevkit/replit'
 
