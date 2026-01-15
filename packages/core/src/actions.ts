@@ -116,39 +116,10 @@ function normalizeRequireCustomerData(fields: string[] | undefined): string[] | 
   return fields.map(normalizeFieldName)
 }
 
-/**
- * Checkout params for creating a checkout.
- *
- * Two checkout types are supported:
- *
- * **AMOUNT type** - for donations, tips, custom amounts:
- * ```ts
- * createCheckout({ amount: 1000, title: 'Donation', description: 'Thanks!' })
- * ```
- *
- * **PRODUCTS type** - for selling products:
- * ```ts
- * createCheckout({ productId: 'prod_123' })  // single product
- * createCheckout({ products: ['prod_1', 'prod_2'] })  // multiple products
- * ```
- */
-export interface CreateCheckoutParams {
-  // AMOUNT type fields
-  /** Amount in cents (e.g., 1000 = $10.00). Required for AMOUNT type checkouts. */
-  amount?: number
-  /** Title shown to customer. Used for AMOUNT type checkouts. */
-  title?: string
-  /** Description shown to customer. Used for AMOUNT type checkouts. */
-  description?: string
+type Currency = 'USD' | 'SAT'
 
-  // PRODUCTS type fields
-  /** Single product ID for checkout. Convenience for `products: [id]`. */
-  productId?: string
-  /** Array of product IDs for checkout. Creates a PRODUCTS type checkout. */
-  products?: string[]
-
-  // Common fields
-  currency?: 'USD' | 'SAT'
+type CommonCheckoutFields = {
+  currency?: Currency
   successUrl?: string
   checkoutPath?: string
   metadata?: Record<string, unknown>
@@ -156,36 +127,55 @@ export interface CreateCheckoutParams {
   requireCustomerData?: string[]
 }
 
+type AmountCheckoutParams = CommonCheckoutFields & {
+  type: 'AMOUNT'
+  amount: number
+  title?: string
+  description?: string
+  productId?: never
+  products?: never
+}
+
+type ProductsCheckoutParams = CommonCheckoutFields & {
+  type: 'PRODUCTS'
+  products: string[]
+  productId?: string
+  amount?: never
+  title?: never
+  description?: never
+}
+
+export type CreateCheckoutParams = AmountCheckoutParams | ProductsCheckoutParams
+
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
 
-  // Determine if this is a PRODUCTS or AMOUNT type checkout
-  const productIds = params.products ?? (params.productId ? [params.productId] : undefined)
-  const isProductsCheckout = productIds && productIds.length > 0
+  const isProductsCheckout = params.type === 'PRODUCTS'
+  const productIds = isProductsCheckout
+    ? (params.productId ? [params.productId, ...params.products] : params.products)
+    : undefined
+  const amount = isProductsCheckout ? undefined : params.amount
+  const title = isProductsCheckout ? undefined : params.title
+  const description = isProductsCheckout ? undefined : params.description
 
   try {
     const client = createMoneyDevKitClient()
     const node = createMoneyDevKitNode()
     const checkout = await client.checkouts.create(
       {
-        // For PRODUCTS checkout, don't send amount (it's calculated from products)
-        // For AMOUNT checkout, use provided amount or default to 200 cents
-        amount: isProductsCheckout ? undefined : (params.amount ?? 200),
+        amount,
         currency,
-        // Product IDs for PRODUCTS type checkout
         products: productIds,
         successUrl: params.successUrl,
         metadata: {
-          title: params.title,
-          description: params.description,
+          title,
+          description,
           ...metadataOverrides,
         },
-        // Customer data (nested object) - strip empty strings and normalize keys
         customer: cleanCustomerInput(params.customer),
-        // Required customer fields - normalize to camelCase
         requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
       },
       node.id,

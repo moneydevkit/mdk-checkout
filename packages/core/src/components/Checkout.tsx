@@ -153,6 +153,7 @@ function CheckoutInternal({ id }: CheckoutProps) {
     setIsRestarting(true)
 
     const result = await clientCreateCheckout({
+      type: 'AMOUNT',
       title: (checkout.userMetadata?.title as string) || 'Checkout',
       description: (checkout.userMetadata?.description as string) || '',
       amount,
