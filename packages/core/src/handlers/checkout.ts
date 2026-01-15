@@ -13,10 +13,7 @@ const customerInputSchema = z.object({
   externalId: z.string().optional(),
 }).catchall(z.string())
 
-const createCheckoutSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  amount: z.number(),
+const commonCheckoutFields = {
   currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
@@ -35,7 +32,27 @@ const createCheckoutSchema = z.object({
     }),
   customer: customerInputSchema.optional(),
   requireCustomerData: z.array(z.string()).optional(),
+}
+
+const amountCheckoutSchema = z.object({
+  type: z.literal('AMOUNT'),
+  amount: z.number(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  ...commonCheckoutFields,
 })
+
+const productsCheckoutSchema = z.object({
+  type: z.literal('PRODUCTS'),
+  products: z.array(z.string()),
+  productId: z.string().optional(),
+  ...commonCheckoutFields,
+})
+
+const createCheckoutSchema = z.discriminatedUnion('type', [
+  amountCheckoutSchema,
+  productsCheckoutSchema,
+])
 
 const confirmCheckoutSchema = z.object({
   checkoutId: z.string(),

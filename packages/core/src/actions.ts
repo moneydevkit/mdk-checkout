@@ -1,4 +1,4 @@
-import type { Checkout, ConfirmCheckout } from '@moneydevkit/api-contract'
+import type { Checkout, ConfirmCheckout, Product } from '@moneydevkit/api-contract'
 
 import { log, error as logError } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
@@ -49,6 +49,12 @@ export async function getCheckout(checkoutId: string): Promise<Checkout> {
   // createMoneyDevKitClient can throw on invalid config
   const client = createMoneyDevKitClient()
   return await client.checkouts.get({ id: checkoutId })
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const client = createMoneyDevKitClient()
+  const result = await client.products.list()
+  return result.products
 }
 
 export async function confirmCheckout(confirm: ConfirmCheckout): Promise<Checkout> {
@@ -110,14 +116,10 @@ function normalizeRequireCustomerData(fields: string[] | undefined): string[] | 
   return fields.map(normalizeFieldName)
 }
 
-/**
- * Checkout params for creating a checkout.
- */
-export interface CreateCheckoutParams {
-  title: string
-  description: string
-  amount: number
-  currency?: 'USD' | 'SAT'
+type Currency = 'USD' | 'SAT'
+
+type CommonCheckoutFields = {
+  currency?: Currency
   successUrl?: string
   checkoutPath?: string
   metadata?: Record<string, unknown>
@@ -125,12 +127,39 @@ export interface CreateCheckoutParams {
   requireCustomerData?: string[]
 }
 
+type AmountCheckoutParams = CommonCheckoutFields & {
+  type: 'AMOUNT'
+  amount: number
+  title?: string
+  description?: string
+  productId?: never
+  products?: never
+}
+
+type ProductsCheckoutParams = CommonCheckoutFields & {
+  type: 'PRODUCTS'
+  products: string[]
+  productId?: string
+  amount?: never
+  title?: never
+  description?: never
+}
+
+export type CreateCheckoutParams = AmountCheckoutParams | ProductsCheckoutParams
+
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
-  const amount = params.amount ?? 200
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
+
+  const isProductsCheckout = params.type === 'PRODUCTS'
+  const productIds = isProductsCheckout
+    ? (params.productId ? [params.productId, ...params.products] : params.products)
+    : undefined
+  const amount = isProductsCheckout ? undefined : params.amount
+  const title = isProductsCheckout ? undefined : params.title
+  const description = isProductsCheckout ? undefined : params.description
 
   try {
     const client = createMoneyDevKitClient()
@@ -139,15 +168,14 @@ export async function createCheckout(
       {
         amount,
         currency,
+        products: productIds,
+        successUrl: params.successUrl,
         metadata: {
-          title: params.title,
-          description: params.description,
-          successUrl: params.successUrl,
+          title,
+          description,
           ...metadataOverrides,
         },
-        // Customer data (nested object) - strip empty strings and normalize keys
         customer: cleanCustomerInput(params.customer),
-        // Required customer fields - normalize to camelCase
         requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
       },
       node.id,

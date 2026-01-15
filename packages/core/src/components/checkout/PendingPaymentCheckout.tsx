@@ -57,6 +57,18 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     return new Intl.NumberFormat('en-US').format(sats)
   }
 
+  const formatProductPrice = (price: { amountType: string; priceAmount: number | null; currency: string }) => {
+    if (price.amountType === 'FREE') return 'Free'
+    if (price.amountType === 'CUSTOM') return 'Custom'
+    if (price.priceAmount === null) return ''
+
+    if (price.currency === 'SAT') {
+      return `${formatSats(price.priceAmount)} sats`
+    }
+    // USD - stored in cents
+    return formatCurrency(price.priceAmount, price.currency)
+  }
+
   const copyToClipboard = async () => {
     // Don't copy real invoice in preview mode
     if (isPreview) {
@@ -131,6 +143,8 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     </svg>
   )
 
+  const hasProducts = checkout.products && checkout.products.length > 0
+
   return (
     <>
       <div className="text-center mb-6 w-full">
@@ -148,6 +162,20 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
             </CollapsibleTrigger>
             <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">
               <div className="mt-4 space-y-3 text-sm w-full">
+                {/* Product line items */}
+                {hasProducts && checkout.products!.map((product) => {
+                  const price = product.prices?.[0]
+                  return (
+                    <div key={product.id} className="flex justify-between w-full">
+                      <span className="text-gray-400">{product.name}</span>
+                      <span className="text-white">
+                        {price && formatProductPrice(price)}
+                      </span>
+                    </div>
+                  )
+                })}
+                {/* Separator after products */}
+                {hasProducts && <div className="border-t border-gray-600 my-2" />}
                 <div className="flex justify-between w-full">
                   <span className="text-gray-400">Total Fiat</span>
                   <span className="text-white">

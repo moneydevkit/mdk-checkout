@@ -1,4 +1,4 @@
-import type { Checkout as CheckoutType } from '@moneydevkit/api-contract'
+import type { Checkout as CheckoutType, Product } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
 import { is_preview_environment } from './preview'
@@ -129,4 +129,12 @@ export async function clientPayInvoice(paymentHash: string, amountSats: number) 
   if (result.error) {
     throw new Error(result.error.message)
   }
+}
+
+export async function clientListProducts(): Promise<Product[]> {
+  const response = await postToMdk<{ products: Product[] }>('list_products', {})
+  if (!response?.data?.products) {
+    throw new Error('Failed to list products')
+  }
+  return response.data.products
 }

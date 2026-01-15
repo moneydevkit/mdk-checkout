@@ -8,6 +8,7 @@ import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
 import { handlePayLNUrl } from './handlers/pay_ln_url'
 import { handlePing } from './handlers/ping'
+import { handleListProducts } from './handlers/products'
 import { handleSyncRgs } from './handlers/sync_rgs'
 import { handleMdkWebhook } from './handlers/webhooks'
 import { error, log } from './logging'
@@ -32,6 +33,7 @@ const routeSchema = z.enum([
   'confirm_checkout',
   'pay_invoice',
   'sync_rgs',
+  'list_products',
 ])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
@@ -49,6 +51,7 @@ const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
   pay_invoice: { handler: handlePreviewPayInvoice, auth: 'csrf' },
   sync_rgs: { handler: handleSyncRgs, auth: 'secret' },
+  list_products: { handler: handleListProducts, auth: 'csrf' },
 }
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}

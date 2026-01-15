@@ -36,6 +36,7 @@ export default function HomePage() {
     setError(null);
 
     const result = await createCheckout({
+      type: "AMOUNT",
       title: "Lightning download",
       description: "A quick Money Dev Kit checkout running on Vercel.",
       amount: 2500,

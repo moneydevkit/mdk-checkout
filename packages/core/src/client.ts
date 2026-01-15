@@ -1,6 +1,7 @@
 export * from './components/Checkout'
 export * from './hooks/useCheckout'
 export * from './hooks/useCheckoutSuccess'
+export * from './hooks/useProducts'
 export * from './providers'
 export type { MdkError, Result } from './types'
 export { failure, success } from './types'
