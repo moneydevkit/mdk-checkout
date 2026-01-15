@@ -315,6 +315,11 @@ export function sanitizeCheckoutPath(checkoutPath: string | null): string {
 export async function handleCreateCheckoutFromUrl(
   params: Record<string, unknown>
 ): Promise<{ error: { code: string; message: string } } | { data: { id: string; checkoutPath: string } }> {
+  // Infer type if not provided - the schema requires it for discriminated union
+  if (!params.type) {
+    params.type = params.products ? 'PRODUCTS' : 'AMOUNT'
+  }
+
   const parsed = createCheckoutSchema.safeParse(params)
 
   if (!parsed.success) {

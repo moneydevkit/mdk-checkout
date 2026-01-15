@@ -246,6 +246,15 @@ export async function POST(request: Request) {
 }
 
 /**
+ * Safely join a base path with a segment, avoiding double slashes.
+ * e.g., joinPath('/', 'abc') -> '/abc', joinPath('/checkout', 'abc') -> '/checkout/abc'
+ */
+function joinPath(base: string, segment: string): string {
+  if (base === '/') return `/${segment}`
+  return `${base}/${segment}`
+}
+
+/**
  * Helper to redirect to checkout error page.
  * Uses 'error' as a placeholder ID so it matches the /checkout/[id] route.
  */
@@ -255,7 +264,7 @@ function redirectToCheckoutError(
   code: string,
   message: string
 ): Response {
-  const errorUrl = new URL(`${checkoutPath}/error`, baseUrl.origin)
+  const errorUrl = new URL(joinPath(checkoutPath, 'error'), baseUrl.origin)
   errorUrl.searchParams.set('error', code)
   errorUrl.searchParams.set('message', message)
   return Response.redirect(errorUrl.toString(), 302)
@@ -307,6 +316,6 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // Success - redirect to checkout page (use sanitized checkoutPath, not result.data.checkoutPath)
-  const checkoutUrl = new URL(`${checkoutPath}/${result.data.id}`, url.origin)
+  const checkoutUrl = new URL(joinPath(checkoutPath, result.data.id), url.origin)
   return Response.redirect(checkoutUrl.toString(), 302)
 }
