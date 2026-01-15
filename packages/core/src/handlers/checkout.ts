@@ -253,7 +253,7 @@ export function parseCheckoutQueryParams(params: URLSearchParams): Record<string
     if (key === 'action' || key === 'signature') continue
 
     // JSON parse for objects/arrays
-    if (key === 'metadata' || key === 'customer' || key === 'requireCustomerData') {
+    if (key === 'metadata' || key === 'customer' || key === 'requireCustomerData' || key === 'products') {
       try {
         raw[key] = JSON.parse(value)
       } catch {

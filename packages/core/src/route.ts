@@ -306,7 +306,7 @@ export async function GET(request: Request): Promise<Response> {
     return redirectToCheckoutError(url, checkoutPath, result.error.code, result.error.message)
   }
 
-  // Success - redirect to checkout page
-  const checkoutUrl = new URL(`${result.data.checkoutPath}/${result.data.id}`, url.origin)
+  // Success - redirect to checkout page (use sanitized checkoutPath, not result.data.checkoutPath)
+  const checkoutUrl = new URL(`${checkoutPath}/${result.data.id}`, url.origin)
   return Response.redirect(checkoutUrl.toString(), 302)
 }

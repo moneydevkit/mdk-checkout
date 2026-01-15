@@ -309,6 +309,12 @@ describe('parseCheckoutQueryParams', () => {
     assert.deepEqual(result.requireCustomerData, ['name', 'email'])
   })
 
+  it('parses products as JSON array', () => {
+    const params = new URLSearchParams('products=["prod_1","prod_2"]')
+    const result = parseCheckoutQueryParams(params)
+    assert.deepEqual(result.products, ['prod_1', 'prod_2'])
+  })
+
   it('skips action param', () => {
     const params = new URLSearchParams('action=createCheckout&title=Test')
     const result = parseCheckoutQueryParams(params)
