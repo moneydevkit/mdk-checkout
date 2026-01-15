@@ -10,19 +10,17 @@ import type { MdkError, Result } from '../types'
  *
  * @example
  * ```tsx
- * // Amount-based checkout (donations, tips)
  * const { createCheckout } = useCheckout()
- * await createCheckout({ amount: 1000, title: 'Donation' })
  *
- * // Product checkout (single product)
- * await createCheckout({ productId: 'prod_123' })
+ * // Amount-based checkout (donations, tips)
+ * await createCheckout({ type: 'AMOUNT', amount: 1000, title: 'Donation' })
  *
- * // Product checkout (multiple products)
- * await createCheckout({ products: ['prod_1', 'prod_2'] })
+ * // Product checkout
+ * await createCheckout({ type: 'PRODUCTS', products: ['prod_123'] })
  *
  * // With useProducts hook
  * const { products } = useProducts()
- * await createCheckout({ productId: products[0].id })
+ * await createCheckout({ type: 'PRODUCTS', products: [products[0].id] })
  * ```
  */
 export function useCheckout() {
