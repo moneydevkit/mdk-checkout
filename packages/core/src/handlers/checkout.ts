@@ -296,7 +296,16 @@ export function sanitizeCheckoutPath(checkoutPath: string | null): string {
     return defaultPath
   }
 
-  return checkoutPath
+  // Strip query string and hash - they would break URL construction when appending /{id}
+  // e.g., /checkout?foo=bar + /abc123 would become /checkout?foo=bar/abc123 (broken)
+  const queryIndex = checkoutPath.indexOf('?')
+  const hashIndex = checkoutPath.indexOf('#')
+
+  let endIndex = checkoutPath.length
+  if (queryIndex !== -1) endIndex = Math.min(endIndex, queryIndex)
+  if (hashIndex !== -1) endIndex = Math.min(endIndex, hashIndex)
+
+  return checkoutPath.slice(0, endIndex)
 }
 
 /**

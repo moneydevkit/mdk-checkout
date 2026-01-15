@@ -516,8 +516,9 @@ describe('sanitizeCheckoutPath', () => {
     assert.equal(sanitizeCheckoutPath('/checkout:special'), '/checkout:special')
   })
 
-  it('accepts path with query params that do not contain protocol', () => {
-    assert.equal(sanitizeCheckoutPath('/checkout?foo=bar'), '/checkout?foo=bar')
+  it('strips query params to prevent broken URL construction', () => {
+    // Query params would break URL construction: /checkout?foo=bar + /abc -> /checkout?foo=bar/abc
+    assert.equal(sanitizeCheckoutPath('/checkout?foo=bar'), '/checkout')
   })
 
   it('rejects javascript: protocol', () => {
@@ -538,7 +539,22 @@ describe('sanitizeCheckoutPath', () => {
     assert.equal(sanitizeCheckoutPath('/'), '/')
   })
 
-  it('accepts path with hash /checkout#section', () => {
-    assert.equal(sanitizeCheckoutPath('/checkout#section'), '/checkout#section')
+  it('strips hash to prevent broken URL construction', () => {
+    // Hash would break URL construction: /checkout#section + /abc -> /checkout#section/abc
+    assert.equal(sanitizeCheckoutPath('/checkout#section'), '/checkout')
+  })
+
+  it('strips both query and hash', () => {
+    assert.equal(sanitizeCheckoutPath('/checkout?foo=bar#section'), '/checkout')
+  })
+
+  it('ensures URL construction with ID works correctly', () => {
+    // This test documents the reason for stripping query/hash:
+    // When we build URLs like `${checkoutPath}/${id}`, query/hash would corrupt the path
+    const sanitized = sanitizeCheckoutPath('/checkout?foo=bar')
+    const url = new URL(`${sanitized}/abc123`, 'https://example.com')
+    // The ID should be in the pathname, not in the query string
+    assert.equal(url.pathname, '/checkout/abc123')
+    assert.equal(url.search, '')
   })
 })
