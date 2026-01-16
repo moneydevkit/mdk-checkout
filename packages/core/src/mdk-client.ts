@@ -9,6 +9,18 @@ export type MoneyDevKitClientOptions = {
   baseUrl: string
 }
 
+/**
+ * SDK-level checkout creation options.
+ * Uses `product` (singular) for simplicity - multi-product support coming soon.
+ */
+export type CreateCheckoutOptions = Omit<CreateCheckout, 'nodeId' | 'products'> & {
+  /**
+   * Product ID to include in this checkout.
+   * @example 'prod_123abc'
+   */
+  product?: string
+}
+
 export class MoneyDevKitClient {
   private client: ContractRouterClient<typeof contract>
 
@@ -29,11 +41,13 @@ export class MoneyDevKitClient {
         return await this.client.checkout.get(params)
       },
       create: async (
-        fields: Omit<CreateCheckout, 'nodeId'>,
+        fields: CreateCheckoutOptions,
         nodeId: string,
       ): Promise<Checkout> => {
+        const { product, ...rest } = fields
         return await this.client.checkout.create({
-          ...fields,
+          ...rest,
+          products: product ? [product] : undefined,
           nodeId,
         })
       },

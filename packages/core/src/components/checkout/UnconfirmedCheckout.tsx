@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Checkout } from '@moneydevkit/api-contract'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { clientConfirmCheckout } from '../../client-actions'
@@ -49,6 +50,12 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const queryClient = useQueryClient()
   const missingFields = getMissingRequiredFields(checkout)
 
+  // For multi-product checkouts, track which product the user has selected
+  const hasMultipleProducts = checkout.type === 'PRODUCTS' && checkout.products && checkout.products.length > 1
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    checkout.products?.[0]?.id ?? null
+  )
+
   // Build dynamic schema based on missing required fields
   const schemaShape: Record<string, z.ZodTypeAny> = {}
   for (const field of missingFields) {
@@ -74,9 +81,12 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
 
   const confirmMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
+      // For product checkouts, include the selected product
+      const productId = selectedProductId ?? checkout.products?.[0]?.id
       return await clientConfirmCheckout({
         checkoutId: checkout.id,
         customer: data,
+        ...(checkout.type === 'PRODUCTS' && productId ? { products: [{ productId }] } : {}),
       })
     },
     onSuccess: () => {
@@ -104,26 +114,68 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
     <>
       <div className="text-center mb-6">
         {checkout.type === 'PRODUCTS' && checkout.products && (
-          <div className="space-y-2">
-            {checkout.products.map((product) => (
-              <div key={product.id} className="text-left">
-                <h3 className="font-medium text-white">{product.name}</h3>
-                {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
-                {product.prices?.[0] && (
-                  <div className="text-sm text-gray-300">
-                    {product.prices[0].amountType === 'FIXED' && product.prices[0].priceAmount && (
-                      <span>{formatCurrency(product.prices[0].priceAmount, checkout.currency)}</span>
-                    )}
-                    {product.recurringInterval && (
-                      <span className="text-gray-400">
-                        /{product.recurringInterval.toLowerCase()}
-                      </span>
+          hasMultipleProducts ? (
+            // Radio selector for multiple products
+            <div className="space-y-2">
+              {checkout.products.map((product) => (
+                <label
+                  key={product.id}
+                  className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedProductId === product.id
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-gray-600 hover:bg-gray-700/50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="product"
+                    value={product.id}
+                    checked={selectedProductId === product.id}
+                    onChange={() => setSelectedProductId(product.id)}
+                    className="mt-1 accent-purple-500"
+                  />
+                  <div className="text-left flex-1">
+                    <h3 className="font-medium text-white">{product.name}</h3>
+                    {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
+                    {product.prices?.[0] && (
+                      <div className="text-sm text-gray-300">
+                        {product.prices[0].amountType === 'FIXED' && product.prices[0].priceAmount && (
+                          <span>{formatCurrency(product.prices[0].priceAmount, checkout.currency)}</span>
+                        )}
+                        {product.recurringInterval && (
+                          <span className="text-gray-400">
+                            /{product.recurringInterval.toLowerCase()}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </label>
+              ))}
+            </div>
+          ) : (
+            // Single product display
+            <div className="space-y-2">
+              {checkout.products.map((product) => (
+                <div key={product.id} className="text-left">
+                  <h3 className="font-medium text-white">{product.name}</h3>
+                  {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
+                  {product.prices?.[0] && (
+                    <div className="text-sm text-gray-300">
+                      {product.prices[0].amountType === 'FIXED' && product.prices[0].priceAmount && (
+                        <span>{formatCurrency(product.prices[0].priceAmount, checkout.currency)}</span>
+                      )}
+                      {product.recurringInterval && (
+                        <span className="text-gray-400">
+                          /{product.recurringInterval.toLowerCase()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
         )}
         {checkout.type === 'AMOUNT' && checkout.providedAmount && (
           <div className="text-sm font-medium text-white" />

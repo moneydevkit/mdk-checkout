@@ -132,20 +132,22 @@ type AmountCheckoutParams = CommonCheckoutFields & {
   amount: number
   title?: string
   description?: string
-  productId?: never
-  products?: never
+  product?: never
 }
 
-type ProductsCheckoutParams = CommonCheckoutFields & {
+type ProductCheckoutParams = CommonCheckoutFields & {
   type: 'PRODUCTS'
-  products: string[]
-  productId?: string
+  /**
+   * Product ID to checkout.
+   * @example 'prod_123abc'
+   */
+  product: string
   amount?: never
   title?: never
   description?: never
 }
 
-export type CreateCheckoutParams = AmountCheckoutParams | ProductsCheckoutParams
+export type CreateCheckoutParams = AmountCheckoutParams | ProductCheckoutParams
 
 export async function createCheckout(
   params: CreateCheckoutParams
@@ -153,13 +155,11 @@ export async function createCheckout(
   const currency = params.currency ?? 'USD'
   const metadataOverrides = params.metadata ?? {}
 
-  const isProductsCheckout = params.type === 'PRODUCTS'
-  const productIds = isProductsCheckout
-    ? (params.productId ? [params.productId, ...params.products] : params.products)
-    : undefined
-  const amount = isProductsCheckout ? undefined : params.amount
-  const title = isProductsCheckout ? undefined : params.title
-  const description = isProductsCheckout ? undefined : params.description
+  const isProductCheckout = params.type === 'PRODUCTS'
+  const product = isProductCheckout ? params.product : undefined
+  const amount = isProductCheckout ? undefined : params.amount
+  const title = isProductCheckout ? undefined : params.title
+  const description = isProductCheckout ? undefined : params.description
 
   try {
     const client = createMoneyDevKitClient()
@@ -168,7 +168,7 @@ export async function createCheckout(
       {
         amount,
         currency,
-        products: productIds,
+        product,
         successUrl: params.successUrl,
         metadata: {
           title,
