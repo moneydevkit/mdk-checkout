@@ -42,16 +42,15 @@ const amountCheckoutSchema = z.object({
   ...commonCheckoutFields,
 })
 
-const productsCheckoutSchema = z.object({
+const productCheckoutSchema = z.object({
   type: z.literal('PRODUCTS'),
-  products: z.array(z.string()),
-  productId: z.string().optional(),
+  product: z.string(),
   ...commonCheckoutFields,
 })
 
 const createCheckoutSchema = z.discriminatedUnion('type', [
   amountCheckoutSchema,
-  productsCheckoutSchema,
+  productCheckoutSchema,
 ])
 
 const confirmCheckoutSchema = z.object({
