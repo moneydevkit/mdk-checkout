@@ -20,6 +20,11 @@
     },
     "./mdk-styles.css": "./dist/mdk-styles.css",
     "./package.json": "./package.json",
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
     "./server/route": {
       "types": "./dist/server/route.d.ts",
       "import": "./dist/server/route.js",
