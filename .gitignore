@@ -22,3 +22,4 @@ coverage
 .secrets
 .envrc
 .direnv
+commit-message.txt
