@@ -54,35 +54,25 @@ Go to **Settings > Code injection > Site Footer** and add:
 
 Replace `YOUR-SITE.ghost.io` with your actual Ghost site URL.
 
-### Step 2: Generate a signed checkout URL
+### Step 2: Get a checkout link
 
-Use the `createCheckoutUrl` helper to generate a signed URL:
-
-```typescript
-import { createCheckoutUrl } from '@moneydevkit/ghost/server'
-
-const url = createCheckoutUrl({
-  type: 'AMOUNT',
-  amount: 500, // $5.00
-  currency: 'USD',
-  metadata: {
-    ghostTierId: 'your-ghost-tier-id',
-    months: '1'
-  }
-})
-```
+1. Go to [moneydevkit.com](https://moneydevkit.com) and sign in
+2. Create a product with your desired price
+3. Copy the checkout link for your product
 
 ### Step 3: Add the link to your Ghost post
 
-In a Ghost post, add an HTML card with the signed URL:
+In a Ghost post, click **+** > **HTML** and add:
 
 ```html
-<a href="https://your-checkout.vercel.app/api/mdk?action=createCheckout&amount=500&..." data-mdk>
-  Subscribe for $5/month via Lightning
+<a href="YOUR_CHECKOUT_LINK_FROM_STEP_2" data-mdk>
+  Pay with Lightning ⚡
 </a>
 ```
 
-The `data-mdk` attribute tells the script to inject the member's email.
+Replace `YOUR_CHECKOUT_LINK_FROM_STEP_2` with the link you copied from MoneyDevKit.
+
+The `data-mdk` attribute tells the script to inject the member's email when they click the link.
 
 ## Local Development
 
