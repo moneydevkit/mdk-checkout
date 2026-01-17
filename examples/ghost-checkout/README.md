@@ -31,14 +31,28 @@ Go to **Settings > Code injection > Site Footer** and add:
 
 ```html
 <script>
-document.querySelectorAll('a[data-mdk]').forEach(function(el) {
-  var member = window.__GHOST_MEMBER__;
-  if (member && member.email) {
-    el.href = el.href + '&customer=' + encodeURIComponent(JSON.stringify({email: member.email}));
-  }
-});
+(function() {
+  var ghostUrl = 'https://YOUR-SITE.ghost.io'; // Replace with your Ghost URL
+
+  fetch(ghostUrl + '/members/api/member/', {
+    credentials: 'include'
+  })
+  .then(function(res) { return res.ok ? res.json() : null; })
+  .then(function(member) {
+    if (member && member.email) {
+      document.querySelectorAll('a[data-mdk]').forEach(function(el) {
+        if (el.href.indexOf('customer=') === -1) {
+          el.href = el.href + '&customer=' + encodeURIComponent(JSON.stringify({email: member.email}));
+        }
+      });
+    }
+  })
+  .catch(function() {});
+})();
 </script>
 ```
+
+Replace `YOUR-SITE.ghost.io` with your actual Ghost site URL.
 
 ### Step 2: Generate a signed checkout URL
 
