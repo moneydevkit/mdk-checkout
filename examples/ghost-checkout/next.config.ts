@@ -1,8 +1,3 @@
-import type { NextConfig } from 'next'
+import withMdkCheckout from '@moneydevkit/nextjs/next-plugin'
 
-const nextConfig: NextConfig = {
-  // Required for @moneydevkit packages
-  transpilePackages: ['@moneydevkit/ghost', '@moneydevkit/nextjs', '@moneydevkit/core'],
-}
-
-export default nextConfig
+export default withMdkCheckout({})
