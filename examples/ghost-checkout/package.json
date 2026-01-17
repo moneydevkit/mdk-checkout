@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@moneydevkit/ghost": "^0.7.0-alpha.0",
-    "@moneydevkit/lightning-js": "latest",
+    "@moneydevkit/lightning-js": "^0.1.60",
     "next": "^15.3.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "optionalDependencies": {
+    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.60"
   },
   "devDependencies": {
     "@types/node": "^20",
