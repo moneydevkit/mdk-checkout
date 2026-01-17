@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@moneydevkit/ghost": "^0.7.0-alpha.0",
+    "@moneydevkit/lightning-js": "latest",
     "next": "^15.3.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
