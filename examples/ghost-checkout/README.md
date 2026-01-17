@@ -4,7 +4,7 @@ Accept Lightning payments for your Ghost blog memberships.
 
 ## One-Click Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmoneydevkit%2Fmdk-checkout&env=MDK_ACCESS_TOKEN,MDK_MNEMONIC,GHOST_URL,GHOST_ADMIN_API_KEY&envDescription=MoneyDevKit%20and%20Ghost%20credentials&project-name=ghost-checkout&repository-name=ghost-checkout&root-directory=examples/ghost-checkout)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmoneydevkit%2Fmdk-checkout%2Ftree%2Fmdk-216%2Fexamples%2Fghost-checkout&env=MDK_ACCESS_TOKEN,MDK_MNEMONIC,GHOST_URL,GHOST_ADMIN_API_KEY&envDescription=MoneyDevKit%20and%20Ghost%20credentials&project-name=ghost-checkout&repository-name=ghost-checkout)
 
 ## Environment Variables
 
