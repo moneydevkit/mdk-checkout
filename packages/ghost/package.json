@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/ghost",
-  "version": "0.7.0-beta.8",
+  "version": "0.7.0-alpha.0",
   "title": "@moneydevkit/ghost",
   "description": "MoneyDevKit checkout for Ghost blogs with automatic member sync.",
   "repository": {
@@ -18,7 +18,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./mdk-styles.css": "@moneydevkit/nextjs/mdk-styles.css",
     "./package.json": "./package.json",
     "./server": {
       "types": "./dist/server/index.d.ts",
@@ -29,8 +28,7 @@
       "types": "./dist/server/route.d.ts",
       "import": "./dist/server/route.js",
       "default": "./dist/server/route.js"
-    },
-    "./next-plugin": "@moneydevkit/nextjs/next-plugin"
+    }
   },
   "files": [
     "dist"
@@ -48,7 +46,7 @@
     "react-dom": "^18 || ^19"
   },
   "dependencies": {
-    "@moneydevkit/nextjs": "0.7.0-beta.8",
+    "@moneydevkit/nextjs": "0.7.0-alpha.0",
     "@tryghost/admin-api": "^1.13.12"
   },
   "devDependencies": {

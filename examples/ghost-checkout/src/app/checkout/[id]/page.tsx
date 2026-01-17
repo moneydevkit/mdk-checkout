@@ -9,10 +9,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Checkout
-        checkoutId={id}
-        successUrl={process.env.SUCCESS_URL}
-      />
+      <Checkout id={id} />
     </main>
   )
 }

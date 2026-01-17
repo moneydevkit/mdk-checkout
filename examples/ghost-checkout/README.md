@@ -18,21 +18,57 @@ Accept Lightning payments for your Ghost blog memberships.
 
 ## How It Works
 
-1. Create a checkout URL using the `createCheckoutUrl` function
-2. Add the URL to your Ghost site as a payment link
-3. When a user pays, their Ghost membership is automatically updated
+1. Generate a signed checkout URL using `createCheckoutUrl`
+2. Add the URL to your Ghost site with a `data-mdk` attribute
+3. JavaScript injects the member's email into the URL
+4. When a user pays, their Ghost membership is automatically updated
 
-## Usage on Ghost
+## Ghost Setup
 
-Add payment links to your Ghost site:
+### Step 1: Add the script to Ghost
+
+Go to **Settings > Code injection > Site Footer** and add:
 
 ```html
-<a href="https://your-checkout.vercel.app/api/mdk?action=createCheckout&amount=500&currency=USD&metadata={%22ghostTierId%22:%22your-tier-id%22,%22months%22:%221%22}&signature=...">
-  Subscribe for $5/month
+<script>
+document.querySelectorAll('a[data-mdk]').forEach(function(el) {
+  var member = window.__GHOST_MEMBER__;
+  if (member && member.email) {
+    el.href = el.href + '&customer=' + encodeURIComponent(JSON.stringify({email: member.email}));
+  }
+});
+</script>
+```
+
+### Step 2: Generate a signed checkout URL
+
+Use the `createCheckoutUrl` helper to generate a signed URL:
+
+```typescript
+import { createCheckoutUrl } from '@moneydevkit/ghost/server'
+
+const url = createCheckoutUrl({
+  type: 'AMOUNT',
+  amount: 500, // $5.00
+  currency: 'USD',
+  metadata: {
+    ghostTierId: 'your-ghost-tier-id',
+    months: '1'
+  }
+})
+```
+
+### Step 3: Add the link to your Ghost post
+
+In a Ghost post, add an HTML card with the signed URL:
+
+```html
+<a href="https://your-checkout.vercel.app/api/mdk?action=createCheckout&amount=500&..." data-mdk>
+  Subscribe for $5/month via Lightning
 </a>
 ```
 
-Use the `createCheckoutUrl` helper to generate signed URLs server-side, or contact MoneyDevKit for a URL generator tool.
+The `data-mdk` attribute tells the script to inject the member's email.
 
 ## Local Development
 

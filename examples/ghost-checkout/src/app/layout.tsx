@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import '@moneydevkit/ghost/mdk-styles.css'
+import '@moneydevkit/nextjs/mdk-styles.css'
 import './globals.css'
 
 export const metadata: Metadata = {

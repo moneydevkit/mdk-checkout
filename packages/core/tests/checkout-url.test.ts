@@ -270,6 +270,50 @@ describe('verifyCheckoutSignature', () => {
     const signature = params.get('signature')!
     assert.equal(verifyCheckoutSignature(params, signature), true)
   })
+
+  it('allows adding customer param without breaking signature', () => {
+    // Create URL without customer
+    const url = createCheckoutUrl({ title: 'Test', description: 'Desc', amount: 100 })
+    const params = new URL(url, 'http://localhost').searchParams
+    const signature = params.get('signature')!
+
+    // Add customer param (simulating Ghost injecting member email)
+    params.set('customer', JSON.stringify({ email: 'member@ghost.io' }))
+
+    // Signature should still be valid
+    assert.equal(verifyCheckoutSignature(params, signature), true)
+  })
+
+  it('allows modifying customer param without breaking signature', () => {
+    // Create URL with customer
+    const url = createCheckoutUrl({
+      title: 'Test',
+      description: 'Desc',
+      amount: 100,
+      customer: { email: 'original@example.com' },
+    })
+    const params = new URL(url, 'http://localhost').searchParams
+    const signature = params.get('signature')!
+
+    // Modify customer param
+    params.set('customer', JSON.stringify({ email: 'different@example.com' }))
+
+    // Signature should still be valid
+    assert.equal(verifyCheckoutSignature(params, signature), true)
+  })
+
+  it('produces same signature regardless of customer param', () => {
+    const url1 = createCheckoutUrl({ title: 'Test', description: 'Desc', amount: 100 })
+    const url2 = createCheckoutUrl({
+      title: 'Test',
+      description: 'Desc',
+      amount: 100,
+      customer: { email: 'test@example.com' },
+    })
+    const sig1 = new URL(url1, 'http://localhost').searchParams.get('signature')
+    const sig2 = new URL(url2, 'http://localhost').searchParams.get('signature')
+    assert.equal(sig1, sig2)
+  })
 })
 
 // ============================================================================
