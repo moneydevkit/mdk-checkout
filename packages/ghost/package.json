@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/ghost",
-  "version": "0.7.0-alpha.0",
+  "version": "0.7.0-alpha.1",
   "title": "@moneydevkit/ghost",
   "description": "MoneyDevKit checkout for Ghost blogs with automatic member sync.",
   "repository": {
@@ -46,7 +46,7 @@
     "react-dom": "^18 || ^19"
   },
   "dependencies": {
-    "@moneydevkit/nextjs": "0.7.0-alpha.0",
+    "@moneydevkit/nextjs": "0.7.0-alpha.1",
     "@tryghost/admin-api": "^1.13.12"
   },
   "devDependencies": {

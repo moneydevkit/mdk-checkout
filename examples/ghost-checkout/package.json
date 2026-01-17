@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@moneydevkit/ghost": "^0.7.0-alpha.0",
+    "@moneydevkit/ghost": "^0.7.0-alpha.1",
     "@moneydevkit/lightning-js": "^0.1.60",
     "next": "^15.3.5",
     "react": "^19.0.0",

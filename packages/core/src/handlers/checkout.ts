@@ -150,8 +150,8 @@ export async function handleConfirmCheckout(request: Request): Promise<Response>
 // ============================================================================
 
 // Params excluded from signature - can be added/modified without breaking signature
-// This allows Ghost to inject member email dynamically
-const UNSIGNED_PARAMS = ['customer']
+// This allows Ghost to inject member email dynamically, and tracking params like ref
+const UNSIGNED_PARAMS = ['customer', 'ref']
 
 export interface CreateCheckoutUrlOptions {
   basePath?: string
