@@ -16,11 +16,11 @@ import type { MdkError, Result } from '../types'
  * await createCheckout({ type: 'AMOUNT', amount: 1000, title: 'Donation' })
  *
  * // Product checkout
- * await createCheckout({ type: 'PRODUCTS', products: ['prod_123'] })
+ * await createCheckout({ type: 'PRODUCTS', product: 'prod_123' })
  *
  * // With useProducts hook
  * const { products } = useProducts()
- * await createCheckout({ type: 'PRODUCTS', products: [products[0].id] })
+ * await createCheckout({ type: 'PRODUCTS', product: products[0].id })
  * ```
  */
 export function useCheckout() {

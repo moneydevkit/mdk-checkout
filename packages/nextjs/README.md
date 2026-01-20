@@ -165,7 +165,7 @@ function ProductPage() {
   const handleBuyProduct = async (productId) => {
     const result = await createCheckout({
       type: 'PRODUCTS',
-      products: [productId],
+      product: productId,
       successUrl: '/checkout/success',
     })
 
@@ -187,7 +187,7 @@ function ProductPage() {
 
 ### Checkout Types
 - **`type: 'AMOUNT'`** - For donations, tips, or custom amounts. Requires `amount` field.
-- **`type: 'PRODUCTS'`** - For selling products. Requires `products` array with product IDs. Amount is calculated from product prices.
+- **`type: 'PRODUCTS'`** - For selling products. Requires `product` field with a product ID. Amount is calculated from product price.
 
 ### Pay What You Want (CUSTOM prices)
 Products can have CUSTOM prices that let customers choose their own amount. When a checkout includes a product with a CUSTOM price, the checkout UI automatically shows an amount input field:
@@ -196,7 +196,7 @@ Products can have CUSTOM prices that let customers choose their own amount. When
 // Create a checkout for a product with CUSTOM pricing
 const result = await createCheckout({
   type: 'PRODUCTS',
-  products: [customPriceProductId],  // Product configured with CUSTOM price in dashboard
+  product: customPriceProductId,  // Product configured with CUSTOM price in dashboard
   successUrl: '/checkout/success',
 })
 ```
