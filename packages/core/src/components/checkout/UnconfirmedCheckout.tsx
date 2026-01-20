@@ -50,7 +50,8 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const queryClient = useQueryClient()
   const missingFields = getMissingRequiredFields(checkout)
 
-  // Track selected product for confirm call and CUSTOM price handling
+  // Track selected product for confirm call and CUSTOM price handling.
+  // Setter intentionally omitted - single product only for now (multi-product selection coming later)
   const [selectedProductId] = useState<string | null>(
     checkout.products?.[0]?.id ?? null
   )
@@ -98,12 +99,12 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
         const product: { productId: string; priceAmount?: number } = { productId }
 
         // If CUSTOM price, include the user-entered amount
-        // USD: convert dollars to cents (multiply by 100)
+        // USD: convert dollars to cents (multiply by 100, with EPSILON for float precision)
         // SAT: use directly (amounts are in sats)
         if (isCustomPrice && customAmount) {
           const parsedAmount = Number.parseFloat(customAmount)
           const amountInSmallestUnit = checkout.currency === 'USD'
-            ? Math.round(parsedAmount * 100)
+            ? Math.round(parsedAmount * 100 + Number.EPSILON)
             : Math.round(parsedAmount)
           product.priceAmount = amountInSmallestUnit
         }
@@ -192,9 +193,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
             Enter Amount ({checkout.currency})
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              {checkout.currency === 'USD' ? '$' : ''}
-            </span>
+            {checkout.currency === 'USD' && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+            )}
             <Input
               id="customAmount"
               type="number"
@@ -206,8 +207,11 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                 setCustomAmountError(null)
               }}
               placeholder={checkout.currency === 'SAT' ? '1000' : '0.00'}
-              className={`bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 ${checkout.currency === 'USD' ? 'pl-8' : ''}`}
+              className={`bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 ${checkout.currency === 'USD' ? 'pl-8' : 'pr-12'}`}
             />
+            {checkout.currency === 'SAT' && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">sats</span>
+            )}
           </div>
           {customAmountError && (
             <p className="text-red-400 text-sm mt-1">{customAmountError}</p>
