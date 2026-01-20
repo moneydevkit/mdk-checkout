@@ -5,6 +5,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { clientConfirmCheckout } from '../../client-actions'
+import {
+  fieldToLabel,
+  getMissingRequiredFields,
+  convertCustomAmountToSmallestUnit,
+  validateCustomAmount,
+} from '../../checkout-utils'
 import { Button } from '../ui/button'
 import {
   Form,
@@ -20,30 +26,6 @@ type UnconfirmedCheckoutType = Extract<Checkout, { status: 'UNCONFIRMED' }>
 
 export interface UnconfirmedCheckoutProps {
   checkout: UnconfirmedCheckoutType
-}
-
-/**
- * Convert camelCase field name to readable label.
- * e.g., "billingAddress" -> "Billing Address"
- */
-function fieldToLabel(field: string): string {
-  return field
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (str) => str.toUpperCase())
-    .trim()
-}
-
-/**
- * Get fields that need to be shown in the form.
- * A field is shown if it's in requireCustomerData and not already provided.
- */
-function getMissingRequiredFields(checkout: UnconfirmedCheckoutType): string[] {
-  if (!checkout.requireCustomerData) return []
-
-  return checkout.requireCustomerData.filter((field: string) => {
-    const value = checkout.customer?.[field]
-    return value === undefined || value === null || value === ''
-  })
 }
 
 export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutProps) {
@@ -99,14 +81,8 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
         const product: { productId: string; priceAmount?: number } = { productId }
 
         // If CUSTOM price, include the user-entered amount
-        // USD: convert dollars to cents (multiply by 100, with EPSILON for float precision)
-        // SAT: use directly (amounts are in sats)
         if (isCustomPrice && customAmount) {
-          const parsedAmount = Number.parseFloat(customAmount)
-          const amountInSmallestUnit = checkout.currency === 'USD'
-            ? Math.round(parsedAmount * 100 + Number.EPSILON)
-            : Math.round(parsedAmount)
-          product.priceAmount = amountInSmallestUnit
+          product.priceAmount = convertCustomAmountToSmallestUnit(customAmount, checkout.currency)
         }
 
         productsPayload = [product]
@@ -131,12 +107,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const onSubmit = (data: CustomerFormData) => {
     // Validate custom amount if required
     if (isCustomPrice) {
-      const amount = Number.parseFloat(customAmount)
-      const minAmount = checkout.currency === 'SAT' ? 1 : 0.01
-      if (!customAmount || Number.isNaN(amount) || amount < minAmount) {
-        setCustomAmountError(checkout.currency === 'SAT'
-          ? 'Please enter at least 1 sat'
-          : 'Please enter a valid amount')
+      const error = validateCustomAmount(customAmount, checkout.currency)
+      if (error) {
+        setCustomAmountError(error)
         return
       }
       setCustomAmountError(null)
@@ -206,8 +179,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                 setCustomAmount(e.target.value)
                 setCustomAmountError(null)
               }}
-              placeholder={checkout.currency === 'SAT' ? '1000' : '0.00'}
-              className={`bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 ${checkout.currency === 'USD' ? 'pl-8' : 'pr-12'}`}
+              placeholder={checkout.currency === 'SAT' ? '1000' : ''}
+              className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ paddingLeft: checkout.currency === 'USD' ? '1.75rem' : undefined, paddingRight: checkout.currency === 'SAT' ? '3.5rem' : undefined }}
             />
             {checkout.currency === 'SAT' && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">sats</span>
