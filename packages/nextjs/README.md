@@ -189,6 +189,20 @@ function ProductPage() {
 - **`type: 'AMOUNT'`** - For donations, tips, or custom amounts. Requires `amount` field.
 - **`type: 'PRODUCTS'`** - For selling products. Requires `products` array with product IDs. Amount is calculated from product prices.
 
+### Pay What You Want (CUSTOM prices)
+Products can have CUSTOM prices that let customers choose their own amount. When a checkout includes a product with a CUSTOM price, the checkout UI automatically shows an amount input field:
+
+```jsx
+// Create a checkout for a product with CUSTOM pricing
+const result = await createCheckout({
+  type: 'PRODUCTS',
+  products: [customPriceProductId],  // Product configured with CUSTOM price in dashboard
+  successUrl: '/checkout/success',
+})
+```
+
+The customer enters their desired amount during checkout. For USD, amounts are in dollars (converted to cents internally). For SAT, amounts are in satoshis.
+
 ## Verify successful payments
 When a checkout completes, use `useCheckoutSuccess()` on the success page
 ```tsx
