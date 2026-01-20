@@ -16,7 +16,6 @@ const customerInputSchema = z.object({
 }).catchall(z.string())
 
 const commonCheckoutFields = {
-  currency: z.enum(['USD', 'SAT']).optional(),
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
   metadata: z.record(z.string()).optional()
@@ -38,6 +37,7 @@ const commonCheckoutFields = {
 
 const amountCheckoutSchema = z.object({
   type: z.literal('AMOUNT'),
+  currency: z.enum(['USD', 'SAT']),
   amount: z.number(),
   title: z.string().optional(),
   description: z.string().optional(),
