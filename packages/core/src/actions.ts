@@ -152,10 +152,12 @@ export type CreateCheckoutParams = AmountCheckoutParams | ProductCheckoutParams
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
-  const currency = params.currency ?? 'USD'
+  // For PRODUCTS checkouts, let the server infer currency from the product's price.
+  // For AMOUNT checkouts, default to USD.
+  const isProductCheckout = params.type === 'PRODUCTS'
+  const currency = params.currency ?? (isProductCheckout ? undefined : 'USD')
   const metadataOverrides = params.metadata ?? {}
 
-  const isProductCheckout = params.type === 'PRODUCTS'
   const product = isProductCheckout ? params.product : undefined
   const amount = isProductCheckout ? undefined : params.amount
   const title = isProductCheckout ? undefined : params.title
