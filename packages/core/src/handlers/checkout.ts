@@ -58,6 +58,10 @@ const createCheckoutSchema = z.discriminatedUnion('type', [
 const confirmCheckoutSchema = z.object({
   checkoutId: z.string(),
   customer: customerInputSchema.optional(),
+  products: z.array(z.object({
+    productId: z.string(),
+    priceAmount: z.number().optional(),
+  })).max(1).optional(),
 })
 
 function jsonResponse(status: number, body: Record<string, unknown>) {
