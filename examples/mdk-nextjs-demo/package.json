@@ -9,12 +9,17 @@
     "lint": "eslint . --ext ts,tsx,js,jsx --max-warnings=0"
   },
   "dependencies": {
-    "@moneydevkit/nextjs": "file:moneydevkit-nextjs-local.tgz",
-    "@moneydevkit/core": "file:moneydevkit-core-local.tgz",
+    "@moneydevkit/api-contract": "^0.1.17",
+    "@moneydevkit/nextjs": "file:../../packages/nextjs",
+    "@moneydevkit/core": "file:../../packages/core",
+    "@moneydevkit/lightning-js": "^0.1.60",
     "bip39": "^3.1.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
+  },
+  "optionalDependencies": {
+    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.60"
   },
   "devDependencies": {
     "@types/node": "25.0.3",
