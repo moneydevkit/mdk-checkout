@@ -1,7 +1,11 @@
 import express from 'express'
 import type { RequestHandler, Router } from 'express'
 
-import { createUnifiedHandler } from '@moneydevkit/core/route'
+import { createUnifiedHandler, GET as getHandler } from '@moneydevkit/core/route'
+
+// Re-export createCheckoutUrl for server-side URL generation
+export { createCheckoutUrl } from '@moneydevkit/core/route'
+export type { CreateCheckoutUrlOptions } from '@moneydevkit/core/route'
 
 const unifiedHandler = createUnifiedHandler()
 
@@ -57,9 +61,31 @@ export const mdkExpressHandler: RequestHandler = async (req, res) => {
   }
 }
 
+export const mdkExpressGetHandler: RequestHandler = async (req, res) => {
+  try {
+    const request = toFetchRequest(req)
+    const response = await getHandler(request)
+
+    // Handle redirects specially for Express
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (location) {
+        res.redirect(response.status, location)
+        return
+      }
+    }
+
+    await sendFetchResponse(res, response)
+  } catch (error) {
+    console.error('MDK Express GET handler error', error)
+    res.status(500).send('Internal Server Error')
+  }
+}
+
 export function createMdkExpressRouter(): Router {
   const router = express.Router()
   router.use(express.json())
+  router.get('/', mdkExpressGetHandler)
   router.post('/', mdkExpressHandler)
   return router
 }

@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/nextjs",
-  "version": "0.7.0-beta.6",
+  "version": "0.7.0-beta.8",
   "title": "@moneydevkit/nextjs",
   "description": "moneydevkit checkout components for Next.js.",
   "repository": {
@@ -20,6 +20,11 @@
     },
     "./mdk-styles.css": "./dist/mdk-styles.css",
     "./package.json": "./package.json",
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
     "./server/route": {
       "types": "./dist/server/route.d.ts",
       "import": "./dist/server/route.js",
@@ -51,7 +56,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@moneydevkit/api-contract": "^0.1.17",
-    "@moneydevkit/core": "0.7.0-beta.6",
+    "@moneydevkit/core": "0.7.0-beta.8",
     "@moneydevkit/lightning-js": "^0.1.60",
     "@orpc/client": "1.3.0",
     "@orpc/contract": "1.3.0",

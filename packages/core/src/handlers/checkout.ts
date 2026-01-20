@@ -1,6 +1,8 @@
+import { createHmac, timingSafeEqual } from 'crypto'
 import { z } from 'zod'
 
 import { confirmCheckout, createCheckout, getCheckout } from '../actions'
+import type { CreateCheckoutParams } from '../actions'
 import { validateMetadata } from '@moneydevkit/api-contract'
 
 /**
@@ -139,5 +141,211 @@ export async function handleConfirmCheckout(request: Request): Promise<Response>
   } catch (error) {
     console.error(error)
     return jsonResponse(500, { error: 'Failed to confirm checkout' })
+  }
+}
+
+// ============================================================================
+// URL-based Checkout Creation Helpers
+// ============================================================================
+
+export interface CreateCheckoutUrlOptions {
+  basePath?: string
+}
+
+/**
+ * Generate a signed checkout URL for URL-based checkout creation.
+ * All params are HMAC-signed using MDK_ACCESS_TOKEN to prevent tampering.
+ *
+ * @example
+ * const url = createCheckoutUrl({
+ *   title: 'Product',
+ *   description: 'Payment for product',
+ *   amount: 2999,
+ *   currency: 'USD',
+ * })
+ * // Returns: /api/mdk?action=createCheckout&amount=2999&...&signature=abc123
+ */
+export function createCheckoutUrl(
+  params: CreateCheckoutParams,
+  options?: CreateCheckoutUrlOptions
+): string {
+  const basePath = options?.basePath ?? '/api/mdk'
+  const accessToken = process.env.MDK_ACCESS_TOKEN
+
+  if (!accessToken) {
+    throw new Error('MDK_ACCESS_TOKEN is required for creating checkout URLs')
+  }
+
+  // Build URL params
+  const urlParams = new URLSearchParams()
+  urlParams.set('action', 'createCheckout')
+
+  // Add all params, JSON-stringify objects
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue
+    if (typeof value === 'object' && value !== null) {
+      urlParams.set(key, JSON.stringify(value))
+    } else {
+      urlParams.set(key, String(value))
+    }
+  }
+
+  // Sort params alphabetically for consistent signature
+  urlParams.sort()
+  const canonicalString = urlParams.toString()
+
+  // Compute HMAC-SHA256 signature
+  const signature = createHmac('sha256', accessToken)
+    .update(canonicalString)
+    .digest('hex')
+
+  urlParams.set('signature', signature)
+
+  return `${basePath}?${urlParams.toString()}`
+}
+
+/**
+ * Verify the HMAC signature of checkout URL params.
+ * Uses constant-time comparison to prevent timing attacks.
+ */
+export function verifyCheckoutSignature(
+  params: URLSearchParams,
+  signature: string
+): boolean {
+  const accessToken = process.env.MDK_ACCESS_TOKEN
+  if (!accessToken) return false
+
+  // Clone params and remove signature for verification
+  const paramsToVerify = new URLSearchParams(params)
+  paramsToVerify.delete('signature')
+  paramsToVerify.sort()
+
+  const canonicalString = paramsToVerify.toString()
+  const expectedSignature = createHmac('sha256', accessToken)
+    .update(canonicalString)
+    .digest('hex')
+
+  // Constant-time comparison to prevent timing attacks
+  try {
+    const sigBuffer = Buffer.from(signature, 'hex')
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex')
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return false
+    }
+
+    return timingSafeEqual(sigBuffer, expectedBuffer)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Parse URL query params into checkout params.
+ * Handles JSON parsing for nested objects (metadata, customer, requireCustomerData).
+ */
+export function parseCheckoutQueryParams(params: URLSearchParams): Record<string, unknown> {
+  const raw: Record<string, unknown> = {}
+
+  for (const [key, value] of params) {
+    // Skip action and signature - they're not checkout params
+    if (key === 'action' || key === 'signature') continue
+
+    // JSON parse for objects/arrays
+    if (key === 'metadata' || key === 'customer' || key === 'requireCustomerData' || key === 'products') {
+      try {
+        raw[key] = JSON.parse(value)
+      } catch {
+        // If JSON parsing fails, keep as string
+        raw[key] = value
+      }
+    } else if (key === 'amount') {
+      // Parse amount as number
+      raw[key] = Number(value)
+    } else {
+      raw[key] = value
+    }
+  }
+
+  return raw
+}
+
+/**
+ * Validates and sanitizes checkoutPath to prevent open redirect attacks.
+ * Returns a safe relative path or the default '/checkout'.
+ *
+ * Security considerations:
+ * - Must start with / (relative path)
+ * - Must not contain :// or // (prevents protocol-relative URLs and absolute URLs)
+ */
+export function sanitizeCheckoutPath(checkoutPath: string | null): string {
+  const defaultPath = '/checkout'
+
+  if (!checkoutPath) {
+    return defaultPath
+  }
+
+  // Must start with / (relative path)
+  if (!checkoutPath.startsWith('/')) {
+    return defaultPath
+  }
+
+  // Must not contain :// or // (prevents protocol-relative URLs and absolute URLs)
+  if (checkoutPath.includes('://') || checkoutPath.includes('//')) {
+    return defaultPath
+  }
+
+  // Strip query string and hash - they would break URL construction when appending /{id}
+  // e.g., /checkout?foo=bar + /abc123 would become /checkout?foo=bar/abc123 (broken)
+  const queryIndex = checkoutPath.indexOf('?')
+  const hashIndex = checkoutPath.indexOf('#')
+
+  let endIndex = checkoutPath.length
+  if (queryIndex !== -1) endIndex = Math.min(endIndex, queryIndex)
+  if (hashIndex !== -1) endIndex = Math.min(endIndex, hashIndex)
+
+  return checkoutPath.slice(0, endIndex)
+}
+
+/**
+ * Create a checkout from parsed query params.
+ * Validates against the same schema as handleCreateCheckout.
+ */
+export async function handleCreateCheckoutFromUrl(
+  params: Record<string, unknown>
+): Promise<{ error: { code: string; message: string } } | { data: { id: string; checkoutPath: string } }> {
+  // Infer type if not provided - the schema requires it for discriminated union
+  if (!params.type) {
+    params.type = params.products ? 'PRODUCTS' : 'AMOUNT'
+  }
+
+  const parsed = createCheckoutSchema.safeParse(params)
+
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]
+    return {
+      error: {
+        code: 'validation_error',
+        message: firstError?.message ?? 'Invalid checkout parameters',
+      },
+    }
+  }
+
+  const result = await createCheckout(parsed.data)
+
+  if (result.error) {
+    return {
+      error: {
+        code: result.error.code,
+        message: result.error.message,
+      },
+    }
+  }
+
+  return {
+    data: {
+      id: result.data.checkout.id,
+      checkoutPath: parsed.data.checkoutPath ?? '/checkout',
+    },
   }
 }

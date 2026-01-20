@@ -1,7 +1,19 @@
 import { z } from 'zod'
 
 import { handleBalance } from './handlers/balance'
-import { handleConfirmCheckout, handleCreateCheckout, handleGetCheckout } from './handlers/checkout'
+import {
+  handleConfirmCheckout,
+  handleCreateCheckout,
+  handleGetCheckout,
+  handleCreateCheckoutFromUrl,
+  parseCheckoutQueryParams,
+  verifyCheckoutSignature,
+  sanitizeCheckoutPath,
+} from './handlers/checkout'
+
+// Re-export for use in nextjs package
+export { createCheckoutUrl } from './handlers/checkout'
+export type { CreateCheckoutUrlOptions } from './handlers/checkout'
 import { listChannels } from './handlers/list_channels'
 import { handlePayBolt11 } from './handlers/pay_bolt_11'
 import { handlePayBolt12 } from './handlers/pay_bolt_12'
@@ -231,4 +243,79 @@ export function createUnifiedHandler() {
 export async function POST(request: Request) {
   const handler = createUnifiedHandler()
   return handler(request)
+}
+
+/**
+ * Safely join a base path with a segment, avoiding double slashes.
+ * e.g., joinPath('/', 'abc') -> '/abc', joinPath('/checkout', 'abc') -> '/checkout/abc'
+ */
+function joinPath(base: string, segment: string): string {
+  if (base === '/') return `/${segment}`
+  return `${base}/${segment}`
+}
+
+/**
+ * Helper to redirect to checkout error page.
+ * Uses 'error' as a placeholder ID so it matches the /checkout/[id] route.
+ */
+function redirectToCheckoutError(
+  baseUrl: URL,
+  checkoutPath: string,
+  code: string,
+  message: string
+): Response {
+  const errorUrl = new URL(joinPath(checkoutPath, 'error'), baseUrl.origin)
+  errorUrl.searchParams.set('error', code)
+  errorUrl.searchParams.set('message', message)
+  return Response.redirect(errorUrl.toString(), 302)
+}
+
+/**
+ * GET handler for URL-based checkout creation.
+ *
+ * Creates a checkout from signed URL query params and redirects to the checkout page.
+ *
+ * @example
+ * GET /api/mdk?action=createCheckout&title=Product&amount=2999&signature=abc123
+ *   -> Verifies signature
+ *   -> Creates checkout
+ *   -> 302 redirect to /checkout/{id}
+ *
+ * Users should generate URLs using the `createCheckoutUrl` helper to ensure proper signing.
+ */
+export async function GET(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const params = url.searchParams
+
+  // Only handle createCheckout action
+  if (params.get('action') !== 'createCheckout') {
+    return new Response('Not found', { status: 404 })
+  }
+
+  // Sanitize checkoutPath early to prevent open redirect attacks
+  const checkoutPath = sanitizeCheckoutPath(params.get('checkoutPath'))
+
+  // Verify signature is present
+  const signature = params.get('signature')
+  if (!signature) {
+    return redirectToCheckoutError(url, checkoutPath, 'missing_signature', 'Missing signature')
+  }
+
+  // Verify signature is valid
+  const isValid = verifyCheckoutSignature(params, signature)
+  if (!isValid) {
+    return redirectToCheckoutError(url, checkoutPath, 'invalid_signature', 'Invalid signature')
+  }
+
+  // Parse and validate params
+  const checkoutParams = parseCheckoutQueryParams(params)
+  const result = await handleCreateCheckoutFromUrl(checkoutParams)
+
+  if ('error' in result) {
+    return redirectToCheckoutError(url, checkoutPath, result.error.code, result.error.message)
+  }
+
+  // Success - redirect to checkout page (use sanitized checkoutPath, not result.data.checkoutPath)
+  const checkoutUrl = new URL(joinPath(checkoutPath, result.data.id), url.origin)
+  return Response.redirect(checkoutUrl.toString(), 302)
 }

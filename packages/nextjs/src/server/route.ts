@@ -1,2 +1,2 @@
-export { POST } from '@moneydevkit/core/route';
+export { POST, GET } from '@moneydevkit/core/route';
 
