@@ -123,7 +123,6 @@ export function normalizeRequireCustomerData(fields: string[] | undefined): stri
 type Currency = 'USD' | 'SAT'
 
 type CommonCheckoutFields = {
-  currency?: Currency
   successUrl?: string
   checkoutPath?: string
   metadata?: Record<string, unknown>
@@ -133,6 +132,8 @@ type CommonCheckoutFields = {
 
 type AmountCheckoutParams = CommonCheckoutFields & {
   type: 'AMOUNT'
+  /** Currency for the checkout amount. */
+  currency: Currency
   amount: number
   title?: string
   description?: string
@@ -146,6 +147,7 @@ type ProductCheckoutParams = CommonCheckoutFields & {
    * @example 'prod_123abc'
    */
   product: string
+  currency?: never
   amount?: never
   title?: never
   description?: never
@@ -156,10 +158,12 @@ export type CreateCheckoutParams = AmountCheckoutParams | ProductCheckoutParams
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
-  const currency = params.currency ?? 'USD'
+  // For PRODUCTS checkouts without explicit currency, let the server infer from product price.
+  // For AMOUNT checkouts, currency is required by the type system.
+  const isProductCheckout = params.type === 'PRODUCTS'
+  const currency = params.currency
   const metadataOverrides = params.metadata ?? {}
 
-  const isProductCheckout = params.type === 'PRODUCTS'
   const product = isProductCheckout ? params.product : undefined
   const amount = isProductCheckout ? undefined : params.amount
   const title = isProductCheckout ? undefined : params.title
