@@ -5,6 +5,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { clientConfirmCheckout } from '../../client-actions'
+import {
+  fieldToLabel,
+  getMissingRequiredFields,
+  convertCustomAmountToSmallestUnit,
+  validateCustomAmount,
+} from '../../checkout-utils'
 import { Button } from '../ui/button'
 import {
   Form,
@@ -20,30 +26,6 @@ type UnconfirmedCheckoutType = Extract<Checkout, { status: 'UNCONFIRMED' }>
 
 export interface UnconfirmedCheckoutProps {
   checkout: UnconfirmedCheckoutType
-}
-
-/**
- * Convert camelCase field name to readable label.
- * e.g., "billingAddress" -> "Billing Address"
- */
-function fieldToLabel(field: string): string {
-  return field
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (str) => str.toUpperCase())
-    .trim()
-}
-
-/**
- * Get fields that need to be shown in the form.
- * A field is shown if it's in requireCustomerData and not already provided.
- */
-function getMissingRequiredFields(checkout: UnconfirmedCheckoutType): string[] {
-  if (!checkout.requireCustomerData) return []
-
-  return checkout.requireCustomerData.filter((field: string) => {
-    const value = checkout.customer?.[field]
-    return value === undefined || value === null || value === ''
-  })
 }
 
 export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutProps) {
@@ -99,14 +81,8 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
         const product: { productId: string; priceAmount?: number } = { productId }
 
         // If CUSTOM price, include the user-entered amount
-        // USD: convert dollars to cents (multiply by 100, with EPSILON for float precision)
-        // SAT: use directly (amounts are in sats)
         if (isCustomPrice && customAmount) {
-          const parsedAmount = Number.parseFloat(customAmount)
-          const amountInSmallestUnit = checkout.currency === 'USD'
-            ? Math.round(parsedAmount * 100 + Number.EPSILON)
-            : Math.round(parsedAmount)
-          product.priceAmount = amountInSmallestUnit
+          product.priceAmount = convertCustomAmountToSmallestUnit(customAmount, checkout.currency)
         }
 
         productsPayload = [product]
@@ -131,12 +107,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const onSubmit = (data: CustomerFormData) => {
     // Validate custom amount if required
     if (isCustomPrice) {
-      const amount = Number.parseFloat(customAmount)
-      const minAmount = checkout.currency === 'SAT' ? 1 : 0.01
-      if (!customAmount || Number.isNaN(amount) || amount < minAmount) {
-        setCustomAmountError(checkout.currency === 'SAT'
-          ? 'Please enter at least 1 sat'
-          : 'Please enter a valid amount')
+      const error = validateCustomAmount(customAmount, checkout.currency)
+      if (error) {
+        setCustomAmountError(error)
         return
       }
       setCustomAmountError(null)

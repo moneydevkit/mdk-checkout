@@ -14,8 +14,9 @@ import type { Result } from './types'
  * @example toCamelCase('custom-field') => 'customField'
  * @example toCamelCase('custom field') => 'customField'
  * @example toCamelCase('Custom Field') => 'customField'
+ * @internal Exported for testing
  */
-function toCamelCase(str: string): string {
+export function toCamelCase(str: string): string {
   return str
     // Split on underscores, hyphens, or spaces
     .split(/[-_\s]+/)
@@ -34,8 +35,9 @@ function toCamelCase(str: string): string {
 /**
  * Normalize field names to camelCase.
  * Standard fields (email, name) are kept as-is.
+ * @internal Exported for testing
  */
-function normalizeFieldName(field: string): string {
+export function normalizeFieldName(field: string): string {
   const standardFields = ['email', 'name', 'externalId']
   const camel = toCamelCase(field)
   // Keep standard fields exactly as expected
@@ -95,8 +97,9 @@ export type CustomerInput = {
 
 /**
  * Strip empty strings from customer object and normalize keys to camelCase.
+ * @internal Exported for testing
  */
-function cleanCustomerInput(customer: CustomerInput | undefined): CustomerInput | undefined {
+export function cleanCustomerInput(customer: CustomerInput | undefined): CustomerInput | undefined {
   if (!customer) return undefined
   const cleaned: Record<string, string> = {}
   for (const [key, value] of Object.entries(customer)) {
@@ -110,8 +113,9 @@ function cleanCustomerInput(customer: CustomerInput | undefined): CustomerInput 
 
 /**
  * Normalize requireCustomerData field names to camelCase.
+ * @internal Exported for testing
  */
-function normalizeRequireCustomerData(fields: string[] | undefined): string[] | undefined {
+export function normalizeRequireCustomerData(fields: string[] | undefined): string[] | undefined {
   if (!fields) return undefined
   return fields.map(normalizeFieldName)
 }
