@@ -179,8 +179,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                 setCustomAmount(e.target.value)
                 setCustomAmountError(null)
               }}
-              placeholder={checkout.currency === 'SAT' ? '1000' : '0.00'}
-              className={`bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 ${checkout.currency === 'USD' ? 'pl-8' : 'pr-12'}`}
+              placeholder={checkout.currency === 'SAT' ? '1000' : ''}
+              className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ paddingLeft: checkout.currency === 'USD' ? '1.75rem' : undefined, paddingRight: checkout.currency === 'SAT' ? '3.5rem' : undefined }}
             />
             {checkout.currency === 'SAT' && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">sats</span>
