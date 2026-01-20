@@ -44,21 +44,24 @@ const amountCheckoutSchema = z.object({
   ...commonCheckoutFields,
 })
 
-const productsCheckoutSchema = z.object({
+const productCheckoutSchema = z.object({
   type: z.literal('PRODUCTS'),
-  products: z.array(z.string()),
-  productId: z.string().optional(),
+  product: z.string(),
   ...commonCheckoutFields,
 })
 
 const createCheckoutSchema = z.discriminatedUnion('type', [
   amountCheckoutSchema,
-  productsCheckoutSchema,
+  productCheckoutSchema,
 ])
 
 const confirmCheckoutSchema = z.object({
   checkoutId: z.string(),
   customer: customerInputSchema.optional(),
+  products: z.array(z.object({
+    productId: z.string(),
+    priceAmount: z.number().optional(),
+  })).max(1).optional(),
 })
 
 function jsonResponse(status: number, body: Record<string, unknown>) {

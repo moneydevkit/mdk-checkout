@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Checkout } from '@moneydevkit/api-contract'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { clientConfirmCheckout } from '../../client-actions'
@@ -49,6 +50,21 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const queryClient = useQueryClient()
   const missingFields = getMissingRequiredFields(checkout)
 
+  // Track selected product for confirm call and CUSTOM price handling.
+  // Setter intentionally omitted - single product only for now (multi-product selection coming later)
+  const [selectedProductId] = useState<string | null>(
+    checkout.products?.[0]?.id ?? null
+  )
+
+  // For CUSTOM price types, track the user-entered amount
+  const [customAmount, setCustomAmount] = useState<string>('')
+  const [customAmountError, setCustomAmountError] = useState<string | null>(null)
+
+  // Get the selected product and check if it has a CUSTOM price
+  const selectedProduct = checkout.products?.find((p) => p.id === selectedProductId)
+  const selectedPrice = selectedProduct?.prices?.[0]
+  const isCustomPrice = selectedPrice?.amountType === 'CUSTOM'
+
   // Build dynamic schema based on missing required fields
   const schemaShape: Record<string, z.ZodTypeAny> = {}
   for (const field of missingFields) {
@@ -74,9 +90,32 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
 
   const confirmMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
+      // For product checkouts, include the selected product
+      const productId = selectedProductId ?? checkout.products?.[0]?.id
+
+      // Build the products payload
+      let productsPayload: { productId: string; priceAmount?: number }[] | undefined
+      if (checkout.type === 'PRODUCTS' && productId) {
+        const product: { productId: string; priceAmount?: number } = { productId }
+
+        // If CUSTOM price, include the user-entered amount
+        // USD: convert dollars to cents (multiply by 100, with EPSILON for float precision)
+        // SAT: use directly (amounts are in sats)
+        if (isCustomPrice && customAmount) {
+          const parsedAmount = Number.parseFloat(customAmount)
+          const amountInSmallestUnit = checkout.currency === 'USD'
+            ? Math.round(parsedAmount * 100 + Number.EPSILON)
+            : Math.round(parsedAmount)
+          product.priceAmount = amountInSmallestUnit
+        }
+
+        productsPayload = [product]
+      }
+
       return await clientConfirmCheckout({
         checkoutId: checkout.id,
         customer: data,
+        ...(productsPayload ? { products: productsPayload } : {}),
       })
     },
     onSuccess: () => {
@@ -90,6 +129,19 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   })
 
   const onSubmit = (data: CustomerFormData) => {
+    // Validate custom amount if required
+    if (isCustomPrice) {
+      const amount = Number.parseFloat(customAmount)
+      const minAmount = checkout.currency === 'SAT' ? 1 : 0.01
+      if (!customAmount || Number.isNaN(amount) || amount < minAmount) {
+        setCustomAmountError(checkout.currency === 'SAT'
+          ? 'Please enter at least 1 sat'
+          : 'Please enter a valid amount')
+        return
+      }
+      setCustomAmountError(null)
+    }
+
     confirmMutation.mutate(data)
   }
 
@@ -114,6 +166,9 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                     {product.prices[0].amountType === 'FIXED' && product.prices[0].priceAmount && (
                       <span>{formatCurrency(product.prices[0].priceAmount, checkout.currency)}</span>
                     )}
+                    {product.prices[0].amountType === 'CUSTOM' && (
+                      <span className="text-gray-400">Pay what you want</span>
+                    )}
                     {product.recurringInterval && (
                       <span className="text-gray-400">
                         /{product.recurringInterval.toLowerCase()}
@@ -130,6 +185,39 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
         )}
         {checkout.type === 'TOP_UP' && <div className="text-lg text-white">Account Top-up</div>}
       </div>
+
+      {/* Custom price amount input */}
+      {isCustomPrice && (
+        <div className="mb-4">
+          <label htmlFor="customAmount" className="block text-sm font-medium text-gray-300 mb-2">
+            Enter Amount ({checkout.currency})
+          </label>
+          <div className="relative">
+            {checkout.currency === 'USD' && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+            )}
+            <Input
+              id="customAmount"
+              type="number"
+              min={checkout.currency === 'SAT' ? '1' : '0.01'}
+              step={checkout.currency === 'SAT' ? '1' : '0.01'}
+              value={customAmount}
+              onChange={(e) => {
+                setCustomAmount(e.target.value)
+                setCustomAmountError(null)
+              }}
+              placeholder={checkout.currency === 'SAT' ? '1000' : '0.00'}
+              className={`bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 ${checkout.currency === 'USD' ? 'pl-8' : 'pr-12'}`}
+            />
+            {checkout.currency === 'SAT' && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">sats</span>
+            )}
+          </div>
+          {customAmountError && (
+            <p className="text-red-400 text-sm mt-1">{customAmountError}</p>
+          )}
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
