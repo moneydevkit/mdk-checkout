@@ -1,0 +1,27 @@
+{
+  "name": "ghost-checkout",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@moneydevkit/ghost": "^0.7.0-alpha.1",
+    "@moneydevkit/lightning-js": "^0.1.60",
+    "next": "^15.3.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "optionalDependencies": {
+    "@moneydevkit/lightning-js-linux-x64-gnu": "^0.1.60"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
