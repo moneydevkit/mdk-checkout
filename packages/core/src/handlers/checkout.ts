@@ -152,6 +152,10 @@ export async function handleConfirmCheckout(request: Request): Promise<Response>
 // URL-based Checkout Creation Helpers
 // ============================================================================
 
+// Params excluded from signature - can be added/modified without breaking signature
+// This allows Ghost to inject member data dynamically, and tracking params like ref
+const UNSIGNED_PARAMS = ['customer', 'ref', 'successUrl', 'externalId']
+
 export interface CreateCheckoutUrlOptions {
   basePath?: string
 }
@@ -194,15 +198,21 @@ export function createCheckoutUrl(
     }
   }
 
-  // Sort params alphabetically for consistent signature
-  urlParams.sort()
-  const canonicalString = urlParams.toString()
+  // Build canonical string for signature (excluding unsigned params)
+  const paramsToSign = new URLSearchParams(urlParams)
+  for (const key of UNSIGNED_PARAMS) {
+    paramsToSign.delete(key)
+  }
+  paramsToSign.sort()
+  const canonicalString = paramsToSign.toString()
 
   // Compute HMAC-SHA256 signature
   const signature = createHmac('sha256', accessToken)
     .update(canonicalString)
     .digest('hex')
 
+  // Sort final URL params for consistent output
+  urlParams.sort()
   urlParams.set('signature', signature)
 
   return `${basePath}?${urlParams.toString()}`
@@ -211,6 +221,8 @@ export function createCheckoutUrl(
 /**
  * Verify the HMAC signature of checkout URL params.
  * Uses constant-time comparison to prevent timing attacks.
+ * Note: 'customer' param is excluded from signature verification to allow
+ * dynamic injection (e.g., Ghost member email).
  */
 export function verifyCheckoutSignature(
   params: URLSearchParams,
@@ -219,8 +231,11 @@ export function verifyCheckoutSignature(
   const accessToken = process.env.MDK_ACCESS_TOKEN
   if (!accessToken) return false
 
-  // Clone params and remove signature for verification
+  // Clone params and remove unsigned params for verification
   const paramsToVerify = new URLSearchParams(params)
+  for (const key of UNSIGNED_PARAMS) {
+    paramsToVerify.delete(key)
+  }
   paramsToVerify.delete('signature')
   paramsToVerify.sort()
 
