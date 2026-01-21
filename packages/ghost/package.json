@@ -1,0 +1,60 @@
+{
+  "name": "@moneydevkit/ghost",
+  "version": "0.7.0-alpha.1",
+  "title": "@moneydevkit/ghost",
+  "description": "MoneyDevKit checkout for Ghost blogs with automatic member sync.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
+    "directory": "packages/ghost"
+  },
+  "homepage": "https://github.com/moneydevkit/mdk-checkout/blob/main/packages/ghost/README.md",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
+    "./server/route": {
+      "types": "./dist/server/route.d.ts",
+      "import": "./dist/server/route.js",
+      "default": "./dist/server/route.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "npm --prefix ../nextjs run build",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "pack:local": "npm pack"
+  },
+  "peerDependencies": {
+    "next": "^15 || ^16",
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "dependencies": {
+    "@moneydevkit/nextjs": "0.7.0-alpha.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^20.10.5",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.6.3"
+  },
+  "module": "./dist/index.js"
+}
