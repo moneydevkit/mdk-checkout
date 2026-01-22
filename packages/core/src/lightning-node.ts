@@ -88,6 +88,13 @@ export interface MoneyDevKitNodeOptions {
 const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 6000
 const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 4000
 
+export interface PaymentEvent {
+  eventType: 'claimable' | 'received' | 'failed'
+  paymentHash: string
+  amountMsat?: number
+  reason?: string
+}
+
 export class MoneyDevKitNode {
   private node: LightningNodeInstance
 
@@ -126,6 +133,40 @@ export class MoneyDevKitNode {
       RECEIVE_PAYMENTS_MIN_THRESHOLD_MS,
       RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS,
     )
+  }
+
+  /** Start the node and sync wallets. Call once before polling for events. */
+  startReceiving(): void {
+    (this.node as any).startReceiving()
+  }
+
+  /**
+   * Get the next payment event without ACKing it.
+   * Returns null if no events are available.
+   * Call ackEvent() after successfully handling the event.
+   */
+  nextEvent(): PaymentEvent | null {
+    const event = (this.node as any).nextEvent()
+    if (!event) return null
+    return {
+      eventType: event.eventType as PaymentEvent['eventType'],
+      paymentHash: event.paymentHash,
+      amountMsat: event.amountMsat,
+      reason: event.reason,
+    }
+  }
+
+  /**
+   * ACK the current event after successfully handling it.
+   * Must be called after nextEvent() returns an event, before calling nextEvent() again.
+   */
+  ackEvent(): void {
+    (this.node as any).ackEvent()
+  }
+
+  /** Stop the node. Call when done polling. */
+  stopReceiving(): void {
+    (this.node as any).stopReceiving()
   }
 
   payBolt12Offer(bolt12: string, amountMsat: number): string {
