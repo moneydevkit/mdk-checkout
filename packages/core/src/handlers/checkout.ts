@@ -71,6 +71,95 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   })
 }
 
+/**
+ * Machine-payable checkout: creates checkout, confirms, and returns invoice in one call.
+ * Designed for bot-to-bot / API-first payments without UI.
+ *
+ * @example
+ * POST /api/mdk
+ * {
+ *   "handler": "machine_checkout",
+ *   "params": {
+ *     "type": "AMOUNT",
+ *     "amount": 100,
+ *     "currency": "SAT",
+ *     "description": "Tweet lookup service"
+ *   }
+ * }
+ *
+ * Response:
+ * {
+ *   "data": {
+ *     "checkoutId": "...",
+ *     "invoice": "lnbc...",
+ *     "paymentHash": "...",
+ *     "amountSats": 100,
+ *     "expiresAt": "2024-..."
+ *   }
+ * }
+ */
+export async function handleMachineCheckout(request: Request): Promise<Response> {
+  let body: unknown
+
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON body' })
+  }
+
+  const parsed = z.object({ params: createCheckoutSchema }).safeParse(body)
+
+  if (!parsed.success) {
+    return jsonResponse(400, { error: 'Invalid checkout params', details: parsed.error.issues })
+  }
+
+  // Import createCheckout and confirmCheckout from actions
+  const { createCheckout, confirmCheckout } = await import('../actions')
+
+  // Step 1: Create checkout
+  const createResult = await createCheckout(parsed.data.params)
+
+  if (createResult.error) {
+    const statusCode = createResult.error.code === 'webhook_unreachable' ? 400 : 500
+    return jsonResponse(statusCode, { error: createResult.error.message, code: createResult.error.code })
+  }
+
+  const checkout = createResult.data.checkout
+
+  // If checkout is already PENDING_PAYMENT (has invoice), return it
+  if (checkout.status === 'PENDING_PAYMENT' && checkout.invoice) {
+    return jsonResponse(200, {
+      data: {
+        checkoutId: checkout.id,
+        invoice: checkout.invoice,
+        paymentHash: checkout.paymentHash,
+        amountSats: checkout.invoiceAmountSats,
+        expiresAt: checkout.invoiceExpiresAt,
+      }
+    })
+  }
+
+  // Step 2: Confirm checkout to generate invoice
+  try {
+    const confirmedCheckout = await confirmCheckout({
+      checkoutId: checkout.id,
+    })
+
+    return jsonResponse(200, {
+      data: {
+        checkoutId: confirmedCheckout.id,
+        invoice: confirmedCheckout.invoice,
+        paymentHash: confirmedCheckout.paymentHash,
+        amountSats: confirmedCheckout.invoiceAmountSats,
+        expiresAt: confirmedCheckout.invoiceExpiresAt,
+      }
+    })
+  } catch (error) {
+    console.error('Failed to confirm checkout:', error)
+    return jsonResponse(500, { error: 'Failed to generate invoice' })
+  }
+}
+
 export async function handleCreateCheckout(request: Request): Promise<Response> {
   let body: unknown
 
