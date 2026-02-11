@@ -24,6 +24,7 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             nodejs_24 # JavaScript runtime
+            pnpm # Package manager
           ] ++ pkgs.lib.optionals isLinux [
             cypress # E2E testing framework
           ];
@@ -51,7 +52,7 @@
                 echo "nixpkgs:      $NIX_VERSION"
                 echo "This may cause compatibility issues."
                 echo "To resolve:"
-                echo "  npm install cypress@$NIX_VERSION --save-dev --save-exact"
+                echo "  pnpm add -Dw cypress@$NIX_VERSION"
                 echo "Then reload the shell."
                 echo ""
               fi
@@ -59,9 +60,9 @@
             ''}
 
             # Install node modules if they don't exist or are out of date
-            if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+            if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.pnpm/lock.yaml ]; then
               echo "Installing dependencies"
-              npm ci
+              pnpm install --frozen-lockfile
             fi
 
             # Create .env.local for demo app if it doesn't exist
@@ -74,11 +75,6 @@ MDK_API_PATH=/api/mdk-mock
 EOF
             fi
 
-            # Prepare demo app if dependency tarballs don't exist
-            if [ ! -f examples/mdk-nextjs-demo/moneydevkit-core-local.tgz ] || [ ! -f examples/mdk-nextjs-demo/moneydevkit-nextjs-local.tgz ]; then
-              echo "Dependency tarballs not found, preparing demo app..."
-              ./scripts/prepare-demo
-            fi
 
             echo "Development environment ready"
             echo "================================================"

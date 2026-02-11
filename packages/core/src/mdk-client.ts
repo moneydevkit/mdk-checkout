@@ -2,7 +2,7 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { ContractRouterClient } from '@orpc/contract'
 
-import { contract, Checkout, CreateCheckout, ConfirmCheckout, RegisterInvoice, PaymentReceived, Product } from '@moneydevkit/api-contract'
+import { contract, Checkout, CreateCheckout, ConfirmCheckout, RegisterInvoice, PaymentReceived, Product, Subscription, CustomerWithSubscriptions, GetCustomerInput } from '@moneydevkit/api-contract'
 
 export type MoneyDevKitClientOptions = {
   accessToken: string
@@ -67,6 +67,29 @@ export class MoneyDevKitClient {
     return {
       list: async (): Promise<{ products: Product[] }> => {
         return await this.client.products.list({})
+      },
+    }
+  }
+
+  get subscriptions() {
+    return {
+      get: async (params: { subscriptionId: string }): Promise<Subscription> => {
+        return await this.client.subscription.get(params)
+      },
+      createRenewalCheckout: async (params: { subscriptionId: string }): Promise<{ checkoutId: string }> => {
+        return await this.client.subscription.createRenewalCheckout(params)
+      },
+      cancel: async (params: { subscriptionId: string }): Promise<{ ok: boolean }> => {
+        return await this.client.subscription.cancel(params)
+      },
+    }
+  }
+
+  get customers() {
+    return {
+      get: async (params: GetCustomerInput): Promise<CustomerWithSubscriptions> => {
+        // Use getSdk which accepts GetCustomerInput and returns CustomerWithSubscriptions
+        return await this.client.customer.getSdk(params)
       },
     }
   }

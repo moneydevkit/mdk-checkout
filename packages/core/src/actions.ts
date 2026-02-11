@@ -1,4 +1,5 @@
-import type { Checkout, ConfirmCheckout, Product } from '@moneydevkit/api-contract'
+import type { Checkout, ConfirmCheckout, Product, CustomerWithSubscriptions, GetCustomerInput } from '@moneydevkit/api-contract'
+import { validateMetadata } from '@moneydevkit/api-contract'
 
 import { log, error as logError } from './logging'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
@@ -120,6 +121,74 @@ export function normalizeRequireCustomerData(fields: string[] | undefined): stri
   return fields.map(normalizeFieldName)
 }
 
+type OrpcIssue = { message?: string; path?: Array<string | number> }
+
+/**
+ * Normalize ORPC-ish errors into a consistent shape for UI consumption.
+ *
+ * Motivation:
+ * - The client can receive several error shapes (ORPC, validation errors, plain Error, or network failures).
+ * - Without normalization we would either surface a vague "Something went wrong"
+ *   or risk breaking the UI by assuming a specific error shape.
+ * - This keeps the UI stable and allows consistent rendering of {code, message, status, details}.
+ *
+ * What it captures:
+ * - ORPC errors with { status, data: { code, issues }, message }
+ * - Generic errors with { code } or { message }
+ * - Falls back to a safe, human‑readable message for unknown shapes.
+ */
+function normalizeCreateCheckoutError(err: unknown): {
+  code: string
+  message: string
+  status?: number
+  details?: OrpcIssue[]
+} {
+  const fallbackMessage = err instanceof Error ? err.message : String(err)
+
+  let code = 'checkout_creation_failed'
+  let message = `Failed to create checkout: ${fallbackMessage}`
+  let status: number | undefined
+  let details: OrpcIssue[] | undefined
+  let hasOrpcShape = false
+
+  if (err && typeof err === 'object') {
+    const maybe = err as {
+      status?: unknown
+      message?: unknown
+      data?: unknown
+      code?: unknown
+    }
+
+    if (typeof maybe.status === 'number') {
+      status = maybe.status
+      hasOrpcShape = true
+    }
+
+    if (maybe.data && typeof maybe.data === 'object') {
+      const data = maybe.data as { code?: unknown; issues?: unknown }
+      if (typeof data.code === 'string') {
+        code = data.code
+        hasOrpcShape = true
+      }
+      if (Array.isArray(data.issues)) {
+        details = data.issues as OrpcIssue[]
+        hasOrpcShape = true
+      }
+    }
+
+    if (code === 'checkout_creation_failed' && typeof maybe.code === 'string') {
+      code = maybe.code
+      hasOrpcShape = true
+    }
+
+    if (hasOrpcShape && typeof maybe.message === 'string') {
+      message = maybe.message
+    }
+  }
+
+  return { code, message, status, details }
+}
+
 type Currency = 'USD' | 'SAT'
 
 type CommonCheckoutFields = {
@@ -158,6 +227,15 @@ export type CreateCheckoutParams = AmountCheckoutParams | ProductCheckoutParams
 export async function createCheckout(
   params: CreateCheckoutParams
 ): Promise<Result<{ checkout: Checkout }>> {
+  const metadataValidation = validateMetadata(params.metadata as Record<string, string> | undefined)
+  if (!metadataValidation.ok) {
+    const errorMessages = metadataValidation.error.map((e) => e.message).join('; ')
+    return failure({
+      code: 'validation_error',
+      message: `Invalid metadata: ${errorMessages}`,
+    })
+  }
+
   // For PRODUCTS checkouts without explicit currency, let the server infer from product price.
   // For AMOUNT checkouts, currency is required by the type system.
   const isProductCheckout = params.type === 'PRODUCTS'
@@ -208,12 +286,9 @@ export async function createCheckout(
 
     return success({ checkout })
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logError('Checkout creation failed:', message)
-    return failure({
-      code: 'checkout_creation_failed',
-      message: `Failed to create checkout: ${message}`,
-    })
+    const normalized = normalizeCreateCheckoutError(err)
+    logError('Checkout creation failed:', normalized.message)
+    return failure(normalized)
   }
 }
 
@@ -245,4 +320,20 @@ export async function paymentHasBeenReceived(paymentHash: string) {
   }
   log('Checking payment received for', paymentHash)
   return hasPaymentBeenReceived(paymentHash)
+}
+
+export interface GetCustomerOptions {
+  /** Include sandbox subscriptions in the response. Defaults to false. */
+  includeSandbox?: boolean
+}
+
+export async function getCustomer(
+  params: GetCustomerInput,
+  options?: GetCustomerOptions
+): Promise<CustomerWithSubscriptions> {
+  const client = createMoneyDevKitClient()
+  return await client.customers.get({
+    ...params,
+    includeSandbox: options?.includeSandbox,
+  } as GetCustomerInput)
 }

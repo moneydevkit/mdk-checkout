@@ -1,6 +1,7 @@
 import { createRequire } from 'module'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
+import { PaymentEvent } from '@moneydevkit/lightning-js'
 
 process.env.RUST_LOG ??=
   'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug,lightning_rapid_gossip_sync=debug'
@@ -128,16 +129,35 @@ export class MoneyDevKitNode {
     )
   }
 
-  payBolt12Offer(bolt12: string, amountMsat: number): string {
-    return this.node.payBolt12Offer(bolt12, amountMsat, 30)
+  /** Start the node and sync wallets. The node must be started before polling for events. */
+  startReceiving(): void {
+    this.node.startReceiving()
   }
 
-  payBolt11(bolt11: string) {
-    return this.node.payBolt11(bolt11)
+  /**
+   * Get the next payment event without ACKing it.
+   * Returns null if no events are available.
+   * Must call ackEvent() after successfully handling the event.
+   */
+  nextEvent(): PaymentEvent | null {
+    return this.node.nextEvent()
   }
 
-  payLNUrl(lnurl: string, amountMsat: number) {
-    return this.node.payLnurl(lnurl, amountMsat, 30)
+  /**
+   * ACK the current event after successfully handling it.
+   * Must be called after nextEvent() returns an event, before calling nextEvent() again.
+   */
+  ackEvent(): void {
+    this.node.ackEvent()
+  }
+
+  /** Stop the node. Call when done polling. */
+  stopReceiving(): void {
+    this.node.stopReceiving()
+  }
+
+  pay(destination: string, amountMsat?: number): string {
+    return this.node.pay(destination, amountMsat ?? null, 30)
   }
 
   listChannels() {

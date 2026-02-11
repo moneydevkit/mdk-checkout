@@ -3,6 +3,7 @@ export type MdkError = {
   message: string
   details?: Array<{ message?: string; path?: Array<string | number> }>
   suggestion?: string
+  status?: number
 }
 
 export type Result<T> =

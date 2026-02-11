@@ -9,12 +9,19 @@ A minimal App Router project that exercises `@moneydevkit/nextjs` on Vercel:
 
 ## Run locally
 1. Copy `.env.example` to `.env.local` and fill in your Money Dev Kit credentials.
-2. Install dependencies and run dev server:
+2. Install dependencies and run dev server from the workspace root (mdk-checkout):
    ```bash
-   npm install
-   npm run dev
+   pnpm install
+   pnpm run build
+   pnpm --filter mdk-nextjs-demo run dev
    ```
 3. The button on the home page creates a checkout and redirects to `/checkout/<id>`.
+
+## Build Docker image
+From the workspace root (mdk-checkout):
+```bash
+docker build -f examples/mdk-nextjs-demo/Dockerfile -t mdk-nextjs-demo .
+```
 
 ## Deploy with Vercel CLI
 ```bash

@@ -1,0 +1,66 @@
+{
+  "text": {
+    "primary": {
+      "$type": "color",
+      "$value": "#000000"
+    },
+    "secondary": {
+      "$type": "color",
+      "$value": "#676767"
+    },
+    "highlight": {
+      "$type": "color",
+      "$value": "#00cb91"
+    }
+  },
+  "background": {
+    "$type": "color",
+    "$value": "#ebebeb"
+  },
+  "system": {
+    "divider": {
+      "$type": "color",
+      "$value": "#dddddd"
+    },
+    "recessed": {
+      "$type": "color",
+      "$value": "#f6f6f6"
+    }
+  },
+  "component": {
+    "qr": {
+      "color": {
+        "$type": "color",
+        "$value": "#00737b",
+        "highlight": {
+          "$type": "color",
+          "$value": "#01d0d0"
+        }
+      }
+    },
+    "button": {
+      "tertiary": {
+        "text": {
+          "$type": "color",
+          "$value": "#ffffff"
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "#000000"
+        }
+      },
+      "secondary": {
+        "outline": {
+          "$type": "color",
+          "$value": "#d1d1d1"
+        }
+      }
+    },
+    "card": {
+      "bg": {
+        "$type": "color",
+        "$value": "#ffffff"
+      }
+    }
+  }
+}

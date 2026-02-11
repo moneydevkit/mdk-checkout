@@ -89,8 +89,23 @@ export async function handleCreateCheckout(request: Request): Promise<Response> 
   const result = await createCheckout(parsed.data.params)
 
   if (result.error) {
-    const statusCode = result.error.code === 'webhook_unreachable' ? 400 : 500
-    return jsonResponse(statusCode, { error: result.error.message, code: result.error.code })
+    let statusCode = typeof result.error.status === 'number' ? result.error.status : undefined
+    if (!statusCode) {
+      if (result.error.code === 'BAD_REQUEST') {
+        statusCode = 400
+      } else if (result.error.code === 'NOT_FOUND') {
+        statusCode = 404
+      } else if (result.error.code === 'webhook_unreachable') {
+        statusCode = 400
+      } else {
+        statusCode = 500
+      }
+    }
+    return jsonResponse(statusCode, {
+      error: result.error.message,
+      code: result.error.code,
+      details: result.error.details,
+    })
   }
 
   return jsonResponse(200, { data: result.data.checkout })
@@ -144,6 +159,22 @@ export async function handleConfirmCheckout(request: Request): Promise<Response>
     return jsonResponse(200, { data: checkout })
   } catch (error) {
     console.error(error)
+
+    if (error && typeof error === 'object' && 'status' in error && 'code' in error) {
+      const orpcError = error as {
+        status: number
+        code: string
+        message?: string
+        data?: { code?: string; message?: string; issues?: Array<{ message?: string; path?: Array<string | number> }> }
+      }
+
+      return jsonResponse(orpcError.status, {
+        error: orpcError.message ?? orpcError.data?.message ?? 'Checkout validation failed',
+        code: orpcError.data?.code ?? orpcError.code,
+        details: orpcError.data?.issues,
+      })
+    }
+
     return jsonResponse(500, { error: 'Failed to confirm checkout' })
   }
 }

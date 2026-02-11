@@ -1,0 +1,14 @@
+{
+  "name": "Design Tokens",
+  "collections": {
+    "mdk": {
+      "modes": {
+        "themes": [
+          "mdk.themes.dark.tokens.json",
+          "mdk.themes.light.tokens.json"
+        ]
+      }
+    }
+  },
+  "styles": {}
+}

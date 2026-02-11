@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from "@/components/button";
 import { useCheckout } from "@moneydevkit/nextjs";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -104,15 +105,15 @@ export default function HomePage() {
                   {error}
                 </p>
               )}
-              <button
+              <Button
                 type="button"
-                className="button"
+                variant="primary"
                 onClick={handleCheckout}
                 disabled={isLoading}
                 data-test="start-checkout"
               >
                 {isLoading ? "Creating checkout…" : "Launch checkout"}
-              </button>
+              </Button>
               <p className="hint">
                 We create a checkout session with the values above and redirect to
                 {" /checkout/[id] "} using <code>useCheckout</code>.

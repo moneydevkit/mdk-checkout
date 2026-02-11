@@ -20,7 +20,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className={spaceGrotesk.variable}>
+    <html lang="en" className={`${spaceGrotesk.variable} dark`}>
       <body>{children}</body>
     </html>
   );

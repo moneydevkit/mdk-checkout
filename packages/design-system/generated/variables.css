@@ -1,0 +1,51 @@
+/**
+ * Design System CSS Variables
+ * Auto-generated from tokens/design-tokens/manifest.json
+ * Do not edit directly - run `pnpm build:tokens` to regenerate
+ */
+
+:root {
+  /* Text Colors */
+  --text-primary: #000000;
+  --text-secondary: #676767;
+  --text-highlight: #00cb91;
+
+  /* Background Colors */
+  --background: #ebebeb;
+
+  /* System Colors */
+  --system-divider: #dddddd;
+  --system-recessed: #f6f6f6;
+
+  /* Component Colors */
+  --component-qr-color: #00737b;
+  --component-qr-color-highlight: #01d0d0;
+  --component-button-tertiary-text: #ffffff;
+  --component-button-tertiary-bg: #000000;
+  --component-button-secondary-outline: #d1d1d1;
+  --component-card-bg: #ffffff;
+
+}
+
+.dark {
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-highlight: #82ffc1;
+
+  /* Background Colors */
+  --background: #1e1e1e;
+
+  /* System Colors */
+  --system-divider: #636363;
+  --system-recessed: #000000;
+
+  /* Component Colors */
+  --component-qr-color: #00bba7;
+  --component-qr-color-highlight: #acfff5;
+  --component-button-tertiary-text: #000000;
+  --component-button-tertiary-bg: #ffffff;
+  --component-button-secondary-outline: #3d3d3d;
+  --component-card-bg: #181818;
+
+}

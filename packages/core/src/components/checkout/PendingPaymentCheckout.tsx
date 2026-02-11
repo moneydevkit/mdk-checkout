@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useState } from 'react'
+import { formatInterval } from '../../checkout-utils'
 import { clientPayInvoice } from '../../client-actions'
 import { is_preview_environment } from '../../preview'
 import { Button } from '../ui/button'
@@ -145,9 +146,43 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   const hasProducts = checkout.products && checkout.products.length > 0
 
+  // Check if checkout has recurring products
+  const recurringProduct = checkout.products?.find(p => p.recurringInterval)
+  const hasRecurringProduct = !!recurringProduct
+
   return (
     <>
       <div className="text-center mb-6 w-full">
+        {/* Subscription product info - shown prominently for recurring products */}
+        {hasRecurringProduct && recurringProduct && (
+          <div className="mb-5 px-2">
+            {/* Product name */}
+            <h3 className="text-lg font-medium text-white mb-2">
+              {recurringProduct.name}
+            </h3>
+
+            {/* Billing interval badge */}
+            <div className="inline-flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+                {formatInterval(recurringProduct.recurringInterval, 'label')} subscription
+              </span>
+            </div>
+
+            {/* Product description */}
+            {recurringProduct.description && (
+              <p className="text-sm text-gray-400 mb-3 max-w-xs mx-auto">
+                {recurringProduct.description}
+              </p>
+            )}
+
+            {/* Email reminder - subtle helper text */}
+            <p className="text-xs text-gray-500 mb-4">
+              You'll receive a renewal email before each billing period.
+            </p>
+          </div>
+        )}
+
+        {/* Amount display */}
         <div className="mb-4 w-full">
           <div className="text-2xl font-semibold mb-2 font-sans tracking-tight">
             {checkout.invoice?.amountSats && `${formatSats(checkout.invoice.amountSats)} sats`}
@@ -170,6 +205,9 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
                       <span className="text-gray-400">{product.name}</span>
                       <span className="text-white">
                         {price && formatProductPrice(price)}
+                        {product.recurringInterval && (
+                          <span className="text-gray-400">{formatInterval(product.recurringInterval, 'short')}</span>
+                        )}
                       </span>
                     </div>
                   )

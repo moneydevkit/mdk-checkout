@@ -9,19 +9,24 @@
     "lint": "eslint . --ext ts,tsx,js,jsx --max-warnings=0"
   },
   "dependencies": {
-    "@moneydevkit/nextjs": "file:moneydevkit-nextjs-local.tgz",
-    "@moneydevkit/core": "file:moneydevkit-core-local.tgz",
-    "bip39": "^3.1.0",
+    "@moneydevkit/core": "0.9.0-beta.4",
+    "@moneydevkit/nextjs": "0.9.0-beta.4",
+    "@radix-ui/react-slot": "^1.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4",
     "@types/node": "25.0.3",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.15.0",
     "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
     "typescript": "^5.6.3",
     "vercel": "50.1.3"
   }

@@ -10,19 +10,32 @@ import {
   verifyCheckoutSignature,
   sanitizeCheckoutPath,
 } from './handlers/checkout'
+import {
+  handleRenewSubscriptionFromUrl,
+  verifySubscriptionSignature,
+} from './handlers/subscription'
 
-// Re-export for use in nextjs package
+// Re-export for use in nextjs package and backend services
 export { createCheckoutUrl } from './handlers/checkout'
 export type { CreateCheckoutUrlOptions } from './handlers/checkout'
+export {
+  createRenewalSubscriptionUrl,
+  createCancelSubscriptionUrl,
+  generateSubscriptionSignature,
+  verifySubscriptionSignatureWithSecret,
+} from './handlers/subscription'
+export type {
+  CreateRenewalSubscriptionUrlOptions,
+  CreateCancelSubscriptionUrlOptions,
+} from './handlers/subscription'
 import { listChannels } from './handlers/list_channels'
-import { handlePayBolt11 } from './handlers/pay_bolt_11'
-import { handlePayBolt12 } from './handlers/pay_bolt_12'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
-import { handlePayLNUrl } from './handlers/pay_ln_url'
+import { handlePayout } from './handlers/payout'
 import { handlePing } from './handlers/ping'
 import { handleListProducts } from './handlers/products'
 import { handleSyncRgs } from './handlers/sync_rgs'
 import { handleMdkWebhook } from './handlers/webhooks'
+import { handleGetCustomer } from './handlers/customer'
 import { error, log } from './logging'
 
 export type RouteHandler = (request: Request) => Promise<Response>
@@ -34,36 +47,34 @@ const WEBHOOK_SECRET_HEADER = 'x-moneydevkit-webhook-secret'
 const routeSchema = z.enum([
   'webhook',
   'webhooks',
-  'pay_bolt_12',
+  'payout',
   'balance',
   'ping',
-  'pay_ln_url',
   'list_channels',
-  'pay_bolt11',
   'create_checkout',
   'get_checkout',
   'confirm_checkout',
   'pay_invoice',
   'sync_rgs',
   'list_products',
+  'get_customer',
 ])
 export type UnifiedRoute = z.infer<typeof routeSchema>
 
 const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   webhook: { handler: handleMdkWebhook, auth: 'secret' },
   webhooks: { handler: handleMdkWebhook, auth: 'secret' },
-  pay_bolt_12: { handler: handlePayBolt12, auth: 'secret' },
+  payout: { handler: handlePayout, auth: 'secret' },
   balance: { handler: handleBalance, auth: 'secret' },
   ping: { handler: handlePing, auth: 'secret' },
-  pay_ln_url: { handler: handlePayLNUrl, auth: 'secret' },
   list_channels: { handler: listChannels, auth: 'secret' },
-  pay_bolt11: { handler: handlePayBolt11, auth: 'secret' },
   create_checkout: { handler: handleCreateCheckout, auth: 'csrf' },
   get_checkout: { handler: handleGetCheckout, auth: 'csrf' },
   confirm_checkout: { handler: handleConfirmCheckout, auth: 'csrf' },
   pay_invoice: { handler: handlePreviewPayInvoice, auth: 'csrf' },
   sync_rgs: { handler: handleSyncRgs, auth: 'secret' },
   list_products: { handler: handleListProducts, auth: 'csrf' },
+  get_customer: { handler: handleGetCustomer, auth: 'csrf' },
 }
 
 const HANDLERS: Partial<Record<UnifiedRoute, RouteHandler>> = {}
@@ -271,9 +282,15 @@ function redirectToCheckoutError(
 }
 
 /**
- * GET handler for URL-based checkout creation.
+ * GET handler for URL-based actions.
  *
- * Creates a checkout from signed URL query params and redirects to the checkout page.
+ * Supported actions:
+ * - createCheckout: Creates a checkout from signed URL query params
+ * - renewSubscription: Creates a renewal checkout for a subscription
+ *
+ * Note: cancelSubscription URLs go directly to MDK-hosted pages and do not
+ * go through this handler. Use createCancelSubscriptionUrl() which generates
+ * URLs pointing to https://www.moneydevkit.com/subscription/cancel.
  *
  * @example
  * GET /api/mdk?action=createCheckout&title=Product&amount=2999&signature=abc123
@@ -281,16 +298,17 @@ function redirectToCheckoutError(
  *   -> Creates checkout
  *   -> 302 redirect to /checkout/{id}
  *
- * Users should generate URLs using the `createCheckoutUrl` helper to ensure proper signing.
+ * GET /api/mdk?action=renewSubscription&subscriptionId=sub_123&signature=abc123
+ *   -> Verifies signature
+ *   -> Creates renewal checkout
+ *   -> 302 redirect to /checkout/{id}
+ *
+ * Users should generate URLs using the helper functions to ensure proper signing.
  */
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const params = url.searchParams
-
-  // Only handle createCheckout action
-  if (params.get('action') !== 'createCheckout') {
-    return new Response('Not found', { status: 404 })
-  }
+  const action = params.get('action')
 
   // Sanitize checkoutPath early to prevent open redirect attacks
   const checkoutPath = sanitizeCheckoutPath(params.get('checkoutPath'))
@@ -301,21 +319,34 @@ export async function GET(request: Request): Promise<Response> {
     return redirectToCheckoutError(url, checkoutPath, 'missing_signature', 'Missing signature')
   }
 
-  // Verify signature is valid
-  const isValid = verifyCheckoutSignature(params, signature)
-  if (!isValid) {
-    return redirectToCheckoutError(url, checkoutPath, 'invalid_signature', 'Invalid signature')
+  // Route to appropriate handler based on action
+  switch (action) {
+    case 'createCheckout': {
+      const isValid = verifyCheckoutSignature(params, signature)
+      if (!isValid) {
+        return redirectToCheckoutError(url, checkoutPath, 'invalid_signature', 'Invalid signature')
+      }
+
+      const checkoutParams = parseCheckoutQueryParams(params)
+      const result = await handleCreateCheckoutFromUrl(checkoutParams)
+
+      if ('error' in result) {
+        return redirectToCheckoutError(url, checkoutPath, result.error.code, result.error.message)
+      }
+
+      const checkoutUrl = new URL(joinPath(checkoutPath, result.data.id), url.origin)
+      return Response.redirect(checkoutUrl.toString(), 302)
+    }
+
+    case 'renewSubscription': {
+      const isValid = verifySubscriptionSignature(params, signature)
+      if (!isValid) {
+        return redirectToCheckoutError(url, checkoutPath, 'invalid_signature', 'Invalid signature')
+      }
+      return handleRenewSubscriptionFromUrl(request, url, params)
+    }
+
+    default:
+      return new Response('Not found', { status: 404 })
   }
-
-  // Parse and validate params
-  const checkoutParams = parseCheckoutQueryParams(params)
-  const result = await handleCreateCheckoutFromUrl(checkoutParams)
-
-  if ('error' in result) {
-    return redirectToCheckoutError(url, checkoutPath, result.error.code, result.error.message)
-  }
-
-  // Success - redirect to checkout page (use sanitized checkoutPath, not result.data.checkoutPath)
-  const checkoutUrl = new URL(joinPath(checkoutPath, result.data.id), url.origin)
-  return Response.redirect(checkoutUrl.toString(), 302)
 }

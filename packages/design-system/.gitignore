@@ -1,0 +1,3 @@
+*.zip
+storybook-static/
+pnpm-lock.yaml

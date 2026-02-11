@@ -1,0 +1,27 @@
+# Ignore everything by default
+*
+
+# Include workspace config
+!pnpm-workspace.yaml
+!package.json
+!pnpm-lock.yaml
+
+# Include package and example sources
+!packages/
+!examples/
+
+# Exclude build artifacts from all included directories
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+
+# Exclude test artifacts
+cypress/videos
+cypress/screenshots
+**/coverage
+
+# Exclude environment files (runtime env should be passed to container)
+**/.env
+**/.env.local
+**/.env.*.local

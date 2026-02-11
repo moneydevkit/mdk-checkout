@@ -77,3 +77,53 @@ export function validateCustomAmount(
 
   return null
 }
+
+/**
+ * Format recurring interval for display.
+ *
+ * @param interval - The interval (e.g., "MONTH", "QUARTER", "YEAR")
+ * @param style - "short" for "/mo", "long" for "month", "label" for "Monthly"
+ * @returns Formatted interval string
+ * @internal Exported for testing
+ */
+export function formatInterval(
+  interval: string | null | undefined,
+  style: 'short' | 'long' | 'label' = 'long'
+): string {
+  const normalized = interval?.toUpperCase()
+  if (style === 'short') {
+    switch (normalized) {
+      case 'MONTH':
+        return '/mo'
+      case 'QUARTER':
+        return '/qtr'
+      case 'YEAR':
+        return '/yr'
+      default:
+        return ''
+    }
+  }
+  if (style === 'label') {
+    switch (normalized) {
+      case 'MONTH':
+        return 'Monthly'
+      case 'QUARTER':
+        return 'Quarterly'
+      case 'YEAR':
+        return 'Yearly'
+      default:
+        return ''
+    }
+  }
+  // long style
+  switch (normalized) {
+    case 'MONTH':
+      return 'month'
+    case 'QUARTER':
+      return 'quarter'
+    case 'YEAR':
+      return 'year'
+    default:
+      return interval?.toLowerCase() ?? ''
+  }
+}

@@ -1,4 +1,4 @@
-import type { Checkout as CheckoutType, Product } from '@moneydevkit/api-contract'
+import type { Checkout as CheckoutType, Product, CustomerWithSubscriptions, GetCustomerInput } from '@moneydevkit/api-contract'
 import type { ConfirmCheckout } from '@moneydevkit/api-contract'
 import type { CreateCheckoutParams } from './actions'
 import { is_preview_environment } from './preview'
@@ -67,7 +67,7 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
   }
 
   if (!response.ok) {
-    let errorBody: { error?: string; details?: Array<{ message?: string }> } = {}
+    let errorBody: { error?: string; code?: string; details?: Array<{ message?: string }> } = {}
     try {
       errorBody = await response.json()
     } catch {
@@ -80,8 +80,13 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
     // Extract the first validation error message if available
     const validationMessage = hasValidationDetails ? details[0]?.message : undefined
 
+    // Use the error code from the response body if available, otherwise infer from status
+    const errorCode =
+      errorBody.code ||
+      (hasValidationDetails ? 'validation_error' : response.status >= 500 ? 'server_error' : 'invalid_request')
+
     return failure({
-      code: hasValidationDetails ? 'validation_error' : response.status >= 500 ? 'server_error' : 'invalid_request',
+      code: errorCode,
       message: validationMessage || errorBody.error || `Request failed with status ${response.status}`,
       details: errorBody.details,
     })
@@ -137,4 +142,19 @@ export async function clientListProducts(): Promise<Product[]> {
     throw new Error('Failed to list products')
   }
   return response.data.products
+}
+
+export interface GetCustomerOptions {
+  /** Include sandbox subscriptions in the response. Defaults to false. */
+  includeSandbox?: boolean
+}
+
+export async function clientGetCustomer(
+  identifier: GetCustomerInput,
+  options?: GetCustomerOptions
+): Promise<Result<CustomerWithSubscriptions>> {
+  return postToMdk<CustomerWithSubscriptions>('get_customer', {
+    ...identifier,
+    includeSandbox: options?.includeSandbox,
+  })
 }

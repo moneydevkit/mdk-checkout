@@ -1,0 +1,79 @@
+{
+  "name": "@moneydevkit/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles": {
+      "style": "./dist/styles/base.css",
+      "import": "./dist/styles/base.css"
+    },
+    "./styles.css": "./dist/styles/base.css",
+    "./tailwind-preset": {
+      "import": "./generated/tailwind-preset.js"
+    },
+    "./tokens": {
+      "style": "./generated/variables.css",
+      "import": "./generated/variables.css"
+    },
+    "./generated/*": "./generated/*",
+    "./tokens.md": "./generated/tokens.md"
+  },
+  "files": [
+    "dist",
+    "generated"
+  ],
+  "scripts": {
+    "build:tokens": "node tokens/build-tokens.mjs",
+    "build:lib": "tsup",
+    "build": "pnpm build:tokens && pnpm build:lib",
+    "dev": "tsup --watch",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.13",
+    "@radix-ui/react-label": "^2.1.6",
+    "@radix-ui/react-slot": "^1.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.2.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@eslint/js": "^9.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.12.2",
+    "@typescript-eslint/parser": "^8.12.2",
+    "eslint": "^9.15.0",
+    "@storybook/addon-essentials": "^8.6.15",
+    "@storybook/addon-interactions": "^8.6.15",
+    "@storybook/addon-themes": "^8.6.15",
+    "@storybook/blocks": "^8.6.15",
+    "@storybook/react": "^8.6.15",
+    "@storybook/react-vite": "^8.6.15",
+    "@storybook/test": "^8.6.15",
+    "@tailwindcss/vite": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "storybook": "^8.6.15",
+    "tailwindcss": "^4",
+    "tsup": "^8.4.0",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  }
+}

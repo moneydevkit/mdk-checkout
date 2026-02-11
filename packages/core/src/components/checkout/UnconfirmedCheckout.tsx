@@ -10,6 +10,7 @@ import {
   getMissingRequiredFields,
   convertCustomAmountToSmallestUnit,
   validateCustomAmount,
+  formatInterval,
 } from '../../checkout-utils'
 import { Button } from '../ui/button'
 import {
@@ -46,6 +47,10 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const selectedProduct = checkout.products?.find((p) => p.id === selectedProductId)
   const selectedPrice = selectedProduct?.prices?.[0]
   const isCustomPrice = selectedPrice?.amountType === 'CUSTOM'
+
+  // Check if checkout has recurring products (subscriptions require email)
+  const hasRecurringProduct = checkout.products?.some(p => p.recurringInterval) ?? false
+  const hasEmail = Boolean(checkout.customer?.email)
 
   // Build dynamic schema based on missing required fields
   const schemaShape: Record<string, z.ZodTypeAny> = {}
@@ -125,6 +130,17 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
     }).format(amount / 100)
   }
 
+  // Show loading state during auto-submit (when no form fields needed)
+  const isAutoSubmitting = confirmMutation.isPending && missingFields.length === 0 && !isCustomPrice && (!hasRecurringProduct || hasEmail)
+  if (isAutoSubmitting) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
+        <p className="text-gray-300">Preparing checkout...</p>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="text-center mb-6">
@@ -144,7 +160,7 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                     )}
                     {product.recurringInterval && (
                       <span className="text-gray-400">
-                        /{product.recurringInterval.toLowerCase()}
+                        {formatInterval(product.recurringInterval, 'short')}
                       </span>
                     )}
                   </div>

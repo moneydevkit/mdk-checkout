@@ -1,3 +1,4 @@
+export * from './actions'
 export * from './lightning-logs'
 export * from './lightning-node'
 export * from './logging'

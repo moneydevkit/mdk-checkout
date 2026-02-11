@@ -189,6 +189,10 @@ function ProductPage() {
 - **`type: 'AMOUNT'`** - For donations, tips, or custom amounts. Requires `amount` field.
 - **`type: 'PRODUCTS'`** - For selling products. Requires `product` field with a product ID. Amount is calculated from product price.
 
+> **Note:** Product prices are returned in base currency units:
+> - **USD**: cents (divide by 100 for dollars)
+> - **SAT**: satoshis (no conversion needed)
+
 ### Pay What You Want (CUSTOM prices)
 Products can have CUSTOM prices that let customers choose their own amount. When a checkout includes a product with a CUSTOM price, the checkout UI automatically shows an amount input field:
 
