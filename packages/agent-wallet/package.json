@@ -1,0 +1,63 @@
+{
+  "name": "@moneydevkit/agent-wallet",
+  "version": "0.10.0-beta.1",
+  "description": "Self-custodial Lightning wallet for AI agents",
+  "type": "module",
+  "bin": {
+    "agent-wallet": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm --clean",
+    "dev": "tsup src/index.ts --watch --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@moneydevkit/lightning-js": "^0.1.68",
+    "bip39": "^3.1.0",
+    "light-bolt11-decoder": "^3.0.0",
+    "minimist": "^1.2.8",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^22.9.0",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsup": "^8.4.0",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneydevkit/mdk-checkout.git",
+    "directory": "packages/agent-wallet"
+  },
+  "homepage": "https://github.com/moneydevkit/mdk-checkout/blob/main/packages/agent-wallet/README.md",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "moneydevkit",
+    "lightning",
+    "bitcoin",
+    "ai",
+    "agent",
+    "wallet",
+    "cli"
+  ]
+}
