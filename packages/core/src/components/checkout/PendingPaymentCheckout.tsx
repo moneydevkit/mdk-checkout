@@ -88,13 +88,6 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     }
   }
 
-  const truncateInvoice = (invoice: string, maxLength = 40) => {
-    if (invoice.length <= maxLength) return invoice
-    const start = Math.floor((maxLength - 3) / 2)
-    const end = Math.ceil((maxLength - 3) / 2)
-    return `${invoice.slice(0, start)}...${invoice.slice(-end)}`
-  }
-
   const CopyIcon = () => (
     <svg
       className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer transition-colors"
@@ -266,11 +259,16 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
       </div>
 
       {(checkout.invoice?.invoice || isPreview) && (
-        <div className="flex items-center gap-2 mb-6 bg-gray-700 p-3 rounded-lg w-full">
-          <code className="text-xs text-gray-300 font-mono flex-1 text-center min-w-0">
+        <div
+          className="flex items-center gap-2 mb-6 bg-gray-700 p-3 rounded-lg w-full"
+          data-lightning-invoice={isPreview ? '' : (checkout.invoice?.invoice ?? '')}
+          data-lightning-amount-sats={isPreview ? '' : (invoiceAmountSats ?? '')}
+          data-lightning-currency={isPreview ? '' : (checkout.currency ?? '')}
+        >
+          <code className="text-xs text-gray-300 font-mono flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
             {isPreview
-              ? truncateInvoice('lnbc1500n1pnxxx...sandbox_invoice...xxxyyyzzz')
-              : truncateInvoice(checkout.invoice?.invoice ?? '')}
+              ? 'lnbc1500n1pnxxx...sandbox_invoice...xxxyyyzzz'
+              : (checkout.invoice?.invoice ?? '')}
           </code>
           <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
             {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}
