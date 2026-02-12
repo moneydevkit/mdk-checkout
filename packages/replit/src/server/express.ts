@@ -7,6 +7,9 @@ import { createUnifiedHandler, GET as getHandler } from '@moneydevkit/core/route
 export { createCheckoutUrl } from '@moneydevkit/core/route'
 export type { CreateCheckoutUrlOptions } from '@moneydevkit/core/route'
 
+export { withPayment } from '@moneydevkit/core/mdk402'
+export type { PaymentConfig } from '@moneydevkit/core/mdk402'
+
 const unifiedHandler = createUnifiedHandler()
 
 function toFetchRequest(req: express.Request): Request {

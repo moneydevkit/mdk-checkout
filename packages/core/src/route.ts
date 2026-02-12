@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto'
 import { z } from 'zod'
 
 import { handleBalance } from './handlers/balance'
@@ -110,7 +111,11 @@ function validateWebhookSecret(request: Request, { silent = false } = {}): Respo
 
   const providedSecret = request.headers.get(WEBHOOK_SECRET_HEADER)
 
-  if (!providedSecret || providedSecret !== expectedSecret) {
+  if (
+    !providedSecret ||
+    providedSecret.length !== expectedSecret.length ||
+    !timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret))
+  ) {
     if (!silent) {
       log('Unauthorized webhook request received. Please confirm that MDK_ACCESS_TOKEN is set to the correct value.')
     }

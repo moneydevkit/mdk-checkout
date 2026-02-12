@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/core",
-  "version": "0.10.0-beta.1",
+  "version": "0.11.0",
   "description": "Shared moneydevkit checkout core utilities",
   "repository": {
     "type": "git",
@@ -28,6 +28,11 @@
       "import": "./dist/route.js",
       "default": "./dist/route.js"
     },
+    "./mdk402": {
+      "types": "./dist/mdk402/index.d.ts",
+      "import": "./dist/mdk402/index.js",
+      "default": "./dist/mdk402/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,7 +43,7 @@
     "copy-css": "node scripts/copy-styles.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && tsx --tsconfig tsconfig.test.json --test $(find tests -name '*.test.ts')"
+    "test": "npm run build && tsx --tsconfig tsconfig.test.json --experimental-test-module-mocks --test $(find tests -name '*.test.ts')"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

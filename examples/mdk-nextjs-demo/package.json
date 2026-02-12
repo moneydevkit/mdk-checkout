@@ -9,8 +9,8 @@
     "lint": "eslint . --ext ts,tsx,js,jsx --max-warnings=0"
   },
   "dependencies": {
-    "@moneydevkit/core": "0.9.0-beta.4",
-    "@moneydevkit/nextjs": "0.9.0-beta.4",
+    "@moneydevkit/core": "0.10.0",
+    "@moneydevkit/nextjs": "0.10.0",
     "@radix-ui/react-slot": "^1.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

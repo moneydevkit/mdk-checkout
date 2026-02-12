@@ -178,8 +178,8 @@ export class MoneyDevKitNode {
 
   get invoices() {
     return {
-      create: (amountSats: number | null) => {
-        const expirySecs = 15 * 60
+      create: (amountSats: number | null, customExpirySecs?: number) => {
+        const expirySecs = customExpirySecs ?? 15 * 60
         const description = 'mdk invoice'
 
         const invoice =
@@ -194,8 +194,8 @@ export class MoneyDevKitNode {
           expiresAt: new Date(invoice.expiresAt * 1000),
         }
       },
-      createWithScid: (scid: string, amountSats: number | null) => {
-        const expirySecs = 15 * 60
+      createWithScid: (scid: string, amountSats: number | null, customExpirySecs?: number) => {
+        const expirySecs = customExpirySecs ?? 15 * 60
         const description = 'mdk invoice'
         const invoice =
           amountSats === null

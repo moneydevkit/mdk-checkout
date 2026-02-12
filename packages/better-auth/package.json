@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/better-auth",
-  "version": "0.9.0-beta.0",
+  "version": "0.11.0",
   "description": "Better Auth plugin for MoneyDevKit checkout integration",
   "repository": {
     "type": "git",
