@@ -19,11 +19,11 @@ importers:
         version: 8.0.5
     optionalDependencies:
       '@moneydevkit/lightning-js-linux-arm64-gnu':
-        specifier: 0.1.68
-        version: 0.1.68
+        specifier: 0.1.71
+        version: 0.1.71
       '@moneydevkit/lightning-js-linux-x64-gnu':
-        specifier: 0.1.68
-        version: 0.1.68
+        specifier: 0.1.71
+        version: 0.1.71
 
   examples/mdk-nextjs-demo:
     dependencies:
