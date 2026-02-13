@@ -82,7 +82,8 @@ export function generateWalletId(): string {
 
 // Payment persistence
 export interface StoredPayment {
-  paymentHash: string
+  paymentId?: string
+  paymentHash: string | null
   amountSats: number
   direction: 'inbound' | 'outbound'
   timestamp: number

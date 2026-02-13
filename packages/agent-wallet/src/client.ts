@@ -54,7 +54,7 @@ export class WalletClient {
     })
   }
 
-  async send(destination: string, amountSats?: number): Promise<{ paymentHash: string }> {
+  async send(destination: string, amountSats?: number): Promise<{ paymentId: string; paymentHash: string | null; preimage: string | null }> {
     return this.request('POST', '/send', {
       destination,
       amount_sats: amountSats,
@@ -63,7 +63,8 @@ export class WalletClient {
 
   async payments(): Promise<{
     payments: Array<{
-      paymentHash: string
+      paymentId?: string
+      paymentHash: string | null
       amountSats: number
       direction: 'inbound' | 'outbound'
       timestamp: number

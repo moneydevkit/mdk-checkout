@@ -1,7 +1,7 @@
 import { createRequire } from 'module'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
-import { PaymentEvent } from '@moneydevkit/lightning-js'
+import { PaymentEvent, PaymentResult } from '@moneydevkit/lightning-js'
 
 process.env.RUST_LOG ??=
   'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug,lightning_rapid_gossip_sync=debug'
@@ -156,7 +156,7 @@ export class MoneyDevKitNode {
     this.node.stopReceiving()
   }
 
-  pay(destination: string, amountMsat?: number): string {
+  pay(destination: string, amountMsat?: number): PaymentResult {
     return this.node.pay(destination, amountMsat ?? null, 30)
   }
 

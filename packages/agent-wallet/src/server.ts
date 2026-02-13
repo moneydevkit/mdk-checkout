@@ -358,17 +358,22 @@ class WalletServer {
       // payWhileRunning handles all destination types: bolt11, bolt12, lnurl, lightning address
       // amount is optional for fixed-amount bolt11 invoices
       const amountMsat = amountSats ? amountSats * 1000 : null
-      const paymentHash = this.node.payWhileRunning(destination, amountMsat, 30)
+      const result = this.node.payWhileRunning(destination, amountMsat, 30)
 
       savePayment({
-        paymentHash,
+        paymentId: result.paymentId,
+        paymentHash: result.paymentHash ?? null,
         amountSats: amountSats ?? 0, // TODO: extract amount from invoice for fixed-amount
         direction: 'outbound',
         timestamp: Date.now(),
         destination,
       })
 
-      success(res, { paymentHash })
+      success(res, {
+        paymentId: result.paymentId,
+        paymentHash: result.paymentHash ?? null,
+        preimage: result.preimage ?? null,
+      })
     } catch (err) {
       console.error('[wallet] Send error:', err)
       error(res, 500, 'SEND_FAILED', err instanceof Error ? err.message : 'Send failed')
