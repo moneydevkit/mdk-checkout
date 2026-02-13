@@ -235,3 +235,180 @@ export default function SuccessPage() {
   )
 }
 ```
+
+## MDK402: Pay-per-call API Endpoints
+
+Gate any API route behind a Lightning payment using the HTTP 402 protocol. No accounts, no subscriptions — clients pay a Lightning invoice and get immediate access.
+
+### How it works
+
+```
+Client                          Your Server                    Lightning
+  │                                │                              │
+  │  GET /api/premium              │                              │
+  │──────────────────────────────► │                              │
+  │                                │                              │
+  │  402 Payment Required          │                              │
+  │  { invoice, token, amount }    │                              │
+  │ ◄────────────────────────────  │                              │
+  │                                │                              │
+  │  pay invoice ──────────────────┼────────────────────────────► │
+  │  ◄── preimage ─────────────────┼──────────────────────────────│
+  │                                │                              │
+  │  GET /api/premium              │                              │
+  │  Authorization: MDK402 <token>:<preimage>                     │
+  │──────────────────────────────► │                              │
+  │                                │  verify token + preimage     │
+  │  200 OK { data }               │                              │
+  │ ◄────────────────────────────  │                              │
+```
+
+1. Client requests a protected endpoint without credentials
+2. Server returns **402** with a Lightning invoice and a signed token
+3. Client pays the invoice and receives a preimage (proof of payment)
+4. Client retries with `Authorization: MDK402 <token>:<preimage>`
+5. Server verifies the token, expiry, and preimage — then forwards to the handler
+
+### Setup
+
+Make sure `MDK_ACCESS_TOKEN` is set in your environment (same key used for checkout):
+
+```env
+MDK_ACCESS_TOKEN=your_api_key_here
+MDK_MNEMONIC=your_mnemonic_here
+```
+
+### Basic usage
+
+```ts
+// app/api/premium/route.ts
+import { withPayment } from '@moneydevkit/nextjs/server'
+
+const handler = async (req: Request) => {
+  return Response.json({ content: 'Premium data' })
+}
+
+export const GET = withPayment(
+  { amount: 100, currency: 'SAT' },
+  handler,
+)
+```
+
+Every `GET /api/premium` request without valid credentials returns a 402 with a Lightning invoice. After payment, the same request with the authorization header returns the premium data.
+
+### Dynamic pricing
+
+Pass a function instead of a fixed number to compute the price from the request:
+
+```ts
+// app/api/ai/route.ts
+import { withPayment } from '@moneydevkit/nextjs/server'
+
+const handler = async (req: Request) => {
+  const { model } = await req.json()
+  const result = await runInference(model)
+  return Response.json({ result })
+}
+
+export const POST = withPayment(
+  {
+    amount: (req: Request) => {
+      const url = new URL(req.url)
+      const tier = url.searchParams.get('tier')
+      if (tier === 'pro') return 500
+      return 100
+    },
+    currency: 'SAT',
+  },
+  handler,
+)
+```
+
+The pricing function is evaluated both when creating the invoice and when verifying the token. If the price changes between issuance and verification (e.g., the client replays a cheap token on an expensive tier), the request is rejected with `amount_mismatch`.
+
+### Fiat pricing
+
+Use `currency: 'USD'` to price in US cents. The SDK converts to sats at the current exchange rate when generating the invoice:
+
+```ts
+export const GET = withPayment(
+  { amount: 50, currency: 'USD' },  // $0.50
+  handler,
+)
+```
+
+### Token expiry
+
+Tokens (and their invoices) expire after 15 minutes by default. Override with `expirySeconds`:
+
+```ts
+export const GET = withPayment(
+  { amount: 100, currency: 'SAT', expirySeconds: 300 },  // 5 minutes
+  handler,
+)
+```
+
+### Client integration
+
+Any HTTP client can consume an MDK402 endpoint:
+
+```bash
+# 1. Request the protected resource
+curl -s https://example.com/api/premium
+
+# Response: 402
+# {
+#   "token": "eyJ...",
+#   "invoice": "lnbc...",
+#   "paymentHash": "abc123...",
+#   "amountSats": 100,
+#   "expiresAt": 1234567890
+# }
+
+# 2. Pay the invoice with any Lightning wallet and get the preimage
+
+# 3. Retry with the token and preimage
+curl -s https://example.com/api/premium \
+  -H "Authorization: MDK402 eyJ...:ff00aa..."
+
+# Response: 200 { "content": "Premium data" }
+```
+
+The `WWW-Authenticate` header also contains the token and invoice:
+
+```
+WWW-Authenticate: MDK402 token="eyJ...", invoice="lnbc..."
+```
+
+### Programmatic client (Node.js / agent)
+
+```ts
+async function callPaidEndpoint(url: string, payFn: (invoice: string) => Promise<string>) {
+  // Step 1: get the 402 challenge
+  const challenge = await fetch(url)
+  if (challenge.status !== 402) return challenge
+
+  const { token, invoice } = await challenge.json()
+
+  // Step 2: pay the invoice (returns preimage)
+  const preimage = await payFn(invoice)
+
+  // Step 3: retry with proof of payment
+  return fetch(url, {
+    headers: { Authorization: `MDK402 ${token}:${preimage}` },
+  })
+}
+```
+
+### Error codes
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 402 | `payment_required` | No valid credentials — pay the returned invoice |
+| 401 | `invalid_token` | Token is malformed or has a bad signature |
+| 401 | `invalid_payment_proof` | Preimage does not match the payment hash |
+| 403 | `resource_mismatch` | Token was issued for a different endpoint |
+| 403 | `amount_mismatch` | Token was issued for a different price |
+| 500 | `configuration_error` | `MDK_ACCESS_TOKEN` is not set |
+| 500 | `pricing_error` | Dynamic pricing function threw an error |
+| 502 | `checkout_creation_failed` | Failed to create the checkout or invoice |
