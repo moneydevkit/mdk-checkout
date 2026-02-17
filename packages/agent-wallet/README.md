@@ -120,34 +120,6 @@ This wallet is designed for AI agents that need to send and receive Lightning pa
 
 **Note**: Each command may take 3-10 seconds on first call as the node syncs with the network.
 
-Example agent integration:
-
-```python
-import subprocess
-import json
-
-def get_balance():
-    result = subprocess.run(
-        ["npx", "@moneydevkit/agent-wallet", "balance"],
-        capture_output=True, text=True
-    )
-    return json.loads(result.stdout)["balance_sats"]
-
-def create_invoice(amount_sats):
-    result = subprocess.run(
-        ["npx", "@moneydevkit/agent-wallet", "receive", str(amount_sats)],
-        capture_output=True, text=True
-    )
-    return json.loads(result.stdout)
-
-def pay(destination, amount_sats=None):
-    cmd = ["npx", "@moneydevkit/agent-wallet", "send", destination]
-    if amount_sats:
-        cmd.append(str(amount_sats))
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return json.loads(result.stdout)
-```
-
 ## Upgrading
 
 ```bash
