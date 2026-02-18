@@ -2,7 +2,7 @@ import type { Checkout, ConfirmCheckout, Product, CustomerWithSubscriptions, Get
 import { validateMetadata } from '@moneydevkit/api-contract'
 
 import { log, error as logError } from './logging'
-import { createMoneyDevKitClient, createMoneyDevKitNode } from './mdk'
+import { createMoneyDevKitClient, createMoneyDevKitNode, deriveNodeIdFromConfig } from './mdk'
 import { hasPaymentBeenReceived, markPaymentReceived } from './payment-state'
 import { is_preview_environment } from './preview'
 import { failure, success } from './types'
@@ -249,8 +249,12 @@ export async function createCheckout(
 
   try {
     const client = createMoneyDevKitClient()
-    const node = createMoneyDevKitNode()
-    const checkout = await client.checkouts.create(
+
+    // 1. Derive nodeId instantly (~1ms) without building the full node
+    const nodeId = deriveNodeIdFromConfig()
+
+    // 2. Fire API call immediately — HTTP request is dispatched to OS networking
+    const checkoutPromise = client.checkouts.create(
       {
         amount,
         currency,
@@ -264,8 +268,14 @@ export async function createCheckout(
         customer: cleanCustomerInput(params.customer),
         requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
       },
-      node.id,
+      nodeId,
     )
+
+    // 3. Build full node
+    const node = createMoneyDevKitNode()
+
+    // 4. Await API response (likely already buffered by OS)
+    const checkout = await checkoutPromise
 
     if (checkout.status === 'CONFIRMED') {
       const invoice = checkout.invoiceScid

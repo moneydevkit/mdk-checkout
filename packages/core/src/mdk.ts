@@ -1,4 +1,4 @@
-import { MoneyDevKitNode } from './lightning-node'
+import { MoneyDevKitNode, deriveNodeId } from './lightning-node'
 import { MoneyDevKitClient } from './mdk-client'
 import {
   MAINNET_MDK_BASE_URL,
@@ -93,6 +93,11 @@ export function createMoneyDevKitClient() {
     accessToken: resolved.accessToken,
     baseUrl: resolved.baseUrl ?? MAINNET_MDK_BASE_URL,
   })
+}
+
+export function deriveNodeIdFromConfig(): string {
+  const resolved = resolveMoneyDevKitOptions()
+  return deriveNodeId(resolved.mnemonic, resolved.nodeOptions?.network ?? 'mainnet')
 }
 
 export function createMoneyDevKitNode() {

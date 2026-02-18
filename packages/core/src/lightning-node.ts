@@ -73,6 +73,11 @@ const loadLightningModule = (): LightningModule => {
   return cachedLightningModule
 }
 
+export function deriveNodeId(mnemonic: string, network: string): string {
+  const { deriveNodeId: rustDeriveNodeId } = loadLightningModule()
+  return rustDeriveNodeId(mnemonic, network)
+}
+
 export interface MoneyDevKitNodeOptions {
   accessToken: string
   mnemonic: string
