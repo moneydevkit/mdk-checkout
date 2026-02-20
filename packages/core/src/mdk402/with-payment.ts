@@ -1,5 +1,6 @@
 import type { Currency } from '@moneydevkit/api-contract'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from '../mdk'
+import { log } from '../logging'
 import { is_preview_environment } from '../preview'
 import {
   createMDK402Token,
@@ -195,7 +196,24 @@ async function create402Response(
       currency: config.currency,
     })
 
-    // 5. Build 402 response
+    // 5. Pre-warm the webhook serverless function.
+    // In the 402 flow, /api/mdk is never hit until the webhook arrives.
+    // Normal checkout keeps it warm via client-side polling, but agents pay
+    // immediately so the webhook hits a cold function. Fire-and-forget a ping
+    // to load the native module and sync the node before the webhook arrives.
+    const mdkApiPath = process.env.MDK_API_PATH || process.env.NEXT_PUBLIC_MDK_API_PATH || '/api/mdk'
+    const warmupUrl = `${new URL(req.url).origin}${mdkApiPath}`
+    log(`[402] Warming up webhook function at ${warmupUrl}`)
+    fetch(warmupUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-moneydevkit-webhook-secret': accessToken,
+      },
+      body: JSON.stringify({ handler: 'ping' }),
+    }).catch(() => {})
+
+    // 6. Build 402 response
     const wwwAuthenticate = `MDK402 token="${token}", invoice="${invoiceResult.invoice}"`
 
     return new Response(
