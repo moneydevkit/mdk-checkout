@@ -1,7 +1,7 @@
+import { PaymentEvent, PaymentResult } from '@moneydevkit/lightning-js'
 import { createRequire } from 'module'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
-import { PaymentEvent, PaymentResult } from '@moneydevkit/lightning-js'
 
 process.env.RUST_LOG ??=
   'ldk_node=trace,lightning_background_processor=trace,vss_client=trace,reqwest=debug,lightning_rapid_gossip_sync=debug'
@@ -171,6 +171,11 @@ export class MoneyDevKitNode {
 
   syncWallets() {
     return this.node.syncWallets()
+  }
+
+  /** Tear down the node and free resources. */
+  destroy() {
+    this.node.stop()
   }
 
   syncRgs(doFullSync: boolean) {

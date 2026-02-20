@@ -79,6 +79,7 @@ function makeFakePendingCheckout(amountSats: number) {
 function buildMocks(amountSats = 100) {
   const fakeNode = {
     id: FAKE_NODE_ID,
+    destroy: mock.fn(),
     invoices: {
       create: mock.fn((_amountSats: number | null, _expiry?: number) => ({
         invoice: FAKE_INVOICE,
