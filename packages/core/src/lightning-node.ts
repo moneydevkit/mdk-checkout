@@ -175,7 +175,7 @@ export class MoneyDevKitNode {
 
   /** Tear down the node and free resources. */
   destroy() {
-    this.node.stop()
+    this.node.destroy()
   }
 
   syncRgs(doFullSync: boolean) {
