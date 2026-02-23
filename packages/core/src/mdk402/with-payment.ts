@@ -2,36 +2,38 @@ import type { Currency } from '@moneydevkit/api-contract'
 import { createMoneyDevKitClient, createMoneyDevKitNode } from '../mdk'
 import { is_preview_environment } from '../preview'
 import {
-  createMDK402Token,
+  createL402Credential,
   parseAuthorizationHeader,
-  verifyMDK402Token,
+  verifyL402Credential,
   verifyPreimage,
 } from './token'
 
 /**
  * Configuration for the withPayment wrapper.
- * Defines pricing and token expiry for MDK402-gated endpoints.
+ * Defines pricing and token expiry for L402-gated endpoints.
  */
 export type PaymentConfig = {
   /** Fixed amount or async callback that receives the request and returns the amount. */
   amount: number | ((req: Request) => number | Promise<number>)
   /** Currency for pricing. SAT for direct satoshi amounts, USD for fiat conversion. */
   currency: Currency
-  /** How long the token (and invoice) remain valid, in seconds. Default: 900 (15 min). */
+  /** How long the credential (and invoice) remain valid, in seconds. Default: 900 (15 min). */
   expirySeconds?: number
 }
 
 type Handler = (req: Request, context?: any) => Response | Promise<Response>
 
-/** Default token and invoice expiry: 15 minutes. */
+/** Default credential and invoice expiry: 15 minutes. */
 const DEFAULT_EXPIRY_SECONDS = 900
 
 /**
- * Wrap a route handler with MDK402 payment gating.
+ * Wrap a route handler with L402 payment gating.
  *
  * Unauthenticated requests receive a 402 response with a Lightning invoice.
- * Requests with a valid `Authorization: MDK402 <token>:<preimage>` header
+ * Requests with a valid `Authorization: L402 <macaroon>:<preimage>` header
  * are forwarded to the inner handler after stateless verification.
+ *
+ * Also accepts the legacy LSAT scheme per bLIP-26 backwards compatibility.
  */
 export function withPayment(config: PaymentConfig, handler: Handler): Handler {
   return async (req: Request, context?: any): Promise<Response> => {
@@ -44,7 +46,7 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       })
     }
 
-    // Check for MDK402 authorization header
+    // Check for L402/LSAT authorization header
     const authHeader = req.headers.get('authorization')
     const parsed = parseAuthorizationHeader(authHeader)
 
@@ -53,30 +55,30 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       return await create402Response(req, config, accessToken)
     }
 
-    // Verify token integrity and expiry
-    const tokenResult = verifyMDK402Token(parsed.token, accessToken)
+    // Verify credential integrity and expiry
+    const credentialResult = verifyL402Credential(parsed.macaroon, accessToken)
 
-    if (!tokenResult.valid) {
-      if (tokenResult.reason === 'expired') {
-        // Expired token -> issue a fresh invoice
+    if (!credentialResult.valid) {
+      if (credentialResult.reason === 'expired') {
+        // Expired credential -> issue a fresh invoice
         return await create402Response(req, config, accessToken)
       }
       return errorResponse(401, {
-        code: 'invalid_token',
-        message: 'Invalid or malformed MDK402 token',
+        code: 'invalid_credential',
+        message: 'Invalid or malformed L402 credential',
       })
     }
 
-    // Verify token was issued for this specific endpoint
+    // Verify credential was issued for this specific endpoint
     const expectedResource = `${req.method}:${new URL(req.url).pathname}`
-    if (tokenResult.resource !== expectedResource) {
+    if (credentialResult.resource !== expectedResource) {
       return errorResponse(403, {
         code: 'resource_mismatch',
-        message: 'Token was not issued for this resource',
+        message: 'Credential was not issued for this resource',
       })
     }
 
-    // Verify token was issued for the current price
+    // Verify credential was issued for the current price
     let currentAmount: number
     try {
       currentAmount = typeof config.amount === 'function'
@@ -90,17 +92,17 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       })
     }
 
-    if (tokenResult.amount !== currentAmount || tokenResult.currency !== config.currency) {
+    if (credentialResult.amount !== currentAmount || credentialResult.currency !== config.currency) {
       return errorResponse(403, {
         code: 'amount_mismatch',
-        message: 'Token was not issued for this price',
+        message: 'Credential was not issued for this price',
       })
     }
 
     // Verify payment proof (skip in preview/sandbox mode)
     const isPreview = is_preview_environment()
     if (!isPreview) {
-      if (!verifyPreimage(parsed.preimage, tokenResult.paymentHash)) {
+      if (!verifyPreimage(parsed.preimage, credentialResult.paymentHash)) {
         return errorResponse(401, {
           code: 'invalid_payment_proof',
           message: 'Invalid payment preimage',
@@ -116,7 +118,10 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
 /**
  * Build the 402 Payment Required response with a Lightning invoice.
  * Creates a checkout on the MDK backend for dashboard visibility,
- * generates an invoice via the local Lightning node, and signs an MDK402 token.
+ * generates an invoice via the local Lightning node, and signs an L402 credential.
+ *
+ * The WWW-Authenticate header follows bLIP-26 format:
+ *   L402 macaroon="<credential>", invoice="<bolt11>"
  */
 async function create402Response(
   req: Request,
@@ -183,11 +188,11 @@ async function create402Response(
 
     node.destroy() // Clean up node connection
 
-    // 4. Create signed MDK402 token bound to this endpoint
+    // 4. Create signed L402 credential bound to this endpoint
     const expiresAt = Math.floor(invoiceResult.expiresAt.getTime() / 1000)
     const amountSats = pendingCheckout.invoiceAmountSats ?? checkout.invoiceAmountSats ?? 0
     const resource = `${req.method}:${new URL(req.url).pathname}`
-    const token = createMDK402Token({
+    const macaroon = createL402Credential({
       paymentHash: invoiceResult.paymentHash,
       amountSats,
       expiresAt,
@@ -197,8 +202,8 @@ async function create402Response(
       currency: config.currency,
     })
 
-    // 5. Build 402 response
-    const wwwAuthenticate = `MDK402 token="${token}", invoice="${invoiceResult.invoice}"`
+    // 5. Build 402 response with L402-compatible headers (bLIP-26)
+    const wwwAuthenticate = `L402 macaroon="${macaroon}", invoice="${invoiceResult.invoice}"`
 
     return new Response(
       JSON.stringify({
@@ -206,7 +211,7 @@ async function create402Response(
           code: 'payment_required',
           message: 'Payment required',
         },
-        token,
+        macaroon,
         invoice: invoiceResult.invoice,
         paymentHash: invoiceResult.paymentHash,
         amountSats,

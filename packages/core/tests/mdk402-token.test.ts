@@ -3,11 +3,11 @@ import assert from 'node:assert/strict'
 import { createHash, createHmac } from 'crypto'
 
 import {
-  createMDK402Token,
-  verifyMDK402Token,
+  createL402Credential,
+  verifyL402Credential,
   verifyPreimage,
   parseAuthorizationHeader,
-  deriveMDK402Key,
+  deriveL402Key,
 } from '../src/mdk402/token'
 
 const TEST_ACCESS_TOKEN = 'test-secret-token-for-mdk402-testing'
@@ -29,30 +29,30 @@ function pastTimestamp(seconds: number): number {
   return Math.floor(Date.now() / 1000) - seconds
 }
 
-describe('deriveMDK402Key', () => {
+describe('deriveL402Key', () => {
   it('returns a 32-byte buffer', () => {
-    const key = deriveMDK402Key(TEST_ACCESS_TOKEN)
+    const key = deriveL402Key(TEST_ACCESS_TOKEN)
     assert.equal(key.length, 32)
     assert.ok(Buffer.isBuffer(key))
   })
 
   it('returns different keys for different access tokens', () => {
-    const key1 = deriveMDK402Key('token-a')
-    const key2 = deriveMDK402Key('token-b')
+    const key1 = deriveL402Key('token-a')
+    const key2 = deriveL402Key('token-b')
     assert.notDeepEqual(key1, key2)
   })
 
   it('is deterministic', () => {
-    const key1 = deriveMDK402Key(TEST_ACCESS_TOKEN)
-    const key2 = deriveMDK402Key(TEST_ACCESS_TOKEN)
+    const key1 = deriveL402Key(TEST_ACCESS_TOKEN)
+    const key2 = deriveL402Key(TEST_ACCESS_TOKEN)
     assert.deepEqual(key1, key2)
   })
 })
 
-describe('createMDK402Token and verifyMDK402Token', () => {
+describe('createL402Credential and verifyL402Credential', () => {
   it('roundtrip: create then verify succeeds', () => {
     const expiresAt = futureTimestamp(900)
-    const token = createMDK402Token({
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt,
@@ -62,7 +62,7 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const result = verifyMDK402Token(token, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(credential, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, true)
     if (result.valid) {
       assert.equal(result.paymentHash, TEST_PAYMENT_HASH)
@@ -75,7 +75,7 @@ describe('createMDK402Token and verifyMDK402Token', () => {
   })
 
   it('returns base64-encoded JSON', () => {
-    const token = createMDK402Token({
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 50,
       expiresAt: futureTimestamp(900),
@@ -85,7 +85,7 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'USD',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     assert.equal(decoded.paymentHash, TEST_PAYMENT_HASH)
     assert.equal(decoded.amountSats, 50)
     assert.equal(decoded.resource, TEST_RESOURCE)
@@ -95,8 +95,8 @@ describe('createMDK402Token and verifyMDK402Token', () => {
     assert.equal(typeof decoded.expiresAt, 'number')
   })
 
-  it('rejects token verified with wrong access token', () => {
-    const token = createMDK402Token({
+  it('rejects credential verified with wrong access token', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -106,15 +106,15 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const result = verifyMDK402Token(token, 'wrong-access-token')
+    const result = verifyL402Credential(credential, 'wrong-access-token')
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects expired token', () => {
-    const token = createMDK402Token({
+  it('rejects expired credential', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: pastTimestamp(10),
@@ -124,15 +124,15 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const result = verifyMDK402Token(token, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(credential, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'expired')
     }
   })
 
-  it('rejects token with tampered paymentHash', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered paymentHash', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -143,19 +143,19 @@ describe('createMDK402Token and verifyMDK402Token', () => {
     })
 
     // Tamper with the payload
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.paymentHash = 'aaaa' + decoded.paymentHash.slice(4)
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token with tampered amountSats', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered amountSats', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -165,19 +165,19 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.amountSats = 999999
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token with tampered resource', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered resource', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -187,19 +187,19 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.resource = 'GET:/api/expensive'
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token with tampered signature', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered signature', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -209,19 +209,19 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.sig = 'a'.repeat(64) // fake sig, same length
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token with tampered amount', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered amount', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -231,19 +231,19 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.amount = 1
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token with tampered currency', () => {
-    const token = createMDK402Token({
+  it('rejects credential with tampered currency', () => {
+    const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt: futureTimestamp(900),
@@ -253,44 +253,44 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       currency: 'SAT',
     })
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+    const decoded = JSON.parse(Buffer.from(credential, 'base64').toString('utf8'))
     decoded.currency = 'USD'
     const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
-    const result = verifyMDK402Token(tampered, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(tampered, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_signature')
     }
   })
 
-  it('rejects token without resource field', () => {
-    // Simulate an old-format token without resource, amount, or currency
-    const key = deriveMDK402Key(TEST_ACCESS_TOKEN)
+  it('rejects credential without resource field', () => {
+    // Simulate an old-format credential without resource, amount, or currency
+    const key = deriveL402Key(TEST_ACCESS_TOKEN)
     const expiresAt = futureTimestamp(900)
     const message = `${TEST_PAYMENT_HASH}:100:${expiresAt}`
     const sig = createHmac('sha256', key).update(message).digest('hex')
-    const oldToken = Buffer.from(JSON.stringify({
+    const oldCredential = Buffer.from(JSON.stringify({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt,
       sig,
     })).toString('base64')
 
-    const result = verifyMDK402Token(oldToken, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(oldCredential, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_format')
     }
   })
 
-  it('rejects token without amount/currency fields', () => {
-    // Token with resource but missing amount/currency
-    const key = deriveMDK402Key(TEST_ACCESS_TOKEN)
+  it('rejects credential without amount/currency fields', () => {
+    // Credential with resource but missing amount/currency
+    const key = deriveL402Key(TEST_ACCESS_TOKEN)
     const expiresAt = futureTimestamp(900)
     const message = `${TEST_PAYMENT_HASH}:100:${expiresAt}:${TEST_RESOURCE}`
     const sig = createHmac('sha256', key).update(message).digest('hex')
-    const oldToken = Buffer.from(JSON.stringify({
+    const oldCredential = Buffer.from(JSON.stringify({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
       expiresAt,
@@ -298,7 +298,7 @@ describe('createMDK402Token and verifyMDK402Token', () => {
       sig,
     })).toString('base64')
 
-    const result = verifyMDK402Token(oldToken, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(oldCredential, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_format')
@@ -306,7 +306,7 @@ describe('createMDK402Token and verifyMDK402Token', () => {
   })
 
   it('rejects completely invalid base64', () => {
-    const result = verifyMDK402Token('not-valid-base64!!!', TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential('not-valid-base64!!!', TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_format')
@@ -314,17 +314,17 @@ describe('createMDK402Token and verifyMDK402Token', () => {
   })
 
   it('rejects valid base64 but invalid JSON', () => {
-    const token = Buffer.from('not json at all').toString('base64')
-    const result = verifyMDK402Token(token, TEST_ACCESS_TOKEN)
+    const credential = Buffer.from('not json at all').toString('base64')
+    const result = verifyL402Credential(credential, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_format')
     }
   })
 
-  it('rejects token with missing fields', () => {
+  it('rejects credential with missing fields', () => {
     const incomplete = Buffer.from(JSON.stringify({ paymentHash: 'abc' })).toString('base64')
-    const result = verifyMDK402Token(incomplete, TEST_ACCESS_TOKEN)
+    const result = verifyL402Credential(incomplete, TEST_ACCESS_TOKEN)
     assert.equal(result.valid, false)
     if (!result.valid) {
       assert.equal(result.reason, 'invalid_format')
@@ -356,27 +356,45 @@ describe('verifyPreimage', () => {
 })
 
 describe('parseAuthorizationHeader', () => {
-  it('parses a valid MDK402 header', () => {
-    const result = parseAuthorizationHeader('MDK402 mytoken123:mypreimage456')
+  it('parses a valid L402 header', () => {
+    const result = parseAuthorizationHeader('L402 mymacaroon123:mypreimage456')
     assert.equal(result.valid, true)
     if (result.valid) {
-      assert.equal(result.token, 'mytoken123')
+      assert.equal(result.macaroon, 'mymacaroon123')
       assert.equal(result.preimage, 'mypreimage456')
     }
   })
 
-  it('handles case-insensitive scheme', () => {
-    const result = parseAuthorizationHeader('mdk402 token:preimage')
+  it('handles case-insensitive L402 scheme', () => {
+    const result = parseAuthorizationHeader('l402 macaroon:preimage')
     assert.equal(result.valid, true)
     if (result.valid) {
-      assert.equal(result.token, 'token')
+      assert.equal(result.macaroon, 'macaroon')
       assert.equal(result.preimage, 'preimage')
     }
   })
 
-  it('handles mixed case scheme', () => {
-    const result = parseAuthorizationHeader('MDK402 token:preimage')
+  it('handles mixed case L402 scheme', () => {
+    const result = parseAuthorizationHeader('L402 macaroon:preimage')
     assert.equal(result.valid, true)
+  })
+
+  it('accepts legacy LSAT scheme', () => {
+    const result = parseAuthorizationHeader('LSAT mymacaroon:mypreimage')
+    assert.equal(result.valid, true)
+    if (result.valid) {
+      assert.equal(result.macaroon, 'mymacaroon')
+      assert.equal(result.preimage, 'mypreimage')
+    }
+  })
+
+  it('accepts case-insensitive LSAT scheme', () => {
+    const result = parseAuthorizationHeader('lsat macaroon:preimage')
+    assert.equal(result.valid, true)
+    if (result.valid) {
+      assert.equal(result.macaroon, 'macaroon')
+      assert.equal(result.preimage, 'preimage')
+    }
   })
 
   it('returns invalid for null header', () => {
@@ -390,39 +408,44 @@ describe('parseAuthorizationHeader', () => {
   })
 
   it('returns invalid for wrong scheme', () => {
-    const result = parseAuthorizationHeader('Bearer token:preimage')
+    const result = parseAuthorizationHeader('Bearer macaroon:preimage')
+    assert.equal(result.valid, false)
+  })
+
+  it('rejects legacy MDK402 scheme', () => {
+    const result = parseAuthorizationHeader('MDK402 token:preimage')
     assert.equal(result.valid, false)
   })
 
   it('returns invalid for missing colon', () => {
-    const result = parseAuthorizationHeader('MDK402 tokenonly')
+    const result = parseAuthorizationHeader('L402 macaroononly')
     assert.equal(result.valid, false)
   })
 
-  it('returns invalid for empty token part', () => {
-    const result = parseAuthorizationHeader('MDK402 :preimage')
+  it('returns invalid for empty macaroon part', () => {
+    const result = parseAuthorizationHeader('L402 :preimage')
     assert.equal(result.valid, false)
   })
 
   it('returns invalid for empty preimage part', () => {
-    const result = parseAuthorizationHeader('MDK402 token:')
+    const result = parseAuthorizationHeader('L402 macaroon:')
     assert.equal(result.valid, false)
   })
 
   it('handles extra whitespace after scheme', () => {
-    const result = parseAuthorizationHeader('MDK402   token:preimage')
+    const result = parseAuthorizationHeader('L402   macaroon:preimage')
     assert.equal(result.valid, true)
     if (result.valid) {
-      assert.equal(result.token, 'token')
+      assert.equal(result.macaroon, 'macaroon')
       assert.equal(result.preimage, 'preimage')
     }
   })
 
   it('uses first colon as separator (preimage may contain colons)', () => {
-    const result = parseAuthorizationHeader('MDK402 token:preimage:with:colons')
+    const result = parseAuthorizationHeader('L402 macaroon:preimage:with:colons')
     assert.equal(result.valid, true)
     if (result.valid) {
-      assert.equal(result.token, 'token')
+      assert.equal(result.macaroon, 'macaroon')
       assert.equal(result.preimage, 'preimage:with:colons')
     }
   })

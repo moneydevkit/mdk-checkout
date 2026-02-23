@@ -236,9 +236,9 @@ export default function SuccessPage() {
 }
 ```
 
-## MDK402: Pay-per-call API Endpoints
+## L402: Pay-per-call API Endpoints
 
-Gate any API route behind a Lightning payment using the HTTP 402 protocol. No accounts, no subscriptions — clients pay a Lightning invoice and get immediate access.
+Gate any API route behind a Lightning payment using the [L402 protocol](https://github.com/lightning/blips/pull/26) (HTTP 402). No accounts, no subscriptions — clients pay a Lightning invoice and get immediate access.
 
 ### How it works
 
@@ -249,25 +249,25 @@ Client                          Your Server                    Lightning
   │──────────────────────────────► │                              │
   │                                │                              │
   │  402 Payment Required          │                              │
-  │  { invoice, token, amount }    │                              │
+  │  { invoice, macaroon, amount } │                              │
   │ ◄────────────────────────────  │                              │
   │                                │                              │
   │  pay invoice ──────────────────┼────────────────────────────► │
   │  ◄── preimage ─────────────────┼──────────────────────────────│
   │                                │                              │
   │  GET /api/premium              │                              │
-  │  Authorization: MDK402 <token>:<preimage>                     │
+  │  Authorization: L402 <macaroon>:<preimage>                     │
   │──────────────────────────────► │                              │
-  │                                │  verify token + preimage     │
+  │                                │  verify credential + preimage│
   │  200 OK { data }               │                              │
   │ ◄────────────────────────────  │                              │
 ```
 
 1. Client requests a protected endpoint without credentials
-2. Server returns **402** with a Lightning invoice and a signed token
+2. Server returns **402** with a Lightning invoice and a signed credential
 3. Client pays the invoice and receives a preimage (proof of payment)
-4. Client retries with `Authorization: MDK402 <token>:<preimage>`
-5. Server verifies the token, expiry, and preimage — then forwards to the handler
+4. Client retries with `Authorization: L402 <macaroon>:<preimage>`
+5. Server verifies the credential, expiry, and preimage — then forwards to the handler
 
 ### Setup
 
@@ -324,7 +324,7 @@ export const POST = withPayment(
 )
 ```
 
-The pricing function is evaluated both when creating the invoice and when verifying the token. If the price changes between issuance and verification (e.g., the client replays a cheap token on an expensive tier), the request is rejected with `amount_mismatch`.
+The pricing function is evaluated both when creating the invoice and when verifying the credential. If the price changes between issuance and verification (e.g., the client replays a cheap credential on an expensive tier), the request is rejected with `amount_mismatch`.
 
 ### Fiat pricing
 
@@ -337,9 +337,9 @@ export const GET = withPayment(
 )
 ```
 
-### Token expiry
+### Credential expiry
 
-Tokens (and their invoices) expire after 15 minutes by default. Override with `expirySeconds`:
+Credentials (and their invoices) expire after 15 minutes by default. Override with `expirySeconds`:
 
 ```ts
 export const GET = withPayment(
@@ -350,7 +350,7 @@ export const GET = withPayment(
 
 ### Client integration
 
-Any HTTP client can consume an MDK402 endpoint:
+Any HTTP client can consume an L402 endpoint:
 
 ```bash
 # 1. Request the protected resource
@@ -358,7 +358,7 @@ curl -s https://example.com/api/premium
 
 # Response: 402
 # {
-#   "token": "eyJ...",
+#   "macaroon": "eyJ...",
 #   "invoice": "lnbc...",
 #   "paymentHash": "abc123...",
 #   "amountSats": 100,
@@ -367,17 +367,17 @@ curl -s https://example.com/api/premium
 
 # 2. Pay the invoice with any Lightning wallet and get the preimage
 
-# 3. Retry with the token and preimage
+# 3. Retry with the credential and preimage
 curl -s https://example.com/api/premium \
-  -H "Authorization: MDK402 eyJ...:ff00aa..."
+  -H "Authorization: L402 eyJ...:ff00aa..."
 
 # Response: 200 { "content": "Premium data" }
 ```
 
-The `WWW-Authenticate` header also contains the token and invoice:
+The `WWW-Authenticate` header follows the bLIP-26 format:
 
 ```
-WWW-Authenticate: MDK402 token="eyJ...", invoice="lnbc..."
+WWW-Authenticate: L402 macaroon="eyJ...", invoice="lnbc..."
 ```
 
 ### Programmatic client (Node.js / agent)
@@ -388,14 +388,15 @@ async function callPaidEndpoint(url: string, payFn: (invoice: string) => Promise
   const challenge = await fetch(url)
   if (challenge.status !== 402) return challenge
 
-  const { token, invoice } = await challenge.json()
+  // The credential is in the `macaroon` field (L402 naming convention)
+  const { macaroon: credential, invoice } = await challenge.json()
 
   // Step 2: pay the invoice (returns preimage)
   const preimage = await payFn(invoice)
 
-  // Step 3: retry with proof of payment
+  // Step 3: retry with credential + proof of payment
   return fetch(url, {
-    headers: { Authorization: `MDK402 ${token}:${preimage}` },
+    headers: { Authorization: `L402 ${credential}:${preimage}` },
   })
 }
 ```
@@ -405,10 +406,10 @@ async function callPaidEndpoint(url: string, payFn: (invoice: string) => Promise
 | Status | Code | Meaning |
 |--------|------|---------|
 | 402 | `payment_required` | No valid credentials — pay the returned invoice |
-| 401 | `invalid_token` | Token is malformed or has a bad signature |
+| 401 | `invalid_credential` | Credential is malformed or has a bad signature |
 | 401 | `invalid_payment_proof` | Preimage does not match the payment hash |
-| 403 | `resource_mismatch` | Token was issued for a different endpoint |
-| 403 | `amount_mismatch` | Token was issued for a different price |
+| 403 | `resource_mismatch` | Credential was issued for a different endpoint |
+| 403 | `amount_mismatch` | Credential was issued for a different price |
 | 500 | `configuration_error` | `MDK_ACCESS_TOKEN` is not set |
 | 500 | `pricing_error` | Dynamic pricing function threw an error |
 | 502 | `checkout_creation_failed` | Failed to create the checkout or invoice |

@@ -2,9 +2,12 @@ import { createHmac, timingSafeEqual, createHash } from 'crypto'
 import { z } from 'zod'
 
 /**
- * Parameters for creating an MDK402 token.
+ * Parameters for creating an L402 credential.
+ *
+ * The credential is an HMAC-signed opaque token (not a macaroon) that
+ * is compatible with the L402 HTTP wire format defined in bLIP-26.
  */
-export interface CreateMDK402TokenParams {
+export interface CreateL402CredentialParams {
   paymentHash: string
   amountSats: number
   expiresAt: number // Unix timestamp in seconds
@@ -15,9 +18,9 @@ export interface CreateMDK402TokenParams {
 }
 
 /**
- * Result of verifying an MDK402 token.
+ * Result of verifying an L402 credential.
  */
-export type VerifyMDK402TokenResult =
+export type VerifyL402CredentialResult =
   | { valid: true; paymentHash: string; amountSats: number; expiresAt: number; resource: string; amount: number; currency: string }
   | { valid: false; reason: 'invalid_format' | 'invalid_signature' | 'expired' }
 
@@ -25,11 +28,11 @@ export type VerifyMDK402TokenResult =
  * Result of parsing an Authorization header.
  */
 export type ParseAuthResult =
-  | { valid: true; token: string; preimage: string }
+  | { valid: true; macaroon: string; preimage: string }
   | { valid: false }
 
-/** Schema for validating decoded MDK402 token payloads. */
-const tokenPayloadSchema = z.object({
+/** Schema for validating decoded L402 credential payloads. */
+const credentialPayloadSchema = z.object({
   paymentHash: z.string(),
   amountSats: z.number(),
   expiresAt: z.number(),
@@ -43,25 +46,32 @@ const tokenPayloadSchema = z.object({
 const KEY_DERIVATION_TAG = 'mdk402-token-v1'
 
 /**
- * Derive a domain-specific HMAC key for MDK402 tokens.
+ * L402-compatible auth scheme names.
+ * Accepts "L402" (current) and "LSAT" (legacy) per bLIP-26 backwards compat.
+ */
+const L402_SCHEMES = ['l402', 'lsat']
+
+/**
+ * Derive a domain-specific HMAC key for L402 credentials.
  * Provides separation from checkout URL signing and webhook verification
  * that also use MDK_ACCESS_TOKEN.
  */
-export function deriveMDK402Key(accessToken: string): Buffer {
+export function deriveL402Key(accessToken: string): Buffer {
   return createHmac('sha256', accessToken)
     .update(KEY_DERIVATION_TAG)
     .digest()
 }
 
 /**
- * Create a signed MDK402 token.
+ * Create a signed L402 credential.
  * Returns a base64-encoded JSON string containing the payment hash,
- * amount, expiry, and an HMAC signature.
+ * amount, expiry, and an HMAC signature. While not a true macaroon,
+ * it is wire-compatible with the L402 protocol as an opaque credential.
  */
-export function createMDK402Token(params: CreateMDK402TokenParams): string {
+export function createL402Credential(params: CreateL402CredentialParams): string {
   const { paymentHash, amountSats, expiresAt, accessToken, resource, amount, currency } = params
 
-  const key = deriveMDK402Key(accessToken)
+  const key = deriveL402Key(accessToken)
   const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}`
   const sig = createHmac('sha256', key)
     .update(message)
@@ -72,13 +82,13 @@ export function createMDK402Token(params: CreateMDK402TokenParams): string {
 }
 
 /**
- * Verify the HMAC signature and expiry of an MDK402 token.
+ * Verify the HMAC signature and expiry of an L402 credential.
  * Does NOT verify the payment preimage — that is a separate step.
  */
-export function verifyMDK402Token(token: string, accessToken: string): VerifyMDK402TokenResult {
+export function verifyL402Credential(credential: string, accessToken: string): VerifyL402CredentialResult {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf8')
-    const parsed = tokenPayloadSchema.safeParse(JSON.parse(decoded))
+    const decoded = Buffer.from(credential, 'base64').toString('utf8')
+    const parsed = credentialPayloadSchema.safeParse(JSON.parse(decoded))
 
     if (!parsed.success) {
       return { valid: false, reason: 'invalid_format' }
@@ -98,7 +108,7 @@ export function verifyMDK402Token(token: string, accessToken: string): VerifyMDK
     }
 
     // Verify HMAC with constant-time comparison
-    const key = deriveMDK402Key(accessToken)
+    const key = deriveL402Key(accessToken)
     const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}`
     const expectedSig = createHmac('sha256', key)
       .update(message)
@@ -133,31 +143,34 @@ export function verifyPreimage(preimage: string, paymentHash: string): boolean {
 }
 
 /**
- * Parse an MDK402 Authorization header.
- * Expected format: "MDK402 <token>:<preimage>"
+ * Parse an L402 Authorization header.
+ * Accepts both L402 and LSAT schemes per bLIP-26 backwards compatibility.
+ * Expected format: "L402 <macaroon>:<preimage>" or "LSAT <macaroon>:<preimage>"
  */
 export function parseAuthorizationHeader(header: string | null): ParseAuthResult {
   if (!header) {
     return { valid: false }
   }
 
-  if (!header.toLowerCase().startsWith('mdk402 ')) {
+  const lower = header.toLowerCase()
+  const scheme = L402_SCHEMES.find(s => lower.startsWith(s + ' '))
+  if (!scheme) {
     return { valid: false }
   }
 
-  const credentials = header.slice(7).trim()
+  const credentials = header.slice(scheme.length + 1).trim()
   const colonIndex = credentials.indexOf(':')
 
   if (colonIndex === -1) {
     return { valid: false }
   }
 
-  const token = credentials.slice(0, colonIndex)
+  const macaroon = credentials.slice(0, colonIndex)
   const preimage = credentials.slice(colonIndex + 1)
 
-  if (!token || !preimage) {
+  if (!macaroon || !preimage) {
     return { valid: false }
   }
 
-  return { valid: true, token, preimage }
+  return { valid: true, macaroon, preimage }
 }

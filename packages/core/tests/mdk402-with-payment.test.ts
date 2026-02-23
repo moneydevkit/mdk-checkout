@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'crypto'
 
-import { createMDK402Token } from '../src/mdk402/token'
+import { createL402Credential } from '../src/mdk402/token'
 
 // Known preimage/hash pair
 const TEST_PREIMAGE = '0000000000000000000000000000000000000000000000000000000000000001'
@@ -156,9 +156,9 @@ function makeRequest(url = 'http://localhost/api/premium', authHeader?: string):
   return new Request(url, { headers })
 }
 
-/** Helper to create a valid MDK402 Authorization header bound to a resource */
+/** Helper to create a valid L402 Authorization header bound to a resource */
 function makeValidAuth(opts?: { expiresAt?: number; resource?: string; amount?: number; currency?: string }): string {
-  const token = createMDK402Token({
+  const macaroon = createL402Credential({
     paymentHash: TEST_PAYMENT_HASH,
     amountSats: 100,
     expiresAt: opts?.expiresAt ?? futureTimestamp(900),
@@ -167,7 +167,21 @@ function makeValidAuth(opts?: { expiresAt?: number; resource?: string; amount?: 
     amount: opts?.amount ?? 100,
     currency: opts?.currency ?? 'SAT',
   })
-  return `MDK402 ${token}:${TEST_PREIMAGE}`
+  return `L402 ${macaroon}:${TEST_PREIMAGE}`
+}
+
+/** Helper to create a valid LSAT Authorization header (legacy compat) */
+function makeValidLSATAuth(opts?: { resource?: string; amount?: number; currency?: string }): string {
+  const macaroon = createL402Credential({
+    paymentHash: TEST_PAYMENT_HASH,
+    amountSats: 100,
+    expiresAt: futureTimestamp(900),
+    accessToken: TEST_ACCESS_TOKEN,
+    resource: opts?.resource ?? 'GET:/api/premium',
+    amount: opts?.amount ?? 100,
+    currency: opts?.currency ?? 'SAT',
+  })
+  return `LSAT ${macaroon}:${TEST_PREIMAGE}`
 }
 
 /** Simple inner handler used in all tests */
@@ -177,7 +191,7 @@ const innerHandler = async (req: Request) => {
 
 describe('withPayment', () => {
   describe('no authorization header (402 path)', () => {
-    it('returns 402 with invoice and token', async () => {
+    it('returns 402 with invoice and macaroon', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest())
 
@@ -186,32 +200,32 @@ describe('withPayment', () => {
       const body = await res.json()
       assert.equal(body.error.code, 'payment_required')
       assert.equal(body.error.message, 'Payment required')
-      assert.equal(typeof body.token, 'string')
+      assert.equal(typeof body.macaroon, 'string')
       assert.equal(body.invoice, FAKE_INVOICE)
       assert.equal(body.paymentHash, TEST_PAYMENT_HASH)
       assert.equal(typeof body.amountSats, 'number')
       assert.equal(typeof body.expiresAt, 'number')
     })
 
-    it('includes WWW-Authenticate header', async () => {
+    it('includes L402 WWW-Authenticate header', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest())
 
       const wwwAuth = res.headers.get('www-authenticate')
       assert.ok(wwwAuth)
-      assert.ok(wwwAuth.startsWith('MDK402 '))
-      assert.ok(wwwAuth.includes('token="'))
+      assert.ok(wwwAuth.startsWith('L402 '))
+      assert.ok(wwwAuth.includes('macaroon="'))
       assert.ok(wwwAuth.includes('invoice="'))
     })
 
-    it('402 token contains the correct resource binding', async () => {
+    it('402 credential contains the correct resource binding', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest('http://localhost/api/premium'))
 
       assert.equal(res.status, 402)
       const body = await res.json()
 
-      const decoded = JSON.parse(Buffer.from(body.token, 'base64').toString('utf8'))
+      const decoded = JSON.parse(Buffer.from(body.macaroon, 'base64').toString('utf8'))
       assert.equal(decoded.resource, 'GET:/api/premium')
     })
 
@@ -255,7 +269,7 @@ describe('withPayment', () => {
     })
   })
 
-  describe('valid MDK402 authorization (200 path)', () => {
+  describe('valid L402 authorization (200 path)', () => {
     it('calls inner handler and returns 200', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
@@ -287,9 +301,20 @@ describe('withPayment', () => {
     })
   })
 
+  describe('LSAT backwards compatibility (200 path)', () => {
+    it('accepts legacy LSAT scheme and returns 200', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidLSATAuth()))
+
+      assert.equal(res.status, 200)
+      const body = await res.json()
+      assert.equal(body.success, true)
+    })
+  })
+
   describe('resource mismatch (403 path)', () => {
-    it('returns 403 when token resource does not match request endpoint', async () => {
-      const token = createMDK402Token({
+    it('returns 403 when credential resource does not match request endpoint', async () => {
+      const macaroon = createL402Credential({
         paymentHash: TEST_PAYMENT_HASH,
         amountSats: 100,
         expiresAt: futureTimestamp(900),
@@ -302,7 +327,7 @@ describe('withPayment', () => {
       const wrapped = withPayment({ amount: 10000, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest(
         'http://localhost/api/expensive',
-        `MDK402 ${token}:${TEST_PREIMAGE}`,
+        `L402 ${macaroon}:${TEST_PREIMAGE}`,
       ))
 
       assert.equal(res.status, 403)
@@ -310,7 +335,7 @@ describe('withPayment', () => {
       assert.equal(body.error.code, 'resource_mismatch')
     })
 
-    it('returns 403 when token method does not match request method', async () => {
+    it('returns 403 when credential method does not match request method', async () => {
       const auth = makeValidAuth({ resource: 'GET:/api/premium' })
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
@@ -333,7 +358,7 @@ describe('withPayment', () => {
   describe('invalid payment proof (401 path)', () => {
     it('returns 401 for wrong preimage', async () => {
       const wrongPreimage = '0000000000000000000000000000000000000000000000000000000000000002'
-      const token = createMDK402Token({
+      const macaroon = createL402Credential({
         paymentHash: TEST_PAYMENT_HASH,
         amountSats: 100,
         expiresAt: futureTimestamp(900),
@@ -344,15 +369,15 @@ describe('withPayment', () => {
       })
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
-      const res = await wrapped(makeRequest('http://localhost/api/premium', `MDK402 ${token}:${wrongPreimage}`))
+      const res = await wrapped(makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${wrongPreimage}`))
 
       assert.equal(res.status, 401)
       const body = await res.json()
       assert.equal(body.error.code, 'invalid_payment_proof')
     })
 
-    it('returns 401 for tampered token', async () => {
-      const token = createMDK402Token({
+    it('returns 401 for tampered credential', async () => {
+      const macaroon = createL402Credential({
         paymentHash: TEST_PAYMENT_HASH,
         amountSats: 100,
         expiresAt: futureTimestamp(900),
@@ -362,22 +387,22 @@ describe('withPayment', () => {
         currency: 'SAT',
       })
 
-      // Tamper the token
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'))
+      // Tamper the credential
+      const decoded = JSON.parse(Buffer.from(macaroon, 'base64').toString('utf8'))
       decoded.amountSats = 999
       const tampered = Buffer.from(JSON.stringify(decoded)).toString('base64')
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
-      const res = await wrapped(makeRequest('http://localhost/api/premium', `MDK402 ${tampered}:${TEST_PREIMAGE}`))
+      const res = await wrapped(makeRequest('http://localhost/api/premium', `L402 ${tampered}:${TEST_PREIMAGE}`))
 
       assert.equal(res.status, 401)
       const body = await res.json()
-      assert.equal(body.error.code, 'invalid_token')
+      assert.equal(body.error.code, 'invalid_credential')
     })
   })
 
-  describe('expired token', () => {
-    it('returns fresh 402 with new invoice for expired token', async () => {
+  describe('expired credential', () => {
+    it('returns fresh 402 with new invoice for expired credential', async () => {
       const expiredAuth = makeValidAuth({ expiresAt: Math.floor(Date.now() / 1000) - 60 })
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
@@ -434,8 +459,8 @@ describe('withPayment', () => {
       assert.equal(body.error.code, 'pricing_error')
     })
 
-    it('returns 403 when token amount does not match current dynamic price', async () => {
-      // Token was issued for amount=50, but pricing function now returns 250
+    it('returns 403 when credential amount does not match current dynamic price', async () => {
+      // Credential was issued for amount=50, but pricing function now returns 250
       const auth = makeValidAuth({ amount: 50, resource: 'GET:/api/dynamic' })
 
       const priceFn = () => 250
@@ -447,8 +472,8 @@ describe('withPayment', () => {
       assert.equal(body.error.code, 'amount_mismatch')
     })
 
-    it('returns 403 when token currency does not match config currency', async () => {
-      // Token was issued with SAT, but config now says USD
+    it('returns 403 when credential currency does not match config currency', async () => {
+      // Credential was issued with SAT, but config now says USD
       const auth = makeValidAuth({ amount: 100, currency: 'SAT' })
 
       const wrapped = withPayment({ amount: 100, currency: 'USD' }, innerHandler)
@@ -460,7 +485,7 @@ describe('withPayment', () => {
     })
 
     it('returns 500 when pricing function throws during verification', async () => {
-      // Token is valid but pricing function fails when re-evaluated
+      // Credential is valid but pricing function fails when re-evaluated
       const failingPriceFn = () => {
         throw new Error('Price service down')
       }
@@ -474,14 +499,14 @@ describe('withPayment', () => {
       assert.equal(body.error.code, 'pricing_error')
     })
 
-    it('402 response token contains correct amount and currency', async () => {
+    it('402 response credential contains correct amount and currency', async () => {
       const wrapped = withPayment({ amount: 250, currency: 'USD' }, innerHandler)
       const res = await wrapped(makeRequest('http://localhost/api/premium'))
 
       assert.equal(res.status, 402)
       const body = await res.json()
 
-      const decoded = JSON.parse(Buffer.from(body.token, 'base64').toString('utf8'))
+      const decoded = JSON.parse(Buffer.from(body.macaroon, 'base64').toString('utf8'))
       assert.equal(decoded.amount, 250)
       assert.equal(decoded.currency, 'USD')
     })
@@ -534,7 +559,7 @@ describe('withPayment', () => {
       previewMode = true
 
       // Use a completely wrong preimage
-      const token = createMDK402Token({
+      const macaroon = createL402Credential({
         paymentHash: TEST_PAYMENT_HASH,
         amountSats: 100,
         expiresAt: futureTimestamp(900),
@@ -546,17 +571,17 @@ describe('withPayment', () => {
       const wrongPreimage = 'ff'.repeat(32)
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
-      const res = await wrapped(makeRequest('http://localhost/api/premium', `MDK402 ${token}:${wrongPreimage}`))
+      const res = await wrapped(makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${wrongPreimage}`))
 
       assert.equal(res.status, 200)
       const body = await res.json()
       assert.equal(body.success, true)
     })
 
-    it('still rejects invalid token HMAC in preview mode', async () => {
+    it('still rejects invalid credential HMAC in preview mode', async () => {
       previewMode = true
 
-      const token = createMDK402Token({
+      const macaroon = createL402Credential({
         paymentHash: TEST_PAYMENT_HASH,
         amountSats: 100,
         expiresAt: futureTimestamp(900),
@@ -567,11 +592,11 @@ describe('withPayment', () => {
       })
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
-      const res = await wrapped(makeRequest('http://localhost/api/premium', `MDK402 ${token}:${TEST_PREIMAGE}`))
+      const res = await wrapped(makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${TEST_PREIMAGE}`))
 
       assert.equal(res.status, 401)
       const body = await res.json()
-      assert.equal(body.error.code, 'invalid_token')
+      assert.equal(body.error.code, 'invalid_credential')
     })
 
     it('includes sandbox metadata in 402 checkout creation', async () => {
@@ -662,7 +687,7 @@ describe('withPayment', () => {
   })
 
   describe('response format', () => {
-    it('402 response body matches spec', async () => {
+    it('402 response body matches L402 spec', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest())
 
@@ -673,7 +698,7 @@ describe('withPayment', () => {
       assert.ok(body.error, 'should have error object')
       assert.equal(body.error.code, 'payment_required')
       assert.equal(body.error.message, 'Payment required')
-      assert.equal(typeof body.token, 'string')
+      assert.equal(typeof body.macaroon, 'string')
       assert.equal(typeof body.invoice, 'string')
       assert.equal(typeof body.paymentHash, 'string')
       assert.equal(typeof body.amountSats, 'number')
