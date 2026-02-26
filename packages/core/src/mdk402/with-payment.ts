@@ -145,9 +145,10 @@ async function create402Response(
   const expirySeconds = config.expirySeconds ?? DEFAULT_EXPIRY_SECONDS
   const isPreview = is_preview_environment()
 
+  let node: ReturnType<typeof createMoneyDevKitNode> | undefined
   try {
     const client = createMoneyDevKitClient()
-    const node = createMoneyDevKitNode()
+    node = createMoneyDevKitNode()
 
     // 1. Create checkout on MDK backend (gives dashboard visibility)
     const checkout = await client.checkouts.create(
@@ -185,8 +186,6 @@ async function create402Response(
       nodeId: node.id,
       scid: invoiceResult.scid,
     })
-
-    node.destroy() // Clean up node connection
 
     // 4. Create signed L402 credential bound to this endpoint
     const expiresAt = Math.floor(invoiceResult.expiresAt.getTime() / 1000)
@@ -230,6 +229,8 @@ async function create402Response(
       code: 'checkout_creation_failed',
       message: err instanceof Error ? err.message : 'Failed to create checkout or invoice',
     })
+  } finally {
+    node?.destroy()
   }
 }
 
