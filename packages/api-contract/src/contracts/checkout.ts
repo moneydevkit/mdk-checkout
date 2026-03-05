@@ -113,6 +113,17 @@ export const GetCheckoutInputSchema = z.object({
 });
 export type GetCheckoutInput = z.infer<typeof GetCheckoutInputSchema>;
 
+export const RedeemL402InputSchema = z.object({
+	paymentHash: z.string().describe("The payment hash from the L402 credential"),
+});
+export type RedeemL402Input = z.infer<typeof RedeemL402InputSchema>;
+
+export const RedeemL402OutputSchema = z.object({
+	redeemed: z.boolean(),
+	reason: z.string().optional(),
+});
+export type RedeemL402Output = z.infer<typeof RedeemL402OutputSchema>;
+
 export type CreateCheckout = z.infer<typeof CreateCheckoutInputSchema>;
 export type ConfirmCheckout = z.infer<typeof ConfirmCheckoutInputSchema>;
 export type RegisterInvoice = z.infer<typeof RegisterInvoiceInputSchema>;
@@ -190,12 +201,17 @@ export const getCheckoutDetailContract = oc
 	.input(GetCheckoutInputSchema)
 	.output(CheckoutDetailSchema);
 
+export const redeemL402Contract = oc
+	.input(RedeemL402InputSchema)
+	.output(RedeemL402OutputSchema);
+
 export const checkout = {
 	get: getCheckoutContract,
 	create: createCheckoutContract,
 	confirm: confirmCheckoutContract,
 	registerInvoice: registerInvoiceContract,
 	paymentReceived: paymentReceivedContract,
+	redeemL402: redeemL402Contract,
 	list: listCheckoutsContract,
 	listPaginated: listCheckoutsPaginatedContract,
 	// Original names preserved
