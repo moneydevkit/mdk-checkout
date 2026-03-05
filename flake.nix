@@ -23,7 +23,7 @@
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            nodejs_24 # JavaScript runtime
+            nodejs_24 # Node.js 24 LTS (pinned — keep in sync with .nvmrc)
             pnpm # Package manager
           ] ++ pkgs.lib.optionals isLinux [
             cypress # E2E testing framework

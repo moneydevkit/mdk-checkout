@@ -1,6 +1,6 @@
 #syntax=docker.io/docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # Build stage - build packages and deploy bundle
