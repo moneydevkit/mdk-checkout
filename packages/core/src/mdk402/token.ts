@@ -22,7 +22,7 @@ export interface CreateL402CredentialParams {
  */
 export type VerifyL402CredentialResult =
   | { valid: true; paymentHash: string; amountSats: number; expiresAt: number; resource: string; amount: number; currency: string }
-  | { valid: false; reason: 'invalid_format' | 'invalid_signature' | 'expired' }
+  | { valid: false; reason: 'invalid_format' | 'invalid_signature' }
 
 /**
  * Result of parsing an Authorization header.
@@ -95,12 +95,6 @@ export function verifyL402Credential(credential: string, accessToken: string): V
     }
 
     const { paymentHash, amountSats, expiresAt, resource, amount, currency, sig } = parsed.data
-
-    // Check expiry before doing crypto work
-    const nowSecs = Math.floor(Date.now() / 1000)
-    if (expiresAt < nowSecs) {
-      return { valid: false, reason: 'expired' }
-    }
 
     // Reject malformed hex before doing crypto work
     if (!/^[0-9a-f]{64}$/.test(sig)) {

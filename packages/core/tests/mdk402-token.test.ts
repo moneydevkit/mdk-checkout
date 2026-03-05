@@ -113,7 +113,7 @@ describe('createL402Credential and verifyL402Credential', () => {
     }
   })
 
-  it('rejects expired credential', () => {
+  it('accepts expired credential (expiry is not enforced at verification level)', () => {
     const credential = createL402Credential({
       paymentHash: TEST_PAYMENT_HASH,
       amountSats: 100,
@@ -125,9 +125,9 @@ describe('createL402Credential and verifyL402Credential', () => {
     })
 
     const result = verifyL402Credential(credential, TEST_ACCESS_TOKEN)
-    assert.equal(result.valid, false)
-    if (!result.valid) {
-      assert.equal(result.reason, 'expired')
+    assert.equal(result.valid, true)
+    if (result.valid) {
+      assert.equal(result.paymentHash, TEST_PAYMENT_HASH)
     }
   })
 

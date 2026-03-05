@@ -55,14 +55,10 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       return await create402Response(req, config, accessToken)
     }
 
-    // Verify credential integrity and expiry
+    // Verify credential integrity (expiry is NOT checked - a paid credential never expires)
     const credentialResult = verifyL402Credential(parsed.macaroon, accessToken)
 
     if (!credentialResult.valid) {
-      if (credentialResult.reason === 'expired') {
-        // Expired credential -> issue a fresh invoice
-        return await create402Response(req, config, accessToken)
-      }
       return errorResponse(401, {
         code: 'invalid_credential',
         message: 'Invalid or malformed L402 credential',
@@ -110,7 +106,20 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       }
     }
 
-    // Payment verified — call the inner handler
+    // Atomically redeem the L402 credential (one payment = one use)
+    const client = createMoneyDevKitClient()
+    const redeemResult = await client.checkouts.redeemL402({
+      paymentHash: credentialResult.paymentHash,
+    })
+
+    if (!redeemResult.redeemed) {
+      return errorResponse(401, {
+        code: 'credential_consumed',
+        message: 'This L402 credential has already been used',
+      })
+    }
+
+    // Payment verified and redeemed — call the inner handler
     return handler(req, context)
   }
 }

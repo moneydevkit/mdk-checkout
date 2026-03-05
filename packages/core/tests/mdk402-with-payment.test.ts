@@ -100,6 +100,7 @@ function buildMocks(amountSats = 100) {
     checkouts: {
       create: mock.fn(async () => makeFakeConfirmedCheckout(amountSats)),
       registerInvoice: mock.fn(async () => makeFakePendingCheckout(amountSats)),
+      redeemL402: mock.fn(async () => ({ redeemed: true })),
     },
   }
 
@@ -299,6 +300,45 @@ describe('withPayment', () => {
       assert.equal(currentMocks.fakeClient.checkouts.create.mock.callCount(), 0)
       assert.equal(currentMocks.fakeNode.invoices.create.mock.callCount(), 0)
     })
+
+    it('calls redeemL402 with payment hash', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
+      const call = currentMocks.fakeClient.checkouts.redeemL402.mock.calls[0]
+      assert.equal(call.arguments[0].paymentHash, TEST_PAYMENT_HASH)
+    })
+  })
+
+  describe('credential consumption (replay protection)', () => {
+    it('returns 401 when credential has already been consumed', async () => {
+      currentMocks.fakeClient.checkouts.redeemL402 = mock.fn(async () => ({
+        redeemed: false,
+        reason: 'already_consumed',
+      }))
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'credential_consumed')
+    })
+
+    it('returns 401 when invoice is not found', async () => {
+      currentMocks.fakeClient.checkouts.redeemL402 = mock.fn(async () => ({
+        redeemed: false,
+        reason: 'invoice_not_found',
+      }))
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'credential_consumed')
+    })
   })
 
   describe('LSAT backwards compatibility (200 path)', () => {
@@ -402,18 +442,19 @@ describe('withPayment', () => {
   })
 
   describe('expired credential', () => {
-    it('returns fresh 402 with new invoice for expired credential', async () => {
+    it('accepts expired credential with valid preimage (paid credentials never expire)', async () => {
       const expiredAuth = makeValidAuth({ expiresAt: Math.floor(Date.now() / 1000) - 60 })
 
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       const res = await wrapped(makeRequest('http://localhost/api/premium', expiredAuth))
 
-      assert.equal(res.status, 402)
+      assert.equal(res.status, 200)
       const body = await res.json()
-      assert.equal(body.error.code, 'payment_required')
-      assert.ok(body.invoice)
-      // Should have created a new checkout
-      assert.equal(currentMocks.fakeClient.checkouts.create.mock.callCount(), 1)
+      assert.equal(body.success, true)
+      // Should NOT create a new checkout - the credential is still valid
+      assert.equal(currentMocks.fakeClient.checkouts.create.mock.callCount(), 0)
+      // Should redeem normally
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
     })
   })
 
