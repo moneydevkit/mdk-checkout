@@ -89,6 +89,7 @@ export interface StoredPayment {
   timestamp: number
   destination?: string
   payerNote?: string
+  preimage?: string
 }
 
 export function loadPayments(): StoredPayment[] {

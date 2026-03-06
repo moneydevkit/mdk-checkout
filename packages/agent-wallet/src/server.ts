@@ -1,5 +1,6 @@
 import * as http from 'node:http'
 import { createRequire } from 'node:module'
+import { decode as decodeBolt11 } from 'light-bolt11-decoder'
 import { loadConfig, savePayment, loadPayments, type WalletConfig, type StoredPayment } from './config.js'
 import { getNodeOptions } from './mdk-config.js'
 import { saveDaemonPid, removeDaemonPid } from './daemon.js'
@@ -61,6 +62,19 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
     req.on('error', reject)
   })
+}
+
+/** Extract the amount in satoshis from a BOLT11 invoice string, or null if variable-amount. */
+function extractBolt11AmountSats(invoice: string): number | null {
+  try {
+    const decoded = decodeBolt11(invoice)
+    const section = decoded.sections.find((s) => s.name === 'amount')
+    if (!section || !('value' in section)) return null
+    const msat = parseInt(section.value, 10)
+    return Number.isNaN(msat) ? null : Math.floor(msat / 1000)
+  } catch {
+    return null
+  }
 }
 
 // Payment event types from lightning-js
@@ -360,13 +374,17 @@ class WalletServer {
       const amountMsat = amountSats ? amountSats * 1000 : null
       const result = this.node.payWhileRunning(destination, amountMsat, 30)
 
+      // Resolve the amount: use caller-supplied value, fall back to decoding the invoice.
+      const resolvedAmountSats = amountSats ?? extractBolt11AmountSats(destination) ?? 0
+
       savePayment({
         paymentId: result.paymentId,
         paymentHash: result.paymentHash ?? null,
-        amountSats: amountSats ?? 0, // TODO: extract amount from invoice for fixed-amount
+        amountSats: resolvedAmountSats,
         direction: 'outbound',
         timestamp: Date.now(),
         destination,
+        preimage: result.preimage
       })
 
       success(res, {
