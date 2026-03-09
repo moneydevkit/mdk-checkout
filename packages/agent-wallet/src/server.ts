@@ -372,7 +372,7 @@ class WalletServer {
       // payWhileRunning handles all destination types: bolt11, bolt12, lnurl, lightning address
       // amount is optional for fixed-amount bolt11 invoices
       const amountMsat = amountSats ? amountSats * 1000 : null
-      const result = this.node.payWhileRunning(destination, amountMsat, 30)
+      const result = this.node.payWhileRunning(destination, amountMsat, 60)
 
       // Resolve the amount: use caller-supplied value, fall back to decoding the invoice.
       const resolvedAmountSats = amountSats ?? extractBolt11AmountSats(destination) ?? 0
