@@ -80,34 +80,28 @@ export function generateWalletId(): string {
   return crypto.randomUUID()
 }
 
-// Payment persistence
-export interface StoredPayment {
-  paymentId?: string
-  paymentHash: string | null
-  amountSats: number
-  direction: 'inbound' | 'outbound'
-  timestamp: number
-  destination?: string
-  payerNote?: string
-  preimage?: string
-}
+// Payment persistence — delegates to PaymentStore with the default file path.
+import { PaymentStore } from './payment-store.js'
+export { PaymentStore }
+export type { StoredPayment, PaymentStatus } from './payment-store.js'
+import type { StoredPayment } from './payment-store.js'
+
+const defaultStore = new PaymentStore(PAYMENTS_FILE)
 
 export function loadPayments(): StoredPayment[] {
-  if (!fs.existsSync(PAYMENTS_FILE)) {
-    return []
-  }
-
-  try {
-    const data = fs.readFileSync(PAYMENTS_FILE, 'utf-8')
-    return JSON.parse(data) as StoredPayment[]
-  } catch {
-    return []
-  }
+  return defaultStore.load()
 }
 
 export function savePayment(payment: StoredPayment): void {
-  ensureConfigDir()
-  const payments = loadPayments()
-  payments.push(payment)
-  fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(payments, null, 2), { mode: 0o600 })
+  defaultStore.save(payment)
+}
+
+export function updatePayment(
+  ...args: Parameters<PaymentStore['update']>
+): boolean {
+  return defaultStore.update(...args)
+}
+
+export function findPayment(paymentId: string): StoredPayment | undefined {
+  return defaultStore.find(paymentId)
 }

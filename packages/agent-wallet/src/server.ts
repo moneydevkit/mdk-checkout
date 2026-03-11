@@ -1,7 +1,7 @@
 import * as http from 'node:http'
 import { createRequire } from 'node:module'
 import { decode as decodeBolt11 } from 'light-bolt11-decoder'
-import { loadConfig, savePayment, loadPayments, type WalletConfig, type StoredPayment } from './config.js'
+import { loadConfig, savePayment, updatePayment, findPayment, loadPayments, type WalletConfig, type StoredPayment } from './config.js'
 import { getNodeOptions } from './mdk-config.js'
 import { saveDaemonPid, removeDaemonPid } from './daemon.js'
 
@@ -82,6 +82,7 @@ const PaymentEventType = {
   Claimable: 0,
   Received: 1,
   Failed: 2,
+  Sent: 3,
 } as const
 
 class WalletServer {
@@ -200,6 +201,7 @@ class WalletServer {
             amountSats,
             direction: 'inbound',
             timestamp: Date.now(),
+            status: 'completed',
             ...(event.payerNote ? { payerNote: event.payerNote } : {}),
           })
         }
@@ -208,11 +210,35 @@ class WalletServer {
         break
       }
 
-      case PaymentEventType.Failed:
-        console.log(`[wallet] PaymentFailed hash=${event.paymentHash} reason=${event.reason}`)
-        this.pendingClaims.delete(event.paymentHash)
+      case PaymentEventType.Sent: {
+        const pid = event.paymentId
+        console.log(`[wallet] PaymentSent id=${pid} hash=${event.paymentHash} preimage=${event.preimage}`)
+
+        if (pid) {
+          updatePayment(pid, {
+            status: 'completed',
+            preimage: event.preimage ?? undefined,
+            paymentHash: event.paymentHash,
+          })
+        }
+
         this.node.ackEvent()
         break
+      }
+
+      case PaymentEventType.Failed: {
+        const pid = event.paymentId
+        console.log(`[wallet] PaymentFailed id=${pid} hash=${event.paymentHash} reason=${event.reason}`)
+        this.pendingClaims.delete(event.paymentHash)
+
+        // Update outbound payment status if we have a paymentId
+        if (pid) {
+          updatePayment(pid, { status: 'failed' })
+        }
+
+        this.node.ackEvent()
+        break
+      }
     }
   }
 
@@ -262,6 +288,11 @@ class WalletServer {
 
       if (req.method === 'GET' && url.pathname === '/payments') {
         return this.handlePayments(res)
+      }
+
+      const paymentMatch = url.pathname.match(/^\/payment\/([a-zA-Z0-9_-]+)$/)
+      if (req.method === 'GET' && paymentMatch) {
+        return this.handleGetPayment(res, paymentMatch[1])
       }
 
       error(res, 404, 'NOT_FOUND', 'Endpoint not found')
@@ -369,12 +400,12 @@ class WalletServer {
     }
 
     try {
-      // payWhileRunning handles all destination types: bolt11, bolt12, lnurl, lightning address
-      // amount is optional for fixed-amount bolt11 invoices
+      // Fire-and-forget: timeout 0 initiates the payment and returns immediately.
+      // The Rust runtime continues processing; the pollEvents loop picks up the
+      // PaymentSuccessful/PaymentFailed event and updates the stored payment.
       const amountMsat = amountSats ? amountSats * 1000 : null
-      const result = this.node.payWhileRunning(destination, amountMsat, 60)
+      const result = this.node.payWhileRunning(destination, amountMsat, 0)
 
-      // Resolve the amount: use caller-supplied value, fall back to decoding the invoice.
       const resolvedAmountSats = amountSats ?? extractBolt11AmountSats(destination) ?? 0
 
       savePayment({
@@ -384,13 +415,13 @@ class WalletServer {
         direction: 'outbound',
         timestamp: Date.now(),
         destination,
-        preimage: result.preimage
+        status: 'pending',
       })
 
       success(res, {
         paymentId: result.paymentId,
         paymentHash: result.paymentHash ?? null,
-        preimage: result.preimage ?? null,
+        status: 'pending' as const,
       })
     } catch (err) {
       console.error('[wallet] Send error:', err)
@@ -401,6 +432,14 @@ class WalletServer {
   private handlePayments(res: http.ServerResponse): void {
     const payments: StoredPayment[] = loadPayments()
     success(res, { payments })
+  }
+
+  private handleGetPayment(res: http.ServerResponse, paymentId: string): void {
+    const payment = findPayment(paymentId)
+    if (!payment) {
+      return error(res, 404, 'NOT_FOUND', `Payment ${paymentId} not found`)
+    }
+    success(res, payment)
   }
 }
 

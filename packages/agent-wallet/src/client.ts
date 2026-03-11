@@ -1,3 +1,5 @@
+import type { PaymentStatus, StoredPayment } from './payment-store.js'
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
@@ -54,23 +56,22 @@ export class WalletClient {
     })
   }
 
-  async send(destination: string, amountSats?: number): Promise<{ paymentId: string; paymentHash: string | null; preimage: string | null }> {
+  async send(destination: string, amountSats?: number): Promise<{
+    paymentId: string
+    paymentHash: string | null
+    status: PaymentStatus
+  }> {
     return this.request('POST', '/send', {
       destination,
       amount_sats: amountSats,
     })
   }
 
-  async payments(): Promise<{
-    payments: Array<{
-      paymentId?: string
-      paymentHash: string | null
-      amountSats: number
-      direction: 'inbound' | 'outbound'
-      timestamp: number
-      destination?: string
-    }>
-  }> {
+  async getPayment(paymentId: string): Promise<StoredPayment> {
+    return this.request('GET', `/payment/${paymentId}`)
+  }
+
+  async payments(): Promise<{ payments: StoredPayment[] }> {
     return this.request('GET', '/payments')
   }
 }

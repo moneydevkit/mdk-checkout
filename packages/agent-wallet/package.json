@@ -21,11 +21,12 @@
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm --clean",
     "dev": "tsup src/index.ts --watch --format esm --dts",
+    "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@moneydevkit/lightning-js": "^0.1.78",
+    "@moneydevkit/lightning-js": "^0.1.79",
     "bip39": "^3.1.0",
     "light-bolt11-decoder": "^3.0.0",
     "minimist": "^1.2.8",
@@ -36,6 +37,7 @@
     "@types/node": "^22.9.0",
     "@types/qrcode-terminal": "^0.12.2",
     "tsup": "^8.4.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   },
   "engines": {
