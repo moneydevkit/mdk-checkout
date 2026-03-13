@@ -34,8 +34,11 @@ const POLL_INTERVAL_MS = 100;
 // Minimum time that we'll run the lightning node when handling incoming payments.
 // This needs to be long enough for JIT channel opening and HTLC commitment exchanges.
 const MIN_WAIT_BEFORE_QUIET_MS = 15_000;
-// After the minimum wait, this is how long we'll wait for new events if there are no pending claims.
-const QUIET_THRESHOLD_MS = 5_000;
+// After the minimum wait, how long to wait with no events before disconnecting.
+// This must be generous enough for the LSP to complete commitment exchanges after
+// forwarding — the merchant sees its last event (e.g., PaymentClaimable) but the
+// LSP may still need round-trips to finalize the HTLC commitment.
+const QUIET_THRESHOLD_MS = 15_000;
 // Maximum time we'll run the lightning node when handling incoming payments.
 // Vercel has a hard timeout of 60 seconds for the hobby plan so this should not
 // be longer than that.
