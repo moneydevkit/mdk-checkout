@@ -1,0 +1,275 @@
+# Publish Workflow
+#
+# Publishes @moneydevkit packages to npm from the mdk-checkout mirror repo.
+#
+# This repo is a read-only mirror of lightning-node/mdk-checkout.
+# Version bumps are NOT committed back — the source of truth for versions
+# is the lightning-node monorepo. Instead, we query npm for the latest
+# published version and increment from there.
+#
+# Beta releases (automatic):
+#   - Triggered by CI on push to main after checks pass
+#   - Or via workflow_dispatch with tag left empty
+#   - Queries npm for latest beta, increments from there
+#   - Publishes with @beta tag
+#
+# Stable releases (manual):
+#   - Triggered via workflow_dispatch with tag input (e.g., v0.14.0)
+#   - Publishes with @latest tag
+#   - Creates a git tag (tags don't interfere with mirror sync)
+#
+# Shared-version packages: core, nextjs, create, replit, better-auth
+# Independent-version package: agent-wallet
+
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      release_type:
+        type: string
+        required: true
+    secrets:
+      NODE_AUTH_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g., v0.14.0) - leave empty for beta"
+        required: false
+
+env:
+  NPM_PUBLISH_REGISTRY: https://registry.npmjs.org
+  SHARED_PACKAGES: "core nextjs create replit better-auth"
+
+jobs:
+  publish-beta:
+    if: inputs.release_type == 'beta' || (github.event_name == 'workflow_dispatch' && (inputs.tag == '' || !inputs.tag))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for [skip ci] in commit message
+        id: skip_check
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ "$COMMIT_MSG" == *"[skip ci]"* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup pnpm
+        if: steps.skip_check.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        if: steps.skip_check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: ${{ env.NPM_PUBLISH_REGISTRY }}
+
+      - name: Install dependencies
+        if: steps.skip_check.outputs.skip != 'true'
+        run: pnpm install
+
+      - name: Determine shared beta version
+        if: steps.skip_check.outputs.skip != 'true'
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/core/package.json').version")
+          PKG_BASE=$(echo "$PKG_VERSION" | sed 's/-beta\.[0-9]*$//')
+          LATEST_BETA=$(npm view @moneydevkit/core@beta version 2>/dev/null || echo "")
+
+          if [[ -n "$LATEST_BETA" ]]; then
+            NPM_BASE=${LATEST_BETA%-beta.*}
+            if [[ "$NPM_BASE" == "$PKG_BASE" ]]; then
+              # Check if the latest beta is fully published across all shared
+              # packages. If any are missing, this is a partial publish from a
+              # previous failed run — reuse the same version to complete it.
+              ALL_PUBLISHED=true
+              for pkg in $SHARED_PACKAGES; do
+                EXISTING=$(npm view @moneydevkit/$pkg@$LATEST_BETA version 2>/dev/null || echo "")
+                if [[ "$EXISTING" != "$LATEST_BETA" ]]; then
+                  ALL_PUBLISHED=false
+                  break
+                fi
+              done
+
+              if [[ "$ALL_PUBLISHED" == "true" ]]; then
+                BETA_NUM=${LATEST_BETA##*-beta.}
+                NEW_VERSION="${PKG_BASE}-beta.$((BETA_NUM + 1))"
+              else
+                echo "Detected partial publish at $LATEST_BETA, reusing version"
+                NEW_VERSION="$LATEST_BETA"
+              fi
+            else
+              NEW_VERSION="${PKG_BASE}-beta.0"
+            fi
+          else
+            NEW_VERSION="${PKG_BASE}-beta.0"
+          fi
+
+          echo "Shared beta version: $NEW_VERSION"
+          for pkg in $SHARED_PACKAGES; do
+            npm pkg set version=$NEW_VERSION --prefix packages/$pkg
+          done
+          echo "SHARED_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Determine agent-wallet beta version
+        if: steps.skip_check.outputs.skip != 'true'
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/agent-wallet/package.json').version")
+          PKG_BASE=$(echo "$PKG_VERSION" | sed 's/-beta\.[0-9]*$//')
+          LATEST_BETA=$(npm view @moneydevkit/agent-wallet@beta version 2>/dev/null || echo "")
+
+          if [[ -n "$LATEST_BETA" ]]; then
+            NPM_BASE=${LATEST_BETA%-beta.*}
+            if [[ "$NPM_BASE" == "$PKG_BASE" ]]; then
+              BETA_NUM=${LATEST_BETA##*-beta.}
+              NEW_VERSION="${PKG_BASE}-beta.$((BETA_NUM + 1))"
+            else
+              NEW_VERSION="${PKG_BASE}-beta.0"
+            fi
+          else
+            NEW_VERSION="${PKG_BASE}-beta.0"
+          fi
+
+          echo "Agent-wallet beta version: $NEW_VERSION"
+          npm pkg set version=$NEW_VERSION --prefix packages/agent-wallet
+          echo "AGENT_WALLET_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Build
+        if: steps.skip_check.outputs.skip != 'true'
+        run: pnpm run build
+
+      - name: Publish packages
+        if: steps.skip_check.outputs.skip != 'true'
+        run: |
+          for pkg in $SHARED_PACKAGES; do
+            VERSION=$SHARED_VERSION
+            EXISTING=$(npm view @moneydevkit/$pkg@$VERSION version 2>/dev/null || echo "")
+            if [[ "$EXISTING" == "$VERSION" ]]; then
+              echo "Skipping @moneydevkit/$pkg@$VERSION (already published)"
+              continue
+            fi
+            echo "Publishing @moneydevkit/$pkg@$VERSION..."
+            pnpm --filter @moneydevkit/$pkg publish --tag beta --access public --no-git-checks
+          done
+
+          EXISTING=$(npm view @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION version 2>/dev/null || echo "")
+          if [[ "$EXISTING" == "$AGENT_WALLET_VERSION" ]]; then
+            echo "Skipping @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION (already published)"
+          else
+            echo "Publishing @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION..."
+            pnpm --filter @moneydevkit/agent-wallet publish --tag beta --access public --no-git-checks
+          fi
+
+  publish-stable:
+    if: inputs.release_type == 'stable' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: ${{ env.NPM_PUBLISH_REGISTRY }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate and set versions
+        run: |
+          TAG="${{ inputs.tag }}"
+          VERSION="${TAG#v}"
+          echo "Release version: $VERSION"
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Invalid version format: $VERSION"
+            exit 1
+          fi
+
+          # Validate shared-version packages match the tag
+          CURRENT_VERSION=$(node -p "require('./packages/core/package.json').version.replace(/-beta\.\d+$/, '')")
+          if [[ "$VERSION" != "$CURRENT_VERSION" ]]; then
+            echo "Error: Tag version $VERSION does not match package.json base version $CURRENT_VERSION"
+            exit 1
+          fi
+
+          for pkg in $SHARED_PACKAGES; do
+            npm pkg set version=$VERSION --prefix packages/$pkg
+          done
+          echo "SHARED_VERSION=$VERSION" >> $GITHUB_ENV
+
+          # Strip beta suffix from agent-wallet
+          AW_VERSION=$(node -p "require('./packages/agent-wallet/package.json').version.replace(/-beta\.\d+$/, '')")
+          npm pkg set version=$AW_VERSION --prefix packages/agent-wallet
+          echo "AGENT_WALLET_VERSION=$AW_VERSION" >> $GITHUB_ENV
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Publish packages
+        run: |
+          for pkg in $SHARED_PACKAGES; do
+            VERSION=$SHARED_VERSION
+            EXISTING=$(npm view @moneydevkit/$pkg@$VERSION version 2>/dev/null || echo "")
+            if [[ "$EXISTING" == "$VERSION" ]]; then
+              echo "Skipping @moneydevkit/$pkg@$VERSION (already published)"
+              continue
+            fi
+            echo "Publishing @moneydevkit/$pkg@$VERSION..."
+            pnpm --filter @moneydevkit/$pkg publish --tag latest --access public --no-git-checks
+          done
+
+          EXISTING=$(npm view @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION version 2>/dev/null || echo "")
+          if [[ "$EXISTING" == "$AGENT_WALLET_VERSION" ]]; then
+            echo "Skipping @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION (already published)"
+          else
+            echo "Publishing @moneydevkit/agent-wallet@$AGENT_WALLET_VERSION..."
+            pnpm --filter @moneydevkit/agent-wallet publish --tag latest --access public --no-git-checks
+          fi
+
+      - name: Tag release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "v$SHARED_VERSION" >/dev/null 2>&1; then
+            # Tag exists — verify it points at this commit (retry case)
+            TAG_SHA=$(git rev-parse "v$SHARED_VERSION^{commit}")
+            HEAD_SHA=$(git rev-parse HEAD)
+            if [[ "$TAG_SHA" != "$HEAD_SHA" ]]; then
+              echo "Error: Tag v$SHARED_VERSION exists but points at $TAG_SHA, not HEAD ($HEAD_SHA)"
+              exit 1
+            fi
+            echo "Tag v$SHARED_VERSION already exists at HEAD (retry), skipping"
+          else
+            git tag -a "v$SHARED_VERSION" -m "Release v$SHARED_VERSION (agent-wallet v$AGENT_WALLET_VERSION)"
+            git push origin "v$SHARED_VERSION"
+          fi
