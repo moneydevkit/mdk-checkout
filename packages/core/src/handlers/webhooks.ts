@@ -33,7 +33,7 @@ const webhookSchema = z.union([
 const POLL_INTERVAL_MS = 100;
 // Minimum time that we'll run the lightning node when handling incoming payments.
 // This needs to be long enough for JIT channel opening and HTLC commitment exchanges.
-const MIN_WAIT_BEFORE_QUIET_MS = 60_000;
+const MIN_WAIT_BEFORE_QUIET_MS = 40_000;
 // After the minimum wait, how long to wait with no events before disconnecting.
 // This must be generous enough for the LSP to complete commitment exchanges after
 // forwarding — the merchant sees its last event (e.g., PaymentClaimable) but the
