@@ -401,15 +401,53 @@ async function callPaidEndpoint(url: string, payFn: (invoice: string) => Promise
 }
 ```
 
+### Deferred settlement
+
+By default, `withPayment` marks the credential as used immediately before your handler runs. If your handler fails after the credential is consumed, the payer can't retry.
+
+Use `withDeferredSettlement` when the service delivery might fail and you want the payer to be able to retry. Your handler receives a `settle()` callback - call it only after you've successfully delivered the service:
+
+```ts
+// app/api/ai/route.ts
+import { withDeferredSettlement } from '@moneydevkit/nextjs/server'
+
+const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
+  const { prompt } = await req.json()
+
+  // Do the expensive work first
+  const result = await runAiInference(prompt)
+
+  // Work succeeded - now mark the credential as used
+  const { settled } = await settle()
+  if (!settled) {
+    return Response.json({ error: 'settlement_failed' }, { status: 500 })
+  }
+
+  return Response.json({ result })
+}
+
+export const POST = withDeferredSettlement(
+  { amount: 100, currency: 'SAT' },
+  handler,
+)
+```
+
+If your handler returns without calling `settle()` (e.g. it throws or the service fails), the credential stays valid and the payer can retry with the same macaroon and preimage.
+
+`settle()` is callable only once per request. A second call returns `{ settled: false, error: 'already_settled' }` without hitting the backend.
+
 ### Error codes
 
 | Status | Code | Meaning |
 |--------|------|---------|
-| 402 | `payment_required` | No valid credentials — pay the returned invoice |
-| 401 | `invalid_credential` | Credential is malformed or has a bad signature |
+| 402 | `payment_required` | No credentials provided - pay the returned invoice |
+| 401 | `invalid_credential` | Credential is malformed, has a bad signature, or the L402 header is garbled |
 | 401 | `invalid_payment_proof` | Preimage does not match the payment hash |
+| 401 | `credential_consumed` | Credential has already been used |
 | 403 | `resource_mismatch` | Credential was issued for a different endpoint |
 | 403 | `amount_mismatch` | Credential was issued for a different price |
 | 500 | `configuration_error` | `MDK_ACCESS_TOKEN` is not set |
 | 500 | `pricing_error` | Dynamic pricing function threw an error |
 | 502 | `checkout_creation_failed` | Failed to create the checkout or invoice |
+
+> **Note:** A 402 is only returned when no L402/LSAT authorization header is present. If the header is present but malformed or invalid, you get a 401 - not a new invoice.

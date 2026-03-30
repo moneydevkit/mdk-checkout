@@ -212,3 +212,56 @@ export function SuccessPage() {
 ```
 
 This wiring keeps the client pointed at `/api/mdk`, which the Express route handles by delegating to the shared Money Dev Kit core logic.
+
+## L402: Pay-per-call API Endpoints
+
+Gate any Express route behind a Lightning payment. See the [Next.js README L402 section](../nextjs/README.md#l402-pay-per-call-api-endpoints) for the full protocol explanation and client integration examples.
+
+### Basic usage
+
+```ts
+import express from 'express'
+import { withPayment } from '@moneydevkit/replit/server/express'
+
+const app = express()
+
+// withPayment wraps a fetch-style handler (Request -> Response)
+const handler = async (req: Request) => {
+  return Response.json({ content: 'Premium data' })
+}
+
+// Mount it on an Express route by converting the Express req/res yourself,
+// or use it directly in a fetch-compatible server.
+app.all('/api/premium', async (req, res) => {
+  const fetchReq = new Request(`${req.protocol}://${req.get('host')}${req.url}`, {
+    method: req.method,
+    headers: new Headers(req.headers as Record<string, string>),
+  })
+  const response = await withPayment({ amount: 100, currency: 'SAT' }, handler)(fetchReq)
+  response.headers.forEach((v, k) => res.setHeader(k, v))
+  res.status(response.status).send(Buffer.from(await response.arrayBuffer()))
+})
+```
+
+### Deferred settlement
+
+Use `withDeferredSettlement` when your service delivery might fail and you want the payer to be able to retry:
+
+```ts
+import { withDeferredSettlement } from '@moneydevkit/replit/server/express'
+import type { SettleResult } from '@moneydevkit/replit/server/express'
+
+const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
+  const result = await doExpensiveWork()
+
+  // Only mark as used after successful delivery
+  const { settled } = await settle()
+  if (!settled) {
+    return Response.json({ error: 'settlement_failed' }, { status: 500 })
+  }
+
+  return Response.json({ result })
+}
+```
+
+If your handler returns without calling `settle()`, the credential stays valid and the payer can retry.

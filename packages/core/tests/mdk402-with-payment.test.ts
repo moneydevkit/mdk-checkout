@@ -101,6 +101,7 @@ function buildMocks(amountSats = 100) {
       create: mock.fn(async () => makeFakeConfirmedCheckout(amountSats)),
       registerInvoice: mock.fn(async () => makeFakePendingCheckout(amountSats)),
       redeemL402: mock.fn(async () => ({ redeemed: true })),
+      checkL402: mock.fn(async () => ({ redeemed: false })),
     },
   }
 
@@ -132,8 +133,8 @@ const previewMock = mock.module('../src/preview', {
   },
 })
 
-// Import withPayment AFTER mocking
-const { withPayment } = await import('../src/mdk402/with-payment')
+// Import AFTER mocking
+const { withPayment, withDeferredSettlement } = await import('../src/mdk402/with-payment')
 
 const originalEnv = { ...process.env }
 
@@ -267,6 +268,44 @@ describe('withPayment', () => {
       const call = currentMocks.fakeClient.checkouts.registerInvoice.mock.calls[0]
       assert.equal(call.arguments[0].paymentHash, TEST_PAYMENT_HASH)
       assert.equal(call.arguments[0].checkoutId, FAKE_CHECKOUT_ID)
+    })
+  })
+
+  describe('malformed L402 header (401 path, not 402)', () => {
+    it('returns 401 when L402 scheme present but missing colon separator', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', 'L402 macaroononly'))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_credential')
+      // Should NOT create a checkout
+      assert.equal(currentMocks.fakeClient.checkouts.create.mock.callCount(), 0)
+    })
+
+    it('returns 401 when L402 scheme present but empty preimage', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', 'L402 macaroon:'))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_credential')
+    })
+
+    it('returns 401 when LSAT scheme present but malformed', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', 'LSAT garbage'))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_credential')
+    })
+
+    it('returns 402 (new invoice) for non-L402 scheme like Bearer', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', 'Bearer sometoken'))
+
+      assert.equal(res.status, 402)
     })
   })
 
@@ -744,6 +783,255 @@ describe('withPayment', () => {
       assert.equal(typeof body.paymentHash, 'string')
       assert.equal(typeof body.amountSats, 'number')
       assert.equal(typeof body.expiresAt, 'number')
+    })
+  })
+})
+
+describe('withDeferredSettlement', () => {
+  describe('no authorization header (402 path)', () => {
+    it('returns 402 with invoice just like withPayment', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        return Response.json({ success: true })
+      }
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.error.code, 'payment_required')
+    })
+  })
+
+  describe('settle() called - service delivered successfully', () => {
+    it('calls handler with settle callback and returns 200', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        const result = await settle()
+        assert.deepEqual(result, { settled: true })
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 200)
+      const body = await res.json()
+      assert.equal(body.success, true)
+    })
+
+    it('redeems the credential when settle() is called', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        await settle()
+        return Response.json({ ok: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
+      const call = currentMocks.fakeClient.checkouts.redeemL402.mock.calls[0]
+      assert.equal(call.arguments[0].paymentHash, TEST_PAYMENT_HASH)
+    })
+  })
+
+  describe('settle() NOT called - service delivery failed', () => {
+    it('does not redeem the credential', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        // Simulate service failure - don't call settle()
+        return Response.json({ error: 'service_unavailable' }, { status: 503 })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 503)
+      // redeemL402 should never have been called
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 0)
+    })
+
+    it('allows payer to retry with the same credential', async () => {
+      let attempt = 0
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        attempt++
+        if (attempt === 1) {
+          // First attempt: service fails, don't settle
+          return Response.json({ error: 'service_unavailable' }, { status: 503 })
+        }
+        // Second attempt: service succeeds, settle
+        await settle()
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const auth = makeValidAuth()
+
+      // First attempt - fails, no settle
+      const res1 = await wrapped(makeRequest('http://localhost/api/premium', auth))
+      assert.equal(res1.status, 503)
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 0)
+
+      // Second attempt - succeeds, settles
+      const res2 = await wrapped(makeRequest('http://localhost/api/premium', auth))
+      assert.equal(res2.status, 200)
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
+    })
+  })
+
+  describe('settle() called twice - idempotency', () => {
+    it('returns error on second call without hitting backend', async () => {
+      let secondResult: any
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        await settle()
+        secondResult = await settle()
+        return Response.json({ ok: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.deepEqual(secondResult, { settled: false, error: 'already_settled' })
+      // Backend called only once
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
+    })
+  })
+
+  describe('settle() when backend rejects', () => {
+    it('returns error from backend reason', async () => {
+      currentMocks.fakeClient.checkouts.redeemL402 = mock.fn(async () => ({
+        redeemed: false,
+        reason: 'already_consumed',
+      }))
+
+      let settleResult: any
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        settleResult = await settle()
+        return Response.json({ ok: false }, { status: 500 })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.deepEqual(settleResult, { settled: false, error: 'already_consumed' })
+    })
+  })
+
+  describe('already-consumed credential (replay protection)', () => {
+    it('returns 401 when credential has already been settled', async () => {
+      currentMocks.fakeClient.checkouts.checkL402 = mock.fn(async () => ({ redeemed: true }))
+
+      let handlerCalled = false
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        handlerCalled = true
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'credential_consumed')
+      // Handler should NOT have been called
+      assert.equal(handlerCalled, false)
+      // redeemL402 should NOT have been called
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 0)
+    })
+
+    it('runs handler when credential has not been consumed', async () => {
+      currentMocks.fakeClient.checkouts.checkL402 = mock.fn(async () => ({ redeemed: false }))
+
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        await settle()
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
+
+      assert.equal(res.status, 200)
+      assert.equal(currentMocks.fakeClient.checkouts.checkL402.mock.callCount(), 1)
+      assert.equal(currentMocks.fakeClient.checkouts.redeemL402.mock.callCount(), 1)
+    })
+  })
+
+  describe('credential verification (shared with withPayment)', () => {
+    it('returns 401 for invalid credential', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', 'L402 garbage:garbage'))
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_credential')
+    })
+
+    it('returns 403 for resource mismatch', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        return Response.json({ success: true })
+      }
+
+      const auth = makeValidAuth({ resource: 'GET:/api/other' })
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', auth))
+
+      assert.equal(res.status, 403)
+      const body = await res.json()
+      assert.equal(body.error.code, 'resource_mismatch')
+    })
+
+    it('returns 403 for amount mismatch', async () => {
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        return Response.json({ success: true })
+      }
+
+      const auth = makeValidAuth({ amount: 50 })
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest('http://localhost/api/premium', auth))
+
+      assert.equal(res.status, 403)
+      const body = await res.json()
+      assert.equal(body.error.code, 'amount_mismatch')
+    })
+
+    it('returns 500 when MDK_ACCESS_TOKEN is missing', async () => {
+      delete process.env.MDK_ACCESS_TOKEN
+
+      const handler = async (req: Request, settle: () => Promise<any>) => {
+        return Response.json({ success: true })
+      }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'configuration_error')
+    })
+  })
+
+  describe('context pass-through', () => {
+    it('passes context as third argument after settle', async () => {
+      let receivedContext: any = null
+      const handler = async (req: Request, settle: () => Promise<any>, context?: any) => {
+        receivedContext = context
+        await settle()
+        return Response.json({ id: (await context.params).id })
+      }
+
+      const fakeContext = { params: Promise.resolve({ id: '42' }) }
+
+      const wrapped = withDeferredSettlement({ amount: 100, currency: 'SAT' }, handler)
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', makeValidAuth()),
+        fakeContext,
+      )
+
+      assert.equal(res.status, 200)
+      const body = await res.json()
+      assert.equal(body.id, '42')
+      assert.strictEqual(receivedContext, fakeContext)
     })
   })
 })

@@ -397,39 +397,46 @@ describe('parseAuthorizationHeader', () => {
     }
   })
 
-  it('returns invalid for null header', () => {
+  it('returns invalid with attempted=false for null header', () => {
     const result = parseAuthorizationHeader(null)
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, false)
   })
 
-  it('returns invalid for empty string', () => {
+  it('returns invalid with attempted=false for empty string', () => {
     const result = parseAuthorizationHeader('')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, false)
   })
 
-  it('returns invalid for wrong scheme', () => {
+  it('returns invalid with attempted=false for wrong scheme', () => {
     const result = parseAuthorizationHeader('Bearer macaroon:preimage')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, false)
   })
 
-  it('rejects legacy MDK402 scheme', () => {
+  it('rejects legacy MDK402 scheme with attempted=false', () => {
     const result = parseAuthorizationHeader('MDK402 token:preimage')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, false)
   })
 
-  it('returns invalid for missing colon', () => {
+  it('returns invalid with attempted=true for missing colon (L402 scheme present)', () => {
     const result = parseAuthorizationHeader('L402 macaroononly')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, true)
   })
 
-  it('returns invalid for empty macaroon part', () => {
+  it('returns invalid with attempted=true for empty macaroon part', () => {
     const result = parseAuthorizationHeader('L402 :preimage')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, true)
   })
 
-  it('returns invalid for empty preimage part', () => {
+  it('returns invalid with attempted=true for empty preimage part', () => {
     const result = parseAuthorizationHeader('L402 macaroon:')
     assert.equal(result.valid, false)
+    if (!result.valid) assert.equal(result.attempted, true)
   })
 
   it('handles extra whitespace after scheme', () => {

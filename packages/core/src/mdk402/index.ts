@@ -1,2 +1,2 @@
-export { withPayment } from './with-payment'
-export type { PaymentConfig } from './with-payment'
+export { withPayment, withDeferredSettlement } from './with-payment'
+export type { PaymentConfig, SettleResult } from './with-payment'

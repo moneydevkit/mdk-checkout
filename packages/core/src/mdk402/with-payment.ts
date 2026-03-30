@@ -9,7 +9,7 @@ import {
 } from './token'
 
 /**
- * Configuration for the withPayment wrapper.
+ * Configuration for the withPayment and withDeferredConfirmation wrappers.
  * Defines pricing and token expiry for L402-gated endpoints.
  */
 export type PaymentConfig = {
@@ -23,8 +23,106 @@ export type PaymentConfig = {
 
 type Handler = (req: Request, context?: any) => Response | Promise<Response>
 
+/** Result of calling the settle callback in withDeferredConfirmation. */
+export type SettleResult = { settled: true } | { settled: false; error: string }
+
+/**
+ * Handler that receives a settle callback for deferred confirmation.
+ * Call settle() after successfully delivering the service to mark the credential as used.
+ * If settle() is never called, the credential remains valid and the payer can retry.
+ */
+type DeferredHandler = (
+  req: Request,
+  settle: () => Promise<SettleResult>,
+  context?: any,
+) => Response | Promise<Response>
+
 /** Default credential and invoice expiry: 15 minutes. */
 const DEFAULT_EXPIRY_SECONDS = 900
+
+/** Successful credential verification result. */
+type VerifiedCredential = {
+  paymentHash: string
+}
+
+/**
+ * Verify the L402 credential from the request.
+ * Checks HMAC integrity, resource binding, amount match, and preimage proof.
+ * Returns the payment hash on success, or an error Response on failure.
+ */
+async function verifyCredential(
+  req: Request,
+  config: PaymentConfig,
+  accessToken: string,
+): Promise<VerifiedCredential | Response> {
+  const authHeader = req.headers.get('authorization')
+  const parsed = parseAuthorizationHeader(authHeader)
+
+  if (!parsed.valid) {
+    // L402/LSAT scheme present but malformed - don't issue a new invoice
+    if (parsed.attempted) {
+      return errorResponse(401, {
+        code: 'invalid_credential',
+        message: 'Malformed L402 authorization header',
+      })
+    }
+    // No L402 auth at all - issue a new invoice
+    return await create402Response(req, config, accessToken)
+  }
+
+  // Verify credential integrity (expiry is NOT checked - a paid credential never expires)
+  const credentialResult = verifyL402Credential(parsed.macaroon, accessToken)
+
+  if (!credentialResult.valid) {
+    return errorResponse(401, {
+      code: 'invalid_credential',
+      message: 'Invalid or malformed L402 credential',
+    })
+  }
+
+  // Verify credential was issued for this specific endpoint
+  const expectedResource = `${req.method}:${new URL(req.url).pathname}`
+  if (credentialResult.resource !== expectedResource) {
+    return errorResponse(403, {
+      code: 'resource_mismatch',
+      message: 'Credential was not issued for this resource',
+    })
+  }
+
+  // Verify credential was issued for the current price
+  let currentAmount: number
+  try {
+    currentAmount = typeof config.amount === 'function'
+      ? await Promise.resolve(config.amount(req))
+      : config.amount
+  } catch (err) {
+    return errorResponse(500, {
+      code: 'pricing_error',
+      message: 'Failed to determine price',
+      details: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  if (credentialResult.amount !== currentAmount || credentialResult.currency !== config.currency) {
+    return errorResponse(403, {
+      code: 'amount_mismatch',
+      message: 'Credential was not issued for this price',
+    })
+  }
+
+  // Verify payment proof (skip in preview/sandbox mode)
+  const isPreview = is_preview_environment()
+  if (!isPreview) {
+    if (!verifyPreimage(parsed.preimage, credentialResult.paymentHash)) {
+      return errorResponse(401, {
+        code: 'invalid_payment_proof',
+        message: 'Invalid payment preimage',
+      })
+    }
+  }
+
+  return { paymentHash: credentialResult.paymentHash }
+}
 
 /**
  * Wrap a route handler with L402 payment gating.
@@ -46,70 +144,15 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       })
     }
 
-    // Check for L402/LSAT authorization header
-    const authHeader = req.headers.get('authorization')
-    const parsed = parseAuthorizationHeader(authHeader)
-
-    if (!parsed.valid) {
-      // No auth or wrong scheme -> issue a new invoice
-      return await create402Response(req, config, accessToken)
-    }
-
-    // Verify credential integrity (expiry is NOT checked - a paid credential never expires)
-    const credentialResult = verifyL402Credential(parsed.macaroon, accessToken)
-
-    if (!credentialResult.valid) {
-      return errorResponse(401, {
-        code: 'invalid_credential',
-        message: 'Invalid or malformed L402 credential',
-      })
-    }
-
-    // Verify credential was issued for this specific endpoint
-    const expectedResource = `${req.method}:${new URL(req.url).pathname}`
-    if (credentialResult.resource !== expectedResource) {
-      return errorResponse(403, {
-        code: 'resource_mismatch',
-        message: 'Credential was not issued for this resource',
-      })
-    }
-
-    // Verify credential was issued for the current price
-    let currentAmount: number
-    try {
-      currentAmount = typeof config.amount === 'function'
-        ? await Promise.resolve(config.amount(req))
-        : config.amount
-    } catch (err) {
-      return errorResponse(500, {
-        code: 'pricing_error',
-        message: 'Failed to determine price',
-        details: err instanceof Error ? err.message : String(err),
-      })
-    }
-
-    if (credentialResult.amount !== currentAmount || credentialResult.currency !== config.currency) {
-      return errorResponse(403, {
-        code: 'amount_mismatch',
-        message: 'Credential was not issued for this price',
-      })
-    }
-
-    // Verify payment proof (skip in preview/sandbox mode)
-    const isPreview = is_preview_environment()
-    if (!isPreview) {
-      if (!verifyPreimage(parsed.preimage, credentialResult.paymentHash)) {
-        return errorResponse(401, {
-          code: 'invalid_payment_proof',
-          message: 'Invalid payment preimage',
-        })
-      }
+    const result = await verifyCredential(req, config, accessToken)
+    if (result instanceof Response) {
+      return result
     }
 
     // Atomically redeem the L402 credential (one payment = one use)
     const client = createMoneyDevKitClient()
     const redeemResult = await client.checkouts.redeemL402({
-      paymentHash: credentialResult.paymentHash,
+      paymentHash: result.paymentHash,
     })
 
     if (!redeemResult.redeemed) {
@@ -119,8 +162,72 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
       })
     }
 
-    // Payment verified and redeemed — call the inner handler
+    // Payment verified and redeemed - call the inner handler
     return handler(req, context)
+  }
+}
+
+/**
+ * Wrap a route handler with L402 payment gating and deferred confirmation.
+ *
+ * Like withPayment, but does NOT automatically mark the credential as used.
+ * Instead, the handler receives a `settle` callback. The merchant calls
+ * settle() after successfully delivering the service. If settle() is never
+ * called (e.g. the handler throws or the service fails), the credential
+ * remains valid and the payer can retry with the same preimage.
+ *
+ * settle() is callable only once - subsequent calls return an error.
+ */
+export function withDeferredSettlement(config: PaymentConfig, handler: DeferredHandler): Handler {
+  return async (req: Request, context?: any): Promise<Response> => {
+    const accessToken = process.env.MDK_ACCESS_TOKEN
+    if (!accessToken) {
+      return errorResponse(500, {
+        code: 'configuration_error',
+        message: 'MDK_ACCESS_TOKEN is not configured',
+        suggestion: 'Set the MDK_ACCESS_TOKEN environment variable',
+      })
+    }
+
+    const result = await verifyCredential(req, config, accessToken)
+    if (result instanceof Response) {
+      return result
+    }
+
+    // Check if the credential has already been consumed (without consuming it)
+    const client = createMoneyDevKitClient()
+    const checkResult = await client.checkouts.checkL402({
+      paymentHash: result.paymentHash,
+    })
+
+    if (checkResult.redeemed) {
+      return errorResponse(401, {
+        code: 'credential_consumed',
+        message: 'This L402 credential has already been used',
+      })
+    }
+
+    // Build the one-shot settle callback
+    let settled = false
+    const settle = async (): Promise<SettleResult> => {
+      if (settled) {
+        return { settled: false, error: 'already_settled' }
+      }
+      settled = true
+
+      const redeemResult = await client.checkouts.redeemL402({
+        paymentHash: result.paymentHash,
+      })
+
+      if (!redeemResult.redeemed) {
+        return { settled: false, error: redeemResult.reason ?? 'redeem_failed' }
+      }
+
+      return { settled: true }
+    }
+
+    // Payment verified but NOT redeemed - merchant decides when to settle
+    return handler(req, settle, context)
   }
 }
 

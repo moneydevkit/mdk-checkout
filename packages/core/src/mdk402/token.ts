@@ -26,10 +26,12 @@ export type VerifyL402CredentialResult =
 
 /**
  * Result of parsing an Authorization header.
+ * When valid is false, `attempted` indicates whether an L402/LSAT scheme was
+ * present but the credentials were malformed (true) vs no L402 auth at all (false).
  */
 export type ParseAuthResult =
   | { valid: true; macaroon: string; preimage: string }
-  | { valid: false }
+  | { valid: false; attempted: boolean }
 
 /** Schema for validating decoded L402 credential payloads. */
 const credentialPayloadSchema = z.object({
@@ -143,27 +145,28 @@ export function verifyPreimage(preimage: string, paymentHash: string): boolean {
  */
 export function parseAuthorizationHeader(header: string | null): ParseAuthResult {
   if (!header) {
-    return { valid: false }
+    return { valid: false, attempted: false }
   }
 
   const lower = header.toLowerCase()
   const scheme = L402_SCHEMES.find(s => lower.startsWith(s + ' '))
   if (!scheme) {
-    return { valid: false }
+    return { valid: false, attempted: false }
   }
 
+  // L402/LSAT scheme detected - any failure from here is a malformed attempt
   const credentials = header.slice(scheme.length + 1).trim()
   const colonIndex = credentials.indexOf(':')
 
   if (colonIndex === -1) {
-    return { valid: false }
+    return { valid: false, attempted: true }
   }
 
   const macaroon = credentials.slice(0, colonIndex)
   const preimage = credentials.slice(colonIndex + 1)
 
   if (!macaroon || !preimage) {
-    return { valid: false }
+    return { valid: false, attempted: true }
   }
 
   return { valid: true, macaroon, preimage }
