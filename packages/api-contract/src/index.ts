@@ -21,6 +21,8 @@ export type {
 	RegisterInvoice,
 	RedeemL402Input,
 	RedeemL402Output,
+	CheckL402Input,
+	CheckL402Output,
 } from "./contracts/checkout";
 export {
 	CheckoutStatusSchema,
@@ -185,6 +187,7 @@ export const sdkContract = {
 		registerInvoice: checkout.registerInvoice,
 		paymentReceived: checkout.paymentReceived,
 		redeemL402: checkout.redeemL402,
+		checkL402: checkout.checkL402,
 	},
 	onboarding,
 	products: {

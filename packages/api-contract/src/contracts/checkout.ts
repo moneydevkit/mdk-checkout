@@ -124,6 +124,18 @@ export const RedeemL402OutputSchema = z.object({
 });
 export type RedeemL402Output = z.infer<typeof RedeemL402OutputSchema>;
 
+/** Input for checking whether an L402 credential has been consumed. */
+export const CheckL402InputSchema = z.object({
+	paymentHash: z.string().describe("The payment hash from the L402 credential"),
+});
+export type CheckL402Input = z.infer<typeof CheckL402InputSchema>;
+
+/** Output indicating whether the L402 credential has already been redeemed. */
+export const CheckL402OutputSchema = z.object({
+	redeemed: z.boolean(),
+});
+export type CheckL402Output = z.infer<typeof CheckL402OutputSchema>;
+
 export type CreateCheckout = z.infer<typeof CreateCheckoutInputSchema>;
 export type ConfirmCheckout = z.infer<typeof ConfirmCheckoutInputSchema>;
 export type RegisterInvoice = z.infer<typeof RegisterInvoiceInputSchema>;
@@ -205,6 +217,11 @@ export const redeemL402Contract = oc
 	.input(RedeemL402InputSchema)
 	.output(RedeemL402OutputSchema);
 
+/** Read-only check for whether an L402 credential has been consumed. */
+export const checkL402Contract = oc
+	.input(CheckL402InputSchema)
+	.output(CheckL402OutputSchema);
+
 export const checkout = {
 	get: getCheckoutContract,
 	create: createCheckoutContract,
@@ -212,6 +229,7 @@ export const checkout = {
 	registerInvoice: registerInvoiceContract,
 	paymentReceived: paymentReceivedContract,
 	redeemL402: redeemL402Contract,
+	checkL402: checkL402Contract,
 	list: listCheckoutsContract,
 	listPaginated: listCheckoutsPaginatedContract,
 	// Original names preserved
