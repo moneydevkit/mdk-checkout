@@ -248,8 +248,7 @@ app.all('/api/premium', async (req, res) => {
 Use `withDeferredSettlement` when your service delivery might fail and you want the payer to be able to retry:
 
 ```ts
-import { withDeferredSettlement } from '@moneydevkit/replit/server/express'
-import type { SettleResult } from '@moneydevkit/replit/server/express'
+import { withDeferredSettlement, type SettleResult } from '@moneydevkit/replit/server/express'
 
 const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
   const result = await doExpensiveWork()

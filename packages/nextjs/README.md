@@ -409,7 +409,7 @@ Use `withDeferredSettlement` when the service delivery might fail and you want t
 
 ```ts
 // app/api/ai/route.ts
-import { withDeferredSettlement } from '@moneydevkit/nextjs/server'
+import { withDeferredSettlement, type SettleResult } from '@moneydevkit/nextjs/server'
 
 const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
   const { prompt } = await req.json()
