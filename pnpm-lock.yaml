@@ -28,11 +28,11 @@ importers:
   examples/mdk-nextjs-demo:
     dependencies:
       '@moneydevkit/core':
-        specifier: 0.10.0
-        version: 0.10.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 0.14.0
+        version: 0.14.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@moneydevkit/nextjs':
-        specifier: 0.10.0
-        version: 0.10.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(next@16.1.1(@babel/core@7.28.6)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 0.14.0
+        version: 0.14.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(next@16.1.1(@babel/core@7.28.6)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-slot':
         specifier: ^1.2.2
         version: 1.2.4(@types/react@19.2.10)(react@19.2.3)
@@ -1434,21 +1434,15 @@ packages:
       '@types/react': '>=16'
       react: '>=16'
 
-  '@moneydevkit/api-contract@0.1.21':
-    resolution: {integrity: sha512-sK9/aKtu+5XnPLEl9q56w/lyPbLTnOyqrv7XvDwu9D617qFuK56O/PGLqs7FD6T1sD0AY6TF4YyQamFmshEsxQ==}
+  '@moneydevkit/api-contract@0.1.22':
+    resolution: {integrity: sha512-cjWZUXzk7tKEPZokvUPm7bpTfAeTHyjI1GtKtcWNIXTFyi48fDYifpMudGdKB8f75Lsl2QPo8vTMBtU2kg7cDg==}
     engines: {node: '>=18'}
 
-  '@moneydevkit/core@0.10.0':
-    resolution: {integrity: sha512-MSELMaTLrVKtFeX0ash5eRQgL7LANZRf0HoT1WOAbtz+UFNoOj04AGlKsIQkzsgidLjn09PutGpFfIqG8w4h2g==}
+  '@moneydevkit/core@0.14.0':
+    resolution: {integrity: sha512-fkp0bpsuxL3sFzNG5yni68+uyTAYsi94WxycDWKuce8y99CVzPcsCTjOz7Jxlw6RNWR/6msIbvZvdfEueiTKJQ==}
     peerDependencies:
       react: ^18 || ^19
       react-dom: ^18 || ^19
-
-  '@moneydevkit/lightning-js-android-arm64@0.1.68':
-    resolution: {integrity: sha512-1zbjesIpifzXg6dE+XJ81S83j3rayHqKNg1e36PMuqEkyyEL55oOjcuqFthtmUdWWyP7vua4gEfgEaykP2ZbXA==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [android]
 
   '@moneydevkit/lightning-js-android-arm64@0.1.78':
     resolution: {integrity: sha512-x6KPShT4X6ywpulEXWe5P+Ksz5QflhNuAx2LDQzCRkThmhO1WTL+cwPXfJvXnFdCiQnSS80Myn9DZ6VcZGmIag==}
@@ -1462,12 +1456,6 @@ packages:
     cpu: [arm64]
     os: [android]
 
-  '@moneydevkit/lightning-js-darwin-arm64@0.1.68':
-    resolution: {integrity: sha512-r11aJNuXITj/UrhwQu94yshbYYSKNVblgGXB+oMwJ8Hg60y9wNFKXlqfLpoOo6oMaZ/8m88ddV4b1yqkAQFMbg==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [darwin]
-
   '@moneydevkit/lightning-js-darwin-arm64@0.1.78':
     resolution: {integrity: sha512-8yw4IPGN7iEkrQlAIXiBmbBow7P8HiJ7gmtRHFh8m9sH7cpE8UhB3cdndKneK7vsKtH1u5/9+kFpLt/y3sJjjQ==}
     engines: {node: '>= 10'}
@@ -1478,12 +1466,6 @@ packages:
     resolution: {integrity: sha512-bOAW67Y4gzk5bqwX/bvBDpe6Idcc2ZzV606XFnvXkNDeGzLlXRXCDvIT1SxKwxtxJ+9ElWcJYTGj1cz9r6okSw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
-    os: [darwin]
-
-  '@moneydevkit/lightning-js-darwin-x64@0.1.68':
-    resolution: {integrity: sha512-GHcYp4AMKbiTw3q9unP7gz5OqkJK4dxNT642i2KbuY94HWDErpamPxy+lyUtNzHXMKLyyjKOqgGVBFD492FbiQ==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
     os: [darwin]
 
   '@moneydevkit/lightning-js-darwin-x64@0.1.78':
@@ -1498,12 +1480,6 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.68':
-    resolution: {integrity: sha512-G7+woRI96FdyZktuNpsj39Sy7nid7CGg6Rc4DdI+rDTewltKoNMwT1FIqoT+Tpvo3SyKAqmM35cBelC0d5h60g==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [linux]
-
   '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.78':
     resolution: {integrity: sha512-XDx0W8wF/Qw111HuVl/5jPOr8+DaWinZCI7To96YX0RJ4qFaNDbFxg81pMqhLhYVj0Zxqs+3ZQ2L1EJNcX9tWg==}
     engines: {node: '>= 10'}
@@ -1512,12 +1488,6 @@ packages:
 
   '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.79':
     resolution: {integrity: sha512-g6CIgWYUcLHeiFQpXlbCBFGwovCXGyFC7xYaNGSv4UHktChbaj3eg1wAPp5Zeza7FdvPJ2+pVkZts8qKCKkufA==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [linux]
-
-  '@moneydevkit/lightning-js-linux-arm64-musl@0.1.68':
-    resolution: {integrity: sha512-Mi3urpV8Dm0IoVhd90xnaTdYW9jlbnZbmLx0JqZ/NrjAsIq4vQszTqbNkwX5LMgeAfQnciilYZVouEThw9LWOQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
@@ -1534,12 +1504,6 @@ packages:
     cpu: [arm64]
     os: [linux]
 
-  '@moneydevkit/lightning-js-linux-x64-gnu@0.1.68':
-    resolution: {integrity: sha512-Vryc7EvoYWhcF4Nlhf59GlThoSfZ4i4Jx1yqS1W74naG/zGbqOUTEax+aWTpKlu20lp2SbrWlNXyjuiGbQctPg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [linux]
-
   '@moneydevkit/lightning-js-linux-x64-gnu@0.1.78':
     resolution: {integrity: sha512-NQcQ2VJZelaO/QP2Ud0oBo2KlEWxURtfRYJAD4smTIBB9Bx9e4AnuTJnvMkMWgKMXmUkBDoabXDmyXoP1sd0ow==}
     engines: {node: '>= 10'}
@@ -1548,12 +1512,6 @@ packages:
 
   '@moneydevkit/lightning-js-linux-x64-gnu@0.1.79':
     resolution: {integrity: sha512-oAWLhbv0agTpbs7+kVf0ijhcchl/Xs0YSWpe+wnrhK9rQ5/NuiDa8SN9BLfcCv4L1CMMZ8uAjPxwMj9ALjwVbg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [linux]
-
-  '@moneydevkit/lightning-js-linux-x64-musl@0.1.68':
-    resolution: {integrity: sha512-xhnUywL7y75Z/z08+IzCGJti9Kj5yx0cc3cHWQwWWSY7e3p0TZTSpoqHys+udjNnUvpVtCcs5uaVLq9QaToSYQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -1570,12 +1528,6 @@ packages:
     cpu: [x64]
     os: [linux]
 
-  '@moneydevkit/lightning-js-win32-arm64-msvc@0.1.68':
-    resolution: {integrity: sha512-iYPhMKHd7coOuCSTD0Y5xCXos7NltkYhSd8xZ5fFpG72U6tM0HcOImL1gFQLMtLiK4H8qcpjDFv0zUoyL5gNqg==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [win32]
-
   '@moneydevkit/lightning-js-win32-arm64-msvc@0.1.78':
     resolution: {integrity: sha512-z97tON5B5D3h0bp2C4m2rCtiF7vQSVC/waRh7A3LyZ65zSXs1IAeZwnjFopQBYz0TlVwrIxf8E0EFuEz3COj7w==}
     engines: {node: '>= 10'}
@@ -1586,12 +1538,6 @@ packages:
     resolution: {integrity: sha512-6r47TXqr09af/SloWbaGHz7ujSLoaHWAsWLcauYQsm5YCmTX3pXV498ZB24Y14z+2BA6Jc0/OL1tekP+b7lHKw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
-    os: [win32]
-
-  '@moneydevkit/lightning-js-win32-ia32-msvc@0.1.68':
-    resolution: {integrity: sha512-/olqMQVOfHF4N5Wm2cDNABi7fAWuXBg+9L+Kich+2yGDe/zuN3vEny9bmYbT7XypnIxb6SDaCW1NwkdfovuzMg==}
-    engines: {node: '>= 10'}
-    cpu: [ia32]
     os: [win32]
 
   '@moneydevkit/lightning-js-win32-ia32-msvc@0.1.78':
@@ -1606,12 +1552,6 @@ packages:
     cpu: [ia32]
     os: [win32]
 
-  '@moneydevkit/lightning-js-win32-x64-msvc@0.1.68':
-    resolution: {integrity: sha512-aN9XoQQQ3tDE6nRMhxy8dVejW/yPCLZlwozk3gqKKpn7FbC3RdYhnMrvcWKWw1IV+OIQ2coxdVEC1pehclFTzg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [win32]
-
   '@moneydevkit/lightning-js-win32-x64-msvc@0.1.78':
     resolution: {integrity: sha512-rY6DBJbG5SgGOYSv9Ir1S9JxauRBNxnzesTfpu2lLTPqt7Yw3AN200zx9eSC8zf9QRxRulh2ERBSTuuV52DD6g==}
     engines: {node: '>= 10'}
@@ -1624,10 +1564,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@moneydevkit/lightning-js@0.1.68':
-    resolution: {integrity: sha512-Zr6eLUU9dpLQMhlvak0cdeaklO2aNg8/BgOLQfA5+9VdaTF+kJad0kIQGm+64/+NthJsKAp2G52jYlqFFq5SIA==}
-    engines: {node: '>= 10'}
-
   '@moneydevkit/lightning-js@0.1.78':
     resolution: {integrity: sha512-YPwT8nHq3TBC1Vof1OMTyi7wkPM3MV4HeXSO7RnBNt5YchsmAeRB7wLLZl62ZpIlYJnSGyO1lunDywQU2Wht7Q==}
     engines: {node: '>= 10'}
@@ -1636,8 +1572,8 @@ packages:
     resolution: {integrity: sha512-+84nhy+/0LR3INHGb/JJuRxL6mOI20vys+uNZm7zDrWaqsOQ+V/7n6c/WlmVsmtIMC+Fxq2D+E02INDfWQ/DTw==}
     engines: {node: '>= 10'}
 
-  '@moneydevkit/nextjs@0.10.0':
-    resolution: {integrity: sha512-8qMaKgJJhLY8zRV57PVyGUje7ji8GZ6VtQKhhC+ZZiM61RVk9N/pk4RHeOc3rJ6HMEbqyXY1vjd7YoXVmyJqEg==}
+  '@moneydevkit/nextjs@0.14.0':
+    resolution: {integrity: sha512-ti0DsPxJtO5Helx+h4KYzSJr6ouSJ5udzRouFMzswnQbUKKu+oqaacHefEsWOndxCPCbqU7CChOItrM4CgZD9A==}
     peerDependencies:
       next: ^15 || ^16
       react: ^18 || ^19
@@ -5947,7 +5883,7 @@ packages:
   tar@6.2.1:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
     engines: {node: '>=10'}
-    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   tar@7.5.7:
     resolution: {integrity: sha512-fov56fJiRuThVFXD6o6/Q354S7pnWMJIVlDBYijsTNx6jKSE4pvrDTs6lUnmGvNyfJwFQQwWy3owKz1ucIhveQ==}
@@ -7191,16 +7127,16 @@ snapshots:
       '@types/react': 19.2.10
       react: 19.2.3
 
-  '@moneydevkit/api-contract@0.1.21':
+  '@moneydevkit/api-contract@0.1.22':
     dependencies:
       '@orpc/contract': 1.3.0
       zod: 3.25.76
 
-  '@moneydevkit/core@0.10.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@moneydevkit/core@0.14.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@hookform/resolvers': 5.2.2(react-hook-form@7.71.1(react@19.2.3))
-      '@moneydevkit/api-contract': 0.1.21
-      '@moneydevkit/lightning-js': 0.1.68
+      '@moneydevkit/api-contract': 0.1.22
+      '@moneydevkit/lightning-js': 0.1.78
       '@orpc/client': 1.3.0
       '@orpc/contract': 1.3.0
       '@radix-ui/react-collapsible': 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -7223,16 +7159,10 @@ snapshots:
       - '@types/react'
       - '@types/react-dom'
 
-  '@moneydevkit/lightning-js-android-arm64@0.1.68':
-    optional: true
-
   '@moneydevkit/lightning-js-android-arm64@0.1.78':
     optional: true
 
   '@moneydevkit/lightning-js-android-arm64@0.1.79':
-    optional: true
-
-  '@moneydevkit/lightning-js-darwin-arm64@0.1.68':
     optional: true
 
   '@moneydevkit/lightning-js-darwin-arm64@0.1.78':
@@ -7241,16 +7171,10 @@ snapshots:
   '@moneydevkit/lightning-js-darwin-arm64@0.1.79':
     optional: true
 
-  '@moneydevkit/lightning-js-darwin-x64@0.1.68':
-    optional: true
-
   '@moneydevkit/lightning-js-darwin-x64@0.1.78':
     optional: true
 
   '@moneydevkit/lightning-js-darwin-x64@0.1.79':
-    optional: true
-
-  '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.68':
     optional: true
 
   '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.78':
@@ -7259,16 +7183,10 @@ snapshots:
   '@moneydevkit/lightning-js-linux-arm64-gnu@0.1.79':
     optional: true
 
-  '@moneydevkit/lightning-js-linux-arm64-musl@0.1.68':
-    optional: true
-
   '@moneydevkit/lightning-js-linux-arm64-musl@0.1.78':
     optional: true
 
   '@moneydevkit/lightning-js-linux-arm64-musl@0.1.79':
-    optional: true
-
-  '@moneydevkit/lightning-js-linux-x64-gnu@0.1.68':
     optional: true
 
   '@moneydevkit/lightning-js-linux-x64-gnu@0.1.78':
@@ -7277,16 +7195,10 @@ snapshots:
   '@moneydevkit/lightning-js-linux-x64-gnu@0.1.79':
     optional: true
 
-  '@moneydevkit/lightning-js-linux-x64-musl@0.1.68':
-    optional: true
-
   '@moneydevkit/lightning-js-linux-x64-musl@0.1.78':
     optional: true
 
   '@moneydevkit/lightning-js-linux-x64-musl@0.1.79':
-    optional: true
-
-  '@moneydevkit/lightning-js-win32-arm64-msvc@0.1.68':
     optional: true
 
   '@moneydevkit/lightning-js-win32-arm64-msvc@0.1.78':
@@ -7295,16 +7207,10 @@ snapshots:
   '@moneydevkit/lightning-js-win32-arm64-msvc@0.1.79':
     optional: true
 
-  '@moneydevkit/lightning-js-win32-ia32-msvc@0.1.68':
-    optional: true
-
   '@moneydevkit/lightning-js-win32-ia32-msvc@0.1.78':
     optional: true
 
   '@moneydevkit/lightning-js-win32-ia32-msvc@0.1.79':
-    optional: true
-
-  '@moneydevkit/lightning-js-win32-x64-msvc@0.1.68':
     optional: true
 
   '@moneydevkit/lightning-js-win32-x64-msvc@0.1.78':
@@ -7312,19 +7218,6 @@ snapshots:
 
   '@moneydevkit/lightning-js-win32-x64-msvc@0.1.79':
     optional: true
-
-  '@moneydevkit/lightning-js@0.1.68':
-    optionalDependencies:
-      '@moneydevkit/lightning-js-android-arm64': 0.1.68
-      '@moneydevkit/lightning-js-darwin-arm64': 0.1.68
-      '@moneydevkit/lightning-js-darwin-x64': 0.1.68
-      '@moneydevkit/lightning-js-linux-arm64-gnu': 0.1.68
-      '@moneydevkit/lightning-js-linux-arm64-musl': 0.1.68
-      '@moneydevkit/lightning-js-linux-x64-gnu': 0.1.68
-      '@moneydevkit/lightning-js-linux-x64-musl': 0.1.68
-      '@moneydevkit/lightning-js-win32-arm64-msvc': 0.1.68
-      '@moneydevkit/lightning-js-win32-ia32-msvc': 0.1.68
-      '@moneydevkit/lightning-js-win32-x64-msvc': 0.1.68
 
   '@moneydevkit/lightning-js@0.1.78':
     optionalDependencies:
@@ -7352,12 +7245,12 @@ snapshots:
       '@moneydevkit/lightning-js-win32-ia32-msvc': 0.1.79
       '@moneydevkit/lightning-js-win32-x64-msvc': 0.1.79
 
-  '@moneydevkit/nextjs@0.10.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(next@16.1.1(@babel/core@7.28.6)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@moneydevkit/nextjs@0.14.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(next@16.1.1(@babel/core@7.28.6)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@hookform/resolvers': 5.2.2(react-hook-form@7.71.1(react@19.2.3))
-      '@moneydevkit/api-contract': 0.1.21
-      '@moneydevkit/core': 0.10.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@moneydevkit/lightning-js': 0.1.68
+      '@moneydevkit/api-contract': 0.1.22
+      '@moneydevkit/core': 0.14.0(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@moneydevkit/lightning-js': 0.1.78
       '@orpc/client': 1.3.0
       '@orpc/contract': 1.3.0
       '@radix-ui/react-collapsible': 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -9924,7 +9817,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 7.0.1(eslint@9.39.2(jiti@2.6.1))
@@ -9957,7 +9850,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -9972,7 +9865,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9

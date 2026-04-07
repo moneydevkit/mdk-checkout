@@ -3,7 +3,8 @@
 import { Button } from "@/components/button";
 import { useCheckout } from "@moneydevkit/nextjs";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 const sellingPoints = [
   "Creates a checkout session from the client and routes to /checkout/[id]",
@@ -14,11 +15,21 @@ const sellingPoints = [
 
 const chips = [
   { label: "App Router", value: "Next.js 16" },
-  { label: "Payments", value: "Lightning + USD" },
+  { label: "Payments", value: "Lightning + SAT" },
   { label: "Deploy target", value: "Vercel" },
 ];
 
 export default function HomePage() {
+  return (
+    <Suspense>
+      <HomePageInner />
+    </Suspense>
+  );
+}
+
+function HomePageInner() {
+  const searchParams = useSearchParams();
+  const amountFromUrl = Number(searchParams.get("amount")) || 20_000;
   const [customerName, setCustomerName] = useState("Satoshi Nakamoto");
   const [note, setNote] = useState("Fast IBD snapshot with hosted checkout.");
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +51,8 @@ export default function HomePage() {
       type: "AMOUNT",
       title: "Lightning download",
       description: "A quick Money Dev Kit checkout running on Vercel.",
-      amount: 2500,
-      currency: "USD",
+      amount: amountFromUrl,
+      currency: "SAT",
       successUrl: "/checkout/success",
       metadata,
       checkoutPath: "/checkout",
