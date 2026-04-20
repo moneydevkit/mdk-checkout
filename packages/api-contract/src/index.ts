@@ -1,5 +1,6 @@
 import { checkout } from "./contracts/checkout";
 import { customer } from "./contracts/customer";
+import { nodeControl } from "./contracts/node-control";
 import { onboarding } from "./contracts/onboarding";
 import { order } from "./contracts/order";
 import { products } from "./contracts/products";
@@ -19,6 +20,7 @@ export type {
 	CreateCheckout,
 	PaymentReceived,
 	RegisterInvoice,
+	MintInvoice,
 	RedeemL402Input,
 	RedeemL402Output,
 	CheckL402Input,
@@ -177,6 +179,28 @@ export const contract = {
 	products,
 	subscription,
 };
+
+// Node control contract (WS only). Used between mdk.com and a running merchant
+// lightning-js node for command injection and event push.
+export { nodeControl };
+export type {
+	PayoutInput,
+	PayoutResult,
+	InvoiceCreateBolt11Input,
+	InvoiceBolt11Result,
+	InvoiceCreateBolt12OfferInput,
+	InvoiceBolt12OfferResult,
+	NodeEvent,
+} from "./schemas/node-control";
+export {
+	PayoutInputSchema,
+	PayoutResultSchema,
+	InvoiceCreateBolt11InputSchema,
+	InvoiceBolt11ResultSchema,
+	InvoiceCreateBolt12OfferInputSchema,
+	InvoiceBolt12OfferResultSchema,
+	NodeEventSchema,
+} from "./schemas/node-control";
 
 // SDK contract - only the methods the SDK router implements
 export const sdkContract = {

@@ -136,6 +136,17 @@ export const CheckL402OutputSchema = z.object({
 });
 export type CheckL402Output = z.infer<typeof CheckL402OutputSchema>;
 
+/**
+ * Input for mintInvoice. mdk.com mints the invoice on behalf of the merchant
+ * by routing the request to whichever node currently holds the WS lease for
+ * the merchant's app.
+ */
+export const MintInvoiceInputSchema = z.object({
+	checkoutId: z.string(),
+	expirySecs: z.number().int().positive().optional(),
+});
+export type MintInvoice = z.infer<typeof MintInvoiceInputSchema>;
+
 export type CreateCheckout = z.infer<typeof CreateCheckoutInputSchema>;
 export type ConfirmCheckout = z.infer<typeof ConfirmCheckoutInputSchema>;
 export type RegisterInvoice = z.infer<typeof RegisterInvoiceInputSchema>;
@@ -213,6 +224,10 @@ export const getCheckoutDetailContract = oc
 	.input(GetCheckoutInputSchema)
 	.output(CheckoutDetailSchema);
 
+export const mintInvoiceContract = oc
+	.input(MintInvoiceInputSchema)
+	.output(CheckoutSchema);
+
 export const redeemL402Contract = oc
 	.input(RedeemL402InputSchema)
 	.output(RedeemL402OutputSchema);
@@ -227,6 +242,7 @@ export const checkout = {
 	create: createCheckoutContract,
 	confirm: confirmCheckoutContract,
 	registerInvoice: registerInvoiceContract,
+	mintInvoice: mintInvoiceContract,
 	paymentReceived: paymentReceivedContract,
 	redeemL402: redeemL402Contract,
 	checkL402: checkL402Contract,
