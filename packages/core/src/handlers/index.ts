@@ -1,6 +1,5 @@
 export * from './balance'
 export * from './list_channels'
-export * from './payout'
 export * from './ping'
 export * from './subscription'
 export * from './sync_rgs'

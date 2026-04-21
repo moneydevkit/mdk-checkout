@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
-import { createMoneyDevKitClient, createMoneyDevKitNode } from '../mdk'
+import { createMoneyDevKitClient } from '../mdk'
 import { sanitizeCheckoutPath } from './checkout'
 
 /**
@@ -266,24 +266,14 @@ export async function handleRenewSubscriptionFromUrl(
 
   try {
     const client = createMoneyDevKitClient()
-    const node = createMoneyDevKitNode()
     const result = await client.subscriptions.createRenewalCheckout({ subscriptionId })
     const checkout = await client.checkouts.get({ id: result.checkoutId })
 
-    // Renewal checkouts are auto-confirmed - generate invoice if needed
+    // Renewal checkouts are auto-confirmed - mint invoice via mdk.com (WS
+    // control plane). Previously this built a local ldk-node which could race
+    // against any concurrently-running node for the same merchant.
     if (checkout.status === 'CONFIRMED') {
-      const invoice = checkout.invoiceScid
-        ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
-        : node.invoices.create(checkout.invoiceAmountSats)
-
-      await client.checkouts.registerInvoice({
-        paymentHash: invoice.paymentHash,
-        invoice: invoice.invoice,
-        invoiceExpiresAt: invoice.expiresAt,
-        checkoutId: checkout.id,
-        nodeId: node.id,
-        scid: invoice.scid,
-      })
+      await client.checkouts.mintInvoice({ checkoutId: checkout.id })
     }
 
     const checkoutUrl = new URL(joinPath(checkoutPath, result.checkoutId), origin)

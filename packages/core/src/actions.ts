@@ -62,20 +62,13 @@ export async function listProducts(): Promise<Product[]> {
 
 export async function confirmCheckout(confirm: ConfirmCheckout): Promise<Checkout> {
   const client = createMoneyDevKitClient()
-  const node = createMoneyDevKitNode()
   const confirmedCheckout = await client.checkouts.confirm(confirm)
 
-  const invoice = confirmedCheckout.invoiceScid
-    ? node.invoices.createWithScid(confirmedCheckout.invoiceScid, confirmedCheckout.invoiceAmountSats)
-    : node.invoices.create(confirmedCheckout.invoiceAmountSats)
-
-  const pendingPaymentCheckout = await client.checkouts.registerInvoice({
-    paymentHash: invoice.paymentHash,
-    invoice: invoice.invoice,
-    invoiceExpiresAt: invoice.expiresAt,
+  // mdk.com mints the invoice on our behalf via the WS control plane. No local
+  // node construction here - that caused the dual-node race against any other
+  // running node (e.g. receive webhook handler) for the same merchant.
+  const pendingPaymentCheckout = await client.checkouts.mintInvoice({
     checkoutId: confirmedCheckout.id,
-    nodeId: node.id,
-    scid: invoice.scid,
   })
 
   return pendingPaymentCheckout
@@ -271,24 +264,15 @@ export async function createCheckout(
       nodeId,
     )
 
-    // 3. Build full node
-    const node = createMoneyDevKitNode()
-
-    // 4. Await API response (likely already buffered by OS)
+    // 3. Await API response (likely already buffered by OS)
     const checkout = await checkoutPromise
 
     if (checkout.status === 'CONFIRMED') {
-      const invoice = checkout.invoiceScid
-        ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats)
-        : node.invoices.create(checkout.invoiceAmountSats)
-
-      const pendingPaymentCheckout = await client.checkouts.registerInvoice({
-        paymentHash: invoice.paymentHash,
-        invoice: invoice.invoice,
-        invoiceExpiresAt: invoice.expiresAt,
+      // mdk.com mints the invoice via the WS control plane. Previously this
+      // call site spun up a second local ldk-node which could race any other
+      // running node for the same merchant (VSS stomping on the same mnemonic).
+      const pendingPaymentCheckout = await client.checkouts.mintInvoice({
         checkoutId: checkout.id,
-        nodeId: node.id,
-        scid: invoice.scid,
       })
 
       return success({ checkout: pendingPaymentCheckout })

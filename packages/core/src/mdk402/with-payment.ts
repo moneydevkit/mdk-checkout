@@ -1,5 +1,5 @@
 import type { Currency } from '@moneydevkit/api-contract'
-import { createMoneyDevKitClient, createMoneyDevKitNode } from '../mdk'
+import { createMoneyDevKitClient, deriveNodeIdFromConfig } from '../mdk'
 import { is_preview_environment } from '../preview'
 import {
   createL402Credential,
@@ -261,12 +261,14 @@ async function create402Response(
   const expirySeconds = config.expirySeconds ?? DEFAULT_EXPIRY_SECONDS
   const isPreview = is_preview_environment()
 
-  let node: ReturnType<typeof createMoneyDevKitNode> | undefined
   try {
     const client = createMoneyDevKitClient()
-    node = createMoneyDevKitNode()
 
-    // 1. Create checkout on MDK backend (gives dashboard visibility)
+    // 1. Create checkout on MDK backend (gives dashboard visibility). The
+    //    nodeId is derived from the mnemonic cheaply (~1ms) without building
+    //    the full ldk-node; the actual node that mints lives on a merchant
+    //    webhook function and is reached via the WS control plane.
+    const nodeId = deriveNodeIdFromConfig()
     const checkout = await client.checkouts.create(
       {
         amount,
@@ -277,7 +279,7 @@ async function create402Response(
           ...(isPreview ? { sandbox: 'true' } : {}),
         },
       },
-      node.id,
+      nodeId,
     )
 
     // The checkout should be auto-confirmed for AMOUNT type without customer data
@@ -288,27 +290,29 @@ async function create402Response(
       })
     }
 
-    // 2. Create Lightning invoice with matching expiry
-    const invoiceResult = checkout.invoiceScid
-      ? node.invoices.createWithScid(checkout.invoiceScid, checkout.invoiceAmountSats, expirySeconds)
-      : node.invoices.create(checkout.invoiceAmountSats, expirySeconds)
-
-    // 3. Register invoice with backend
-    const pendingCheckout = await client.checkouts.registerInvoice({
-      paymentHash: invoiceResult.paymentHash,
-      invoice: invoiceResult.invoice,
-      invoiceExpiresAt: invoiceResult.expiresAt,
+    // 2. Mint invoice via mdk.com (WS control plane). Previously this built a
+    //    local ldk-node and called node.invoices.create/createWithScid; that
+    //    caused the dual-node race against any receive webhook session for
+    //    the same merchant.
+    const pendingCheckout = await client.checkouts.mintInvoice({
       checkoutId: checkout.id,
-      nodeId: node.id,
-      scid: invoiceResult.scid,
+      expirySecs: expirySeconds,
     })
 
-    // 4. Create signed L402 credential bound to this endpoint
-    const expiresAt = Math.floor(invoiceResult.expiresAt.getTime() / 1000)
+    const invoiceFromDb = pendingCheckout.invoice
+    if (!invoiceFromDb) {
+      return errorResponse(502, {
+        code: 'invoice_mint_failed',
+        message: 'mintInvoice returned a checkout without an invoice',
+      })
+    }
+
+    // 3. Create signed L402 credential bound to this endpoint
+    const expiresAt = Math.floor(invoiceFromDb.expiresAt.getTime() / 1000)
     const amountSats = pendingCheckout.invoiceAmountSats ?? checkout.invoiceAmountSats ?? 0
     const resource = `${req.method}:${new URL(req.url).pathname}`
     const macaroon = createL402Credential({
-      paymentHash: invoiceResult.paymentHash,
+      paymentHash: invoiceFromDb.paymentHash,
       amountSats,
       expiresAt,
       accessToken,
@@ -318,7 +322,7 @@ async function create402Response(
     })
 
     // 5. Build 402 response with L402-compatible headers (bLIP-26)
-    const wwwAuthenticate = `L402 macaroon="${macaroon}", invoice="${invoiceResult.invoice}"`
+    const wwwAuthenticate = `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
 
     return new Response(
       JSON.stringify({
@@ -327,8 +331,8 @@ async function create402Response(
           message: 'Payment required',
         },
         macaroon,
-        invoice: invoiceResult.invoice,
-        paymentHash: invoiceResult.paymentHash,
+        invoice: invoiceFromDb.invoice,
+        paymentHash: invoiceFromDb.paymentHash,
         amountSats,
         expiresAt,
       }),
@@ -345,8 +349,6 @@ async function create402Response(
       code: 'checkout_creation_failed',
       message: err instanceof Error ? err.message : 'Failed to create checkout or invoice',
     })
-  } finally {
-    node?.destroy()
   }
 }
 

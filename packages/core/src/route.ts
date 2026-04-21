@@ -31,7 +31,6 @@ export type {
 } from './handlers/subscription'
 import { listChannels } from './handlers/list_channels'
 import { handlePreviewPayInvoice } from './handlers/pay_invoice'
-import { handlePayout } from './handlers/payout'
 import { handlePing } from './handlers/ping'
 import { handleListProducts } from './handlers/products'
 import { handleSyncRgs } from './handlers/sync_rgs'
@@ -45,10 +44,14 @@ type RouteConfig = { handler: RouteHandler; auth: RouteAuth }
 
 const WEBHOOK_SECRET_HEADER = 'x-moneydevkit-webhook-secret'
 
+// 'payout' was removed in the WS control plane migration. Both callers
+// (mdk.com autopayout workflow and dashboard "Trigger payout now") now go
+// through the WS lease registry via dispatch.triggerPayout, which prevents
+// dual-node races. Keeping the route would re-introduce a second write path
+// that bypasses the lease.
 const routeSchema = z.enum([
   'webhook',
   'webhooks',
-  'payout',
   'balance',
   'ping',
   'list_channels',
@@ -65,7 +68,6 @@ export type UnifiedRoute = z.infer<typeof routeSchema>
 const ROUTE_CONFIG: Record<UnifiedRoute, RouteConfig> = {
   webhook: { handler: handleMdkWebhook, auth: 'secret' },
   webhooks: { handler: handleMdkWebhook, auth: 'secret' },
-  payout: { handler: handlePayout, auth: 'secret' },
   balance: { handler: handleBalance, auth: 'secret' },
   ping: { handler: handlePing, auth: 'secret' },
   list_channels: { handler: listChannels, auth: 'secret' },

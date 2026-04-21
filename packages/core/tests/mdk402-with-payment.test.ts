@@ -75,47 +75,34 @@ function makeFakePendingCheckout(amountSats: number) {
   }
 }
 
-/** Build fake node and client for mocking */
+/** Build fake client for mocking. fakeNode is gone - the merchant SDK no
+ *  longer spins up a local ldk-node to mint invoices (race fix). mdk.com
+ *  mints via the WS control plane and returns the full pending checkout with
+ *  the invoice attached. */
 function buildMocks(amountSats = 100) {
-  const fakeNode = {
-    id: FAKE_NODE_ID,
-    destroy: mock.fn(),
-    invoices: {
-      create: mock.fn((_amountSats: number | null, _expiry?: number) => ({
-        invoice: FAKE_INVOICE,
-        paymentHash: TEST_PAYMENT_HASH,
-        scid: FAKE_SCID,
-        expiresAt: new Date(Date.now() + 900_000),
-      })),
-      createWithScid: mock.fn((_scid: string, _amountSats: number | null, _expiry?: number) => ({
-        invoice: FAKE_INVOICE,
-        paymentHash: TEST_PAYMENT_HASH,
-        scid: FAKE_SCID,
-        expiresAt: new Date(Date.now() + 900_000),
-      })),
-    },
-  }
-
   const fakeClient = {
     checkouts: {
       create: mock.fn(async () => makeFakeConfirmedCheckout(amountSats)),
-      registerInvoice: mock.fn(async () => makeFakePendingCheckout(amountSats)),
+      mintInvoice: mock.fn(async (_input: { checkoutId: string; expirySecs?: number }) =>
+        makeFakePendingCheckout(amountSats),
+      ),
       redeemL402: mock.fn(async () => ({ redeemed: true })),
       checkL402: mock.fn(async () => ({ redeemed: false })),
     },
   }
 
-  return { fakeNode, fakeClient }
+  return { fakeClient }
 }
 
 // We need to mock the mdk module to avoid real Lightning/backend calls.
-// Use mock.module() to intercept createMoneyDevKitClient and createMoneyDevKitNode.
+// Only createMoneyDevKitClient + deriveNodeIdFromConfig are used post-migration;
+// no local node is constructed.
 let currentMocks: ReturnType<typeof buildMocks>
 
 const mdkMock = mock.module('../src/mdk', {
   namedExports: {
     createMoneyDevKitClient: () => currentMocks.fakeClient,
-    createMoneyDevKitNode: () => currentMocks.fakeNode,
+    deriveNodeIdFromConfig: () => FAKE_NODE_ID,
     resolveMoneyDevKitOptions: () => ({
       accessToken: TEST_ACCESS_TOKEN,
       mnemonic: TEST_MNEMONIC,
@@ -243,30 +230,29 @@ describe('withPayment', () => {
       assert.equal(call.arguments[1], FAKE_NODE_ID)
     })
 
-    it('creates invoice with custom expiry', async () => {
+    it('mints invoice with custom expiry', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT', expirySeconds: 3600 }, innerHandler)
       await wrapped(makeRequest())
 
-      assert.equal(currentMocks.fakeNode.invoices.create.mock.callCount(), 1)
-      const call = currentMocks.fakeNode.invoices.create.mock.calls[0]
-      assert.equal(call.arguments[1], 3600)
+      assert.equal(currentMocks.fakeClient.checkouts.mintInvoice.mock.callCount(), 1)
+      const call = currentMocks.fakeClient.checkouts.mintInvoice.mock.calls[0]
+      assert.equal(call.arguments[0].expirySecs, 3600)
     })
 
-    it('creates invoice with default 900s expiry', async () => {
+    it('mints invoice with default 900s expiry', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       await wrapped(makeRequest())
 
-      const call = currentMocks.fakeNode.invoices.create.mock.calls[0]
-      assert.equal(call.arguments[1], 900)
+      const call = currentMocks.fakeClient.checkouts.mintInvoice.mock.calls[0]
+      assert.equal(call.arguments[0].expirySecs, 900)
     })
 
-    it('registers invoice with backend', async () => {
+    it('mints invoice for the confirmed checkout', async () => {
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
       await wrapped(makeRequest())
 
-      assert.equal(currentMocks.fakeClient.checkouts.registerInvoice.mock.callCount(), 1)
-      const call = currentMocks.fakeClient.checkouts.registerInvoice.mock.calls[0]
-      assert.equal(call.arguments[0].paymentHash, TEST_PAYMENT_HASH)
+      assert.equal(currentMocks.fakeClient.checkouts.mintInvoice.mock.callCount(), 1)
+      const call = currentMocks.fakeClient.checkouts.mintInvoice.mock.calls[0]
       assert.equal(call.arguments[0].checkoutId, FAKE_CHECKOUT_ID)
     })
   })
@@ -337,7 +323,7 @@ describe('withPayment', () => {
       await wrapped(makeRequest('http://localhost/api/premium', makeValidAuth()))
 
       assert.equal(currentMocks.fakeClient.checkouts.create.mock.callCount(), 0)
-      assert.equal(currentMocks.fakeNode.invoices.create.mock.callCount(), 0)
+      assert.equal(currentMocks.fakeClient.checkouts.mintInvoice.mock.callCount(), 0)
     })
 
     it('calls redeemL402 with payment hash', async () => {
