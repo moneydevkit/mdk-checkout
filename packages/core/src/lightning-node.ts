@@ -165,6 +165,65 @@ export class MoneyDevKitNode {
     return this.node.pay(destination, amountMsat ?? null, 30)
   }
 
+  /**
+   * Fire-and-forget payment for use during a running session (after startReceiving).
+   *
+   * Wraps node.payWhileRunning(_, _, 0): returns immediately with paymentId; the
+   * Sent or Failed event arrives later via nextEvent() and is forwarded to mdk.com
+   * over the WS event stream.
+   *
+   * Takes amountMsat directly (NO sat→msat conversion). Do NOT mix with this.pay()
+   * or this.invoices.create() in the same call site - those take sats.
+   */
+  payNow(destination: string, amountMsat: number | null): PaymentResult {
+    return this.node.payWhileRunning(destination, amountMsat, 0)
+  }
+
+  /**
+   * Register LSPS4 + sync gossip so the node can accept payments for existing
+   * BOLT12 offers on this session. Idempotent. Required at startup if BOLT12
+   * receive is in scope. See lightning-js/index.d.ts:147 and the agent-wallet
+   * pattern at agent-wallet/src/server.ts:159.
+   */
+  setupBolt12Receive(): void {
+    this.node.setupBolt12Receive()
+  }
+
+  /**
+   * Mint a BOLT11 invoice while the node is running. amountMsat null requests a
+   * variable-amount JIT invoice. Takes msats directly.
+   */
+  createInvoiceNow(
+    amountMsat: number | null,
+    description: string,
+    expirySecs: number,
+  ): { bolt11: string; paymentHash: string; expiresAt: number; scid: string } {
+    const invoice =
+      amountMsat === null
+        ? this.node.getVariableAmountJitInvoiceWhileRunning(description, expirySecs)
+        : this.node.getInvoiceWhileRunning(amountMsat, description, expirySecs)
+    return {
+      bolt11: invoice.bolt11,
+      paymentHash: invoice.paymentHash,
+      expiresAt: invoice.expiresAt,
+      scid: invoice.scid,
+    }
+  }
+
+  /**
+   * Mint a BOLT12 offer while the node is running. amountMsat null requests a
+   * variable-amount offer. Takes msats directly.
+   */
+  createBolt12OfferNow(
+    amountMsat: number | null,
+    description: string,
+    expirySecs: number | undefined,
+  ): string {
+    return amountMsat === null
+      ? this.node.getVariableAmountBolt12OfferWhileRunning(description, expirySecs)
+      : this.node.getBolt12OfferWhileRunning(amountMsat, description, expirySecs)
+  }
+
   listChannels() {
     return this.node.listChannels()
   }
