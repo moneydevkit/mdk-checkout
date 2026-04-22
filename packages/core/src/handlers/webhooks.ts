@@ -49,14 +49,23 @@ const QUIET_GRACE_MS = 60_000;
 /**
  * Derive the control WS URL from the configured baseUrl unless overridden via
  * MDK_CONTROL_URL. baseUrl is HTTPS in prod, HTTP in dev; we mirror.
+ *
+ * IMPORTANT: baseUrl carries the oRPC mount path (`/rpc`), e.g.
+ * `https://staging.moneydevkit.com/rpc`. The control server is mounted at the
+ * host root under `/control`. We parse the URL and REPLACE the path rather
+ * than appending, otherwise we'd produce `wss://.../rpc/control` which the
+ * ALB routes to the oRPC target group and returns HTTP 502 at upgrade time.
  */
-function resolveControlUrl(): string {
+export function resolveControlUrl(): string {
   if (process.env.MDK_CONTROL_URL) return process.env.MDK_CONTROL_URL;
   const resolved = resolveMoneyDevKitOptions();
-  const wsBase = resolved.baseUrl
-    ? resolved.baseUrl.replace(/^http(s?):\/\//, "ws$1://")
-    : "wss://api.moneydevkit.com";
-  return wsBase.replace(/\/$/, "") + "/control";
+  const base = resolved.baseUrl ?? "https://moneydevkit.com";
+  const url = new URL(base);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/control";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }
 
 /**
@@ -298,8 +307,16 @@ async function handleIncomingPaymentViaControl(): Promise<Response> {
   }
 
   if (wsResult.status === "lease-denied") {
+    // The server-side code uses WS close frame 4001 for "lease held by another
+    // session" and 4003 for "invalid api key". Anything else (e.g. HTTP 502
+    // from a misrouted upgrade) is a transport / infra failure, not a lease
+    // collision. The prior log lied regardless of cause.
+    let suffix: string;
+    if (wsResult.code === 4001) suffix = "another session active";
+    else if (wsResult.code === 4003) suffix = "invalid api key";
+    else suffix = "control endpoint unreachable";
     log(
-      `[webhook] lease denied code=${wsResult.code} reason=${wsResult.reason}; another session active`,
+      `[webhook] lease denied code=${wsResult.code} reason=${wsResult.reason}; ${suffix}`,
     );
     return new Response("OK", { status: 200 });
   }
