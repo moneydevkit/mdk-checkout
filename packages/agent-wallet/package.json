@@ -1,6 +1,6 @@
 {
   "name": "@moneydevkit/agent-wallet",
-  "version": "0.12.0",
+  "version": "0.16.0",
   "description": "Self-custodial Lightning wallet for AI agents",
   "type": "module",
   "bin": {
