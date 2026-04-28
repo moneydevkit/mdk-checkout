@@ -149,6 +149,7 @@ class WalletServer {
           mnemonic: this.config.mnemonic,
           lspNodeId: nodeOptions.lspNodeId,
           lspAddress: nodeOptions.lspAddress,
+          scoringParamOverrides: nodeOptions.scoringParamOverrides,
         })
 
         console.log(`[wallet] Node initialized, id=${this.node.getNodeId()}`)

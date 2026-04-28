@@ -88,6 +88,7 @@ export interface MoneyDevKitNodeOptions {
     rgsUrl?: LightningNodeOptions['rgsUrl']
     lspNodeId?: LightningNodeOptions['lspNodeId']
     lspAddress?: LightningNodeOptions['lspAddress']
+    scoringParamOverrides?: LightningNodeOptions['scoringParamOverrides']
   }
 }
 
@@ -120,6 +121,7 @@ export class MoneyDevKitNode {
       mnemonic: options.mnemonic,
       lspNodeId: options.nodeOptions?.lspNodeId ?? defaultNodeOptions.lspNodeId!,
       lspAddress: options.nodeOptions?.lspAddress ?? defaultNodeOptions.lspAddress!,
+      scoringParamOverrides: options.nodeOptions?.scoringParamOverrides ?? defaultNodeOptions.scoringParamOverrides,
     })
   }
 
