@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   CheckoutSchema,
   contract,
+  sdkContract,
   type CreateCheckout,
   type ConfirmCheckout,
   type RegisterInvoice,
@@ -27,7 +28,12 @@ describe('API Contract Index', () => {
       assert.ok(contract.checkout.create)
       assert.ok(contract.checkout.confirm)
       assert.ok(contract.checkout.registerInvoice)
+      assert.ok(contract.checkout.programmaticPayout)
       assert.ok(contract.checkout.paymentReceived)
+    })
+
+    it('should keep programmatic payout out of the browser SDK contract', () => {
+      assert.equal('programmaticPayout' in sdkContract.checkout, false)
     })
   })
 
@@ -97,6 +103,7 @@ describe('API Contract Index', () => {
       assert.ok(contract.checkout.get)
       assert.ok(contract.checkout.confirm)
       assert.ok(contract.checkout.registerInvoice)
+      assert.ok(contract.checkout.programmaticPayout)
       assert.ok(contract.checkout.paymentReceived)
     })
 
@@ -106,6 +113,7 @@ describe('API Contract Index', () => {
       assert.equal(typeof contract.checkout.get, 'object')
       assert.equal(typeof contract.checkout.confirm, 'object')
       assert.equal(typeof contract.checkout.registerInvoice, 'object')
+      assert.equal(typeof contract.checkout.programmaticPayout, 'object')
       assert.equal(typeof contract.checkout.paymentReceived, 'object')
     })
   })
@@ -193,6 +201,7 @@ describe('API Contract Index', () => {
       assert.ok(contract.checkout.create)
       assert.ok(contract.checkout.confirm)
       assert.ok(contract.checkout.registerInvoice)
+      assert.ok(contract.checkout.programmaticPayout)
       assert.ok(contract.checkout.paymentReceived)
     })
   })

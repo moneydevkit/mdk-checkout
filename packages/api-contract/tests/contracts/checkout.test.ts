@@ -7,6 +7,7 @@ import {
   ApplyDiscountCodeInputSchema,
   RegisterInvoiceInputSchema,
   PaymentReceivedInputSchema,
+  ProgrammaticPayoutInputSchema,
   GetCheckoutInputSchema,
 } from '../../src/contracts/checkout'
 import { CheckoutSchema } from '../../src/schemas/checkout'
@@ -18,6 +19,7 @@ describe('Checkout Contracts', () => {
       assert.ok(checkout.create)
       assert.ok(checkout.confirm)
       assert.ok(checkout.registerInvoice)
+      assert.ok(checkout.programmaticPayout)
       assert.ok(checkout.paymentReceived)
     })
 
@@ -27,6 +29,7 @@ describe('Checkout Contracts', () => {
       assert.equal(typeof checkout.create, 'object')
       assert.equal(typeof checkout.confirm, 'object')
       assert.equal(typeof checkout.registerInvoice, 'object')
+      assert.equal(typeof checkout.programmaticPayout, 'object')
       assert.equal(typeof checkout.paymentReceived, 'object')
     })
 
@@ -37,6 +40,7 @@ describe('Checkout Contracts', () => {
       assert.ok(ApplyDiscountCodeInputSchema)
       assert.ok(RegisterInvoiceInputSchema)
       assert.ok(PaymentReceivedInputSchema)
+      assert.ok(ProgrammaticPayoutInputSchema)
       assert.ok(GetCheckoutInputSchema)
     })
 

@@ -21,6 +21,8 @@ export type {
 	PaymentReceived,
 	RegisterInvoice,
 	MintInvoice,
+	ProgrammaticPayout,
+	ProgrammaticPayoutResult,
 	RedeemL402Input,
 	RedeemL402Output,
 	CheckL402Input,
@@ -36,6 +38,8 @@ export {
 	ListCheckoutsPaginatedOutputSchema,
 	ListCheckoutsSummaryOutputSchema,
 	GetCheckoutInputSchema,
+	ProgrammaticPayoutInputSchema,
+	ProgrammaticPayoutResultSchema,
 } from "./contracts/checkout";
 export type {
 	BootstrapOnboarding,
@@ -185,6 +189,7 @@ export const contract = {
 export { nodeControl };
 export type {
 	PayoutInput,
+	ProgrammaticPayoutInput as NodeProgrammaticPayoutInput,
 	PayoutResult,
 	InvoiceCreateBolt11Input,
 	InvoiceBolt11Result,
@@ -194,6 +199,7 @@ export type {
 } from "./schemas/node-control";
 export {
 	PayoutInputSchema,
+	ProgrammaticPayoutInputSchema as NodeProgrammaticPayoutInputSchema,
 	PayoutResultSchema,
 	InvoiceCreateBolt11InputSchema,
 	InvoiceBolt11ResultSchema,

@@ -147,6 +147,37 @@ export const MintInvoiceInputSchema = z.object({
 });
 export type MintInvoice = z.infer<typeof MintInvoiceInputSchema>;
 
+/**
+ * Input for programmatic payouts initiated from a merchant server function.
+ * Destination is accepted only from the merchant's server-side SDK call.
+ */
+export const ProgrammaticPayoutInputSchema = z.object({
+	amountSats: z.number().int().positive(),
+	destination: z
+		.string()
+		.min(1)
+		.max(4096)
+		// eslint-disable-next-line no-control-regex
+		.refine((value) => !/[\u0000-\u001f\u007f]/.test(value)),
+	idempotencyKey: z.string().min(1).optional(),
+});
+export type ProgrammaticPayout = z.infer<
+	typeof ProgrammaticPayoutInputSchema
+>;
+
+/**
+ * Result returned once the merchant node accepts a programmatic payout command.
+ * The final Lightning outcome is still delivered asynchronously by the node.
+ */
+export const ProgrammaticPayoutResultSchema = z.object({
+	accepted: z.literal(true),
+	paymentId: z.string(),
+	paymentHash: z.string().nullable(),
+});
+export type ProgrammaticPayoutResult = z.infer<
+	typeof ProgrammaticPayoutResultSchema
+>;
+
 export type CreateCheckout = z.infer<typeof CreateCheckoutInputSchema>;
 export type ConfirmCheckout = z.infer<typeof ConfirmCheckoutInputSchema>;
 export type RegisterInvoice = z.infer<typeof RegisterInvoiceInputSchema>;
@@ -228,6 +259,10 @@ export const mintInvoiceContract = oc
 	.input(MintInvoiceInputSchema)
 	.output(CheckoutSchema);
 
+export const programmaticPayoutContract = oc
+	.input(ProgrammaticPayoutInputSchema)
+	.output(ProgrammaticPayoutResultSchema);
+
 export const redeemL402Contract = oc
 	.input(RedeemL402InputSchema)
 	.output(RedeemL402OutputSchema);
@@ -243,6 +278,7 @@ export const checkout = {
 	confirm: confirmCheckoutContract,
 	registerInvoice: registerInvoiceContract,
 	mintInvoice: mintInvoiceContract,
+	programmaticPayout: programmaticPayoutContract,
 	paymentReceived: paymentReceivedContract,
 	redeemL402: redeemL402Contract,
 	checkL402: checkL402Contract,

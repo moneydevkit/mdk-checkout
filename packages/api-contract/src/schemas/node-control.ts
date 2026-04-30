@@ -1,18 +1,31 @@
 import { z } from "zod";
 
 /**
- * Input for the payout command. Destination is NOT in the payload - the node-side
- * handler reads it from process.env.WITHDRAWAL_DESTINATION. This means mdk.com cannot
- * direct funds to an arbitrary destination even if the per-app key is compromised.
- *
- * amountMsat is required and positive; "drain entire balance" semantics are out of v1.
- * If needed later, add a separate explicit command (e.g. payout.drainAll).
+ * Input for the legacy payout command. The merchant node resolves the
+ * destination from process.env.WITHDRAWAL_DESTINATION.
  */
 export const PayoutInputSchema = z.object({
 	amountMsat: z.number().int().positive(),
 	idempotencyKey: z.string(),
 });
 export type PayoutInput = z.infer<typeof PayoutInputSchema>;
+
+/**
+ * Input for trusted server-initiated payouts to a caller-provided destination.
+ */
+export const ProgrammaticPayoutInputSchema = z.object({
+	amountMsat: z.number().int().positive(),
+	destination: z
+		.string()
+		.min(1)
+		.max(4096)
+		// eslint-disable-next-line no-control-regex
+		.refine((value) => !/[\u0000-\u001f\u007f]/.test(value)),
+	idempotencyKey: z.string(),
+});
+export type ProgrammaticPayoutInput = z.infer<
+	typeof ProgrammaticPayoutInputSchema
+>;
 
 /**
  * Result of a payout command. Returned synchronously after the underlying

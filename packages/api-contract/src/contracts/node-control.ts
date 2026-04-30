@@ -8,6 +8,7 @@ import {
 	NodeEventSchema,
 	PayoutInputSchema,
 	PayoutResultSchema,
+	ProgrammaticPayoutInputSchema,
 } from "../schemas/node-control";
 
 /**
@@ -16,6 +17,13 @@ import {
  */
 export const payoutContract = oc
 	.input(PayoutInputSchema)
+	.output(PayoutResultSchema);
+
+/**
+ * Programmatic payout command carrying an explicit trusted destination.
+ */
+export const programmaticPayoutContract = oc
+	.input(ProgrammaticPayoutInputSchema)
 	.output(PayoutResultSchema);
 
 export const invoiceCreateBolt11Contract = oc
