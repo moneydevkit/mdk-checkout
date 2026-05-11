@@ -35,7 +35,7 @@ test('payout rejects when draining', async () => {
   assert.equal(ctx.queue.size, 0)
 })
 
-test('payout rejects when WITHDRAWAL_DESTINATION is unset', async () => {
+test('payout rejects when neither destination nor WITHDRAWAL_DESTINATION is set', async () => {
   const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: undefined } })
   await assert.rejects(
     call(nodeControlRouter.payout, { amountMsat: 1000, idempotencyKey: 'k1' }, { context: ctx }),
@@ -43,7 +43,47 @@ test('payout rejects when WITHDRAWAL_DESTINATION is unset', async () => {
   )
 })
 
-test('payout enqueues with env-derived destination (NOT from input)', async () => {
+test('payout ignores arbitrary input destination and uses WITHDRAWAL_DESTINATION', async () => {
+  const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: 'lnurl-pre-configured' } })
+  const pending = call(
+    nodeControlRouter.payout,
+    { amountMsat: 12345, destination: ' lnbc-attacker ', idempotencyKey: 'k1' } as never,
+    { context: ctx },
+  )
+  await new Promise((r) => setImmediate(r))
+  const cmd = ctx.queue.shift()
+  assert.ok(cmd)
+  assert.equal(cmd?.kind, 'payout')
+  if (cmd?.kind === 'payout') {
+    assert.equal(cmd.destination, 'lnurl-pre-configured')
+    assert.equal(cmd.amountMsat, 12345, 'msats round-trip with no 1000x conversion')
+    cmd.resolve({ accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
+  }
+  const result = await pending
+  assert.deepEqual(result, { accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
+})
+
+test('programmaticPayout enqueues with explicit input destination', async () => {
+  const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: 'lnurl-pre-configured' } })
+  const pending = call(
+    nodeControlRouter.programmaticPayout,
+    { amountMsat: 12345, destination: ' lnbc-programmatic ', idempotencyKey: 'k1' },
+    { context: ctx },
+  )
+  await new Promise((r) => setImmediate(r))
+  const cmd = ctx.queue.shift()
+  assert.ok(cmd)
+  assert.equal(cmd?.kind, 'payout')
+  if (cmd?.kind === 'payout') {
+    assert.equal(cmd.destination, 'lnbc-programmatic')
+    assert.equal(cmd.amountMsat, 12345, 'msats round-trip with no 1000x conversion')
+    cmd.resolve({ accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
+  }
+  const result = await pending
+  assert.deepEqual(result, { accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
+})
+
+test('payout falls back to env-derived destination when input omits one', async () => {
   const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: 'lnurl-pre-configured' } })
   const pending = call(
     nodeControlRouter.payout,
@@ -56,7 +96,7 @@ test('payout enqueues with env-derived destination (NOT from input)', async () =
   assert.ok(cmd)
   assert.equal(cmd?.kind, 'payout')
   if (cmd?.kind === 'payout') {
-    assert.equal(cmd.destination, 'lnurl-pre-configured', 'destination from env, not input')
+    assert.equal(cmd.destination, 'lnurl-pre-configured', 'destination falls back to env')
     assert.equal(cmd.amountMsat, 12345, 'msats round-trip with no 1000x conversion')
     cmd.resolve({ accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
   }

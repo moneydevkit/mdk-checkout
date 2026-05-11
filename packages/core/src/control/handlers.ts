@@ -49,7 +49,36 @@ const payoutImpl = impl.payout.handler(({ input, context }) => {
 	}>((resolve, reject) => {
 		context.queue.push({
 			kind: 'payout',
-			destination: destination as string,
+			destination: destination.trim(),
+			amountMsat: input.amountMsat,
+			resolve,
+			reject,
+		})
+	})
+})
+
+/**
+ * Programmatic payout RPC handler for trusted server-supplied destinations.
+ */
+const programmaticPayoutImpl = impl.programmaticPayout.handler(({ input, context }) => {
+	if (!context.sessionState.nodeReady) {
+		rejectWith('NODE_NOT_READY', 'node has not finished startReceiving yet')
+	}
+	if (context.sessionState.draining) {
+		rejectWith('DRAINING', 'node is in drain window; retry on next session')
+	}
+	const destination = input.destination.trim()
+	if (!destination) {
+		rejectWith('PROGRAMMATIC_PAYOUT_DESTINATION_UNSET', 'payout destination is required')
+	}
+	return new Promise<{
+		accepted: true
+		paymentId: string
+		paymentHash: string | null
+	}>((resolve, reject) => {
+		context.queue.push({
+			kind: 'payout',
+			destination,
 			amountMsat: input.amountMsat,
 			resolve,
 			reject,
@@ -115,6 +144,7 @@ const eventsImpl = impl.events.handler(async function* ({ context }) {
 
 export const nodeControlRouter = impl.router({
 	payout: payoutImpl,
+	programmaticPayout: programmaticPayoutImpl,
 	invoice: {
 		createBolt11: createBolt11Impl,
 		createBolt12Offer: createBolt12OfferImpl,

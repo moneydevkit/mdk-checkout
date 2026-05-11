@@ -159,7 +159,7 @@ export const ProgrammaticPayoutInputSchema = z.object({
 		.max(4096)
 		// eslint-disable-next-line no-control-regex
 		.refine((value) => !/[\u0000-\u001f\u007f]/.test(value)),
-	idempotencyKey: z.string().min(1).optional(),
+	idempotencyKey: z.string().min(1),
 });
 export type ProgrammaticPayout = z.infer<
 	typeof ProgrammaticPayoutInputSchema

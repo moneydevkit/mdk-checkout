@@ -92,6 +92,151 @@ export default withMdkCheckout({})
 
 You now have a complete Lightning checkout loop: the button creates a session, the dynamic route renders it, and the webhook endpoint signals your Lightning node to claim paid invoices.
 
+## Server-side payouts
+
+Programmatic payouts let your server send sats out to a Lightning destination (BOLT11 invoice, BOLT12 offer, or LNURL / Lightning address) without any user interaction. They must run from a server function (Server Action, route handler, cron, webhook), and the app must have programmatic payouts enabled in the moneydevkit dashboard.
+
+> **Trust:** the destination is whatever your server passes in. There is no end-user confirmation. Always apply your own authorization and business rules first (who is allowed to trigger this, how much, where to).
+
+### Minimal example
+
+```ts
+// app/actions.ts
+'use server'
+
+import { programmaticPayout } from '@moneydevkit/nextjs/server'
+
+export async function sendTip(orderId: string) {
+  const result = await programmaticPayout({
+    amountSats: 10_000,
+    destination: 'lnbc...',     // or 'satoshi@example.com', or 'lno1...'
+    idempotencyKey: orderId,    // pass the SAME value if you ever retry
+  })
+
+  if (result.error) {
+    // See the next section for how to handle this properly.
+    throw new Error(result.error.message)
+  }
+
+  return result.data  // { accepted: true, paymentId, paymentHash }
+}
+```
+
+### About `idempotencyKey`
+
+The key is how moneydevkit dedupes retries. If your code (or a cron, or a Vercel retry) fires the same payout twice with the same key, the second call is a no-op instead of a double-pay.
+
+- **Do** use a stable id from your own database: `orderId`, `withdrawalId`, `userId + payoutDate`, etc.
+- **Don't** generate a fresh `crypto.randomUUID()` on every call. That defeats the whole point and you can double-pay.
+- It's just a string, any length, your choice.
+
+### Full example with error handling
+
+The `result.error` object tells you whether the failure is worth retrying:
+
+- `result.error.retryable === true` - the failure was transient (limits, transient routing, fee issues). Retry the same call with the same `idempotencyKey`.
+- `result.error.retryable === false` - retrying won't help. Fix the input or your config.
+- `result.error.retryable === undefined` - the SDK couldn't classify the failure. Treat as not retryable, log and inspect `result.error`.
+
+```ts
+// app/actions.ts
+'use server'
+
+import { programmaticPayout } from '@moneydevkit/nextjs/server'
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+export async function sendPayout(orderId: string, destination: string) {
+  let attempt = 0
+  while (attempt < 3) {
+    const result = await programmaticPayout({
+      amountSats: 10_000,
+      destination,
+      idempotencyKey: orderId,
+    })
+
+    if (!result.error) {
+      // Note: result.data only confirms the node accepted the payout.
+      // The actual Lightning settlement happens asynchronously - listen
+      // for paymentSent / paymentFailed webhooks to confirm final outcome.
+      return { ok: true as const, paymentId: result.data.paymentId }
+    }
+
+    switch (result.error.reason) {
+      case 'app_scoped_api_key_required':
+        // The API key in MDK_ACCESS_TOKEN is not attached to a specific app.
+        // Copy the API key from your app's page in the Apps dashboard.
+        return { ok: false as const, fatal: 'use_the_app_api_key_from_dashboard' }
+
+      case 'programmatic_payouts_disabled':
+        // Toggle is off in the dashboard for this app.
+        return { ok: false as const, fatal: 'enable_programmatic_payouts_in_dashboard' }
+
+      case 'amount_too_large':
+        // Per-request cap. Ask the user for a smaller amount or split.
+        return { ok: false as const, fatal: 'amount_too_large' }
+
+      case 'amount_invalid':
+        // Non-positive or non-integer sat amount.
+        return { ok: false as const, fatal: 'amount_invalid' }
+
+      case 'daily_limit_exceeded':
+        // 24h rolling cap. Surface to the user; don't retry now.
+        return { ok: false as const, fatal: 'come_back_tomorrow' }
+
+      case 'payout_dispatch_failed':
+        // Backend dispatch failed (node offline, transient routing, fees).
+        // The error message has the specific cause. Safe to retry with the
+        // same idempotencyKey.
+        await sleep(1_000 * 2 ** attempt)
+        attempt++
+        continue
+
+      default:
+        // Unknown / unclassified. Don't retry blindly.
+        return {
+          ok: false as const,
+          fatal: 'unknown_error',
+          message: result.error.message,
+          code: result.error.code,
+        }
+    }
+  }
+
+  return { ok: false as const, fatal: 'retries_exhausted' }
+}
+```
+
+### Common gotchas
+
+- **Don't call from client code.** `programmaticPayout` checks for `window` and refuses to run in a browser. It only works in Server Actions, route handlers (`app/api/...`), cron jobs, or webhook receivers.
+- **Set `MDK_ACCESS_TOKEN`.** Same env var as the rest of the SDK. If missing, you get `missing_access_token` (not retryable).
+- **Always pass the same `idempotencyKey` on retry.** If you change it, moneydevkit treats it as a new payout and may charge you twice.
+
+### Error reference
+
+`result.error.reason` is a short machine-readable string. Use it for branching; use `result.error.message` for logs.
+
+| `reason`                          | `retryable` | What it means                                                              |
+|-----------------------------------|-------------|----------------------------------------------------------------------------|
+| `app_scoped_api_key_required`     | false       | The API key in `MDK_ACCESS_TOKEN` isn't tied to a specific app. Copy the key from the app's page in the Apps dashboard |
+| `programmatic_payouts_disabled`   | false       | Toggle is off in dashboard for this app                                    |
+| `amount_too_large`                | false       | Above per-request cap                                                      |
+| `amount_invalid`                  | false       | Backend rejected the amount (non-positive or non-integer sats)             |
+| `daily_limit_exceeded`            | true        | 24h rolling cap hit; retry tomorrow                                        |
+| `payout_dispatch_failed`          | true        | Backend dispatch failed (node offline, transient routing, fee issues). Inspect `error.message` for the specific cause; safe to retry with the same `idempotencyKey` |
+| _(undefined)_                     | _(undefined)_ | New / unknown backend code. Log `error.code` and don't retry blindly     |
+
+Also returned for client-side validation issues (always `retryable: false`):
+
+| `code`                      | When                                                       |
+|-----------------------------|------------------------------------------------------------|
+| `server_only`               | Called from a browser runtime                              |
+| `invalid_amount`            | `amountSats` is not a positive integer                     |
+| `invalid_destination`       | Empty, too long, or contains control characters            |
+| `invalid_idempotency_key`   | Empty / missing                                            |
+| `missing_access_token`      | `MDK_ACCESS_TOKEN` not set                                 |
+
 ## Customer Data
 Collect and store customer information with each checkout. Pass `customer` to pre-fill data and `requireCustomerData` to prompt the user for specific fields:
 

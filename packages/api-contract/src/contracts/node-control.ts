@@ -41,6 +41,7 @@ export const nodeEventsContract = oc
 
 export const nodeControl = {
 	payout: payoutContract,
+	programmaticPayout: programmaticPayoutContract,
 	invoice: {
 		createBolt11: invoiceCreateBolt11Contract,
 		createBolt12Offer: invoiceCreateBolt12OfferContract,

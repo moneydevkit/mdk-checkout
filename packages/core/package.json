@@ -28,6 +28,11 @@
       "import": "./dist/route.js",
       "default": "./dist/route.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
     "./mdk402": {
       "types": "./dist/mdk402/index.d.ts",
       "import": "./dist/mdk402/index.js",
