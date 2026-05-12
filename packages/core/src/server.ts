@@ -2,7 +2,11 @@ import { ORPCError } from '@orpc/client'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import type { ContractRouterClient } from '@orpc/contract'
-import { contract, type ProgrammaticPayoutResult } from '@moneydevkit/api-contract'
+import {
+  contract,
+  type GetBalanceResult,
+  type ProgrammaticPayoutResult,
+} from '@moneydevkit/api-contract'
 
 import { MAINNET_MDK_BASE_URL } from './mdk-config'
 import { failure, success, type MdkError, type Result } from './types'
@@ -171,6 +175,84 @@ export async function programmaticPayout(
     }
     return failure({
       code: 'payout_failed',
+      message: err instanceof Error ? err.message : String(err),
+      retryable: true,
+    })
+  }
+}
+
+/**
+ * Read the spendable balance of the merchant node tied to this server's
+ * MDK_ACCESS_TOKEN. Idempotent and safe to retry. Requires an app-scoped key:
+ * legacy org-level keys cannot read balance because an org can own multiple
+ * apps and balance is meaningless without an app.
+ *
+ * Routes through mdk.com over HTTPS oRPC; mdk.com fans out to the merchant's
+ * running node via the same WS control plane used by programmaticPayout.
+ */
+export async function getBalance(): Promise<Result<GetBalanceResult>> {
+  if (typeof window !== 'undefined') {
+    return failure({
+      code: 'server_only',
+      message: 'getBalance() can only be called from a server function.',
+      retryable: false,
+    })
+  }
+
+  const accessToken = process.env.MDK_ACCESS_TOKEN
+  if (!accessToken) {
+    return failure({
+      code: 'missing_access_token',
+      message: 'Set MDK_ACCESS_TOKEN in your environment before reading balance.',
+      retryable: false,
+    })
+  }
+  const baseUrl = process.env.MDK_API_BASE_URL ?? MAINNET_MDK_BASE_URL
+
+  try {
+    const link = new RPCLink({
+      url: baseUrl,
+      headers: () => ({
+        'x-api-key': accessToken,
+      }),
+    })
+    const client: ContractRouterClient<typeof contract> = createORPCClient(link)
+    const result = await client.checkout.getBalance()
+    return success(result)
+  } catch (err) {
+    if (err instanceof ORPCError) {
+      const data = err.data as { code?: string } | undefined
+      const code = data?.code ?? err.code ?? 'get_balance_failed'
+      // Balance is an idempotent read; transient WS / spin-up failures can be
+      // retried safely. Terminal failures: auth (invalid / missing API key),
+      // app-scope (legacy org-level key), and routing (procedure not found -
+      // hits when mdk.com is older than this SDK or the merchant SDK is
+      // pre-0.1.30 and doesn't implement getBalance over WS). Retrying any
+      // of these just burns requests and hides the upgrade / config action
+      // from the caller.
+      const isAuthError =
+        err.code === 'UNAUTHORIZED' ||
+        err.code === 'FORBIDDEN' ||
+        err.status === 401 ||
+        err.status === 403
+      const isNotFound = err.code === 'NOT_FOUND' || err.status === 404
+      const isBadRequest = err.code === 'BAD_REQUEST' || err.status === 400
+      const retryable =
+        code === 'GET_BALANCE_APP_KEY_REQUIRED' ||
+        isAuthError ||
+        isNotFound ||
+        isBadRequest
+          ? false
+          : true
+      return failure({
+        code,
+        message: err.message,
+        status: err.status,
+        retryable,
+      })
+    }
+    return failure({
+      code: 'get_balance_failed',
       message: err instanceof Error ? err.message : String(err),
       retryable: true,
     })

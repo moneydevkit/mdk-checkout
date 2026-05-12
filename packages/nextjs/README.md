@@ -237,6 +237,50 @@ Also returned for client-side validation issues (always `retryable: false`):
 | `invalid_idempotency_key`   | Empty / missing                                            |
 | `missing_access_token`      | `MDK_ACCESS_TOKEN` not set                                 |
 
+## Reading the merchant balance from a Server Action
+
+`getBalance()` reads the spendable (outbound) balance of the Lightning node tied to your `MDK_ACCESS_TOKEN`. Same server-only constraints as `programmaticPayout`: the helper refuses to run in a browser and routes through mdk.com over HTTPS, which in turn dials the merchant node over the WS control plane.
+
+```ts
+// app/actions.ts
+'use server'
+
+import { getBalance } from '@moneydevkit/nextjs/server'
+
+export async function fetchBalance() {
+  const result = await getBalance()
+
+  if (result.error) {
+    // retryable === true: transient (merchant function spinning up).
+    // retryable === false: terminal (invalid key, legacy org-level key, banned, or
+    // procedure-not-found from a pre-0.1.30 merchant / older mdk.com).
+    throw new Error(result.error.message)
+  }
+
+  return result.data.balanceSats // number, in sats
+}
+```
+
+### Notes
+
+- **App-scoped API key required.** Balance is meaningful per-app, not per-org. Legacy org-level keys return `GET_BALANCE_APP_KEY_REQUIRED` (not retryable). Use the API key from the App page in the dashboard.
+- **First call may take a few seconds.** If the merchant function is cold, mdk.com fires a spin-up webhook and waits for the WS to register. Subsequent calls within the function's lifetime are fast.
+- **Server-only.** Same `typeof window` check as `programmaticPayout`. Don't call from client components.
+- **Idempotent.** Safe to retry. Transient errors are flagged `retryable: true`; auth, app-scope, and procedure-not-found errors are `retryable: false`.
+
+### Error reference
+
+| `code`                            | `retryable` | What it means                                                  |
+|-----------------------------------|-------------|----------------------------------------------------------------|
+| `server_only`                     | false       | Called from a browser runtime                                  |
+| `missing_access_token`            | false       | `MDK_ACCESS_TOKEN` not set                                     |
+| `GET_BALANCE_APP_KEY_REQUIRED`    | false       | Using a legacy org-level key. Copy the key from the App page   |
+| `UNAUTHORIZED` / `FORBIDDEN`      | false       | Invalid API key or banned user                                 |
+| `NOT_FOUND`                       | false       | Procedure missing - pre-0.1.30 merchant SDK or older mdk.com   |
+| `BAD_REQUEST`                     | false       | Server rejected the request as malformed                       |
+| `GET_BALANCE_SPIN_UP_TIMEOUT`     | true        | Merchant function did not register WS in time. Safe to retry   |
+| `get_balance_failed`              | true        | Network / unclassified error                                   |
+
 ## Customer Data
 Collect and store customer information with each checkout. Pass `customer` to pre-fill data and `requireCustomerData` to prompt the user for specific fields:
 
