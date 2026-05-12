@@ -142,6 +142,22 @@ const eventsImpl = impl.events.handler(async function* ({ context }) {
 	}
 })
 
+const getBalanceImpl = impl.getBalance.handler(({ context }) => {
+	if (!context.sessionState.nodeReady) {
+		rejectWith('NODE_NOT_READY', 'node has not finished startReceiving yet')
+	}
+	if (context.sessionState.draining) {
+		rejectWith('DRAINING', 'node is in drain window; retry on next session')
+	}
+	return new Promise<{ balanceSats: number }>((resolve, reject) => {
+		context.queue.push({
+			kind: 'getBalance',
+			resolve,
+			reject,
+		})
+	})
+})
+
 export const nodeControlRouter = impl.router({
 	payout: payoutImpl,
 	programmaticPayout: programmaticPayoutImpl,
@@ -149,6 +165,7 @@ export const nodeControlRouter = impl.router({
 		createBolt11: createBolt11Impl,
 		createBolt12Offer: createBolt12OfferImpl,
 	},
+	getBalance: getBalanceImpl,
 	events: eventsImpl,
 })
 

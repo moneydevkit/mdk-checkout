@@ -247,6 +247,10 @@ export class MoneyDevKitNode {
     return this.node.getBalance()
   }
 
+  getBalanceWhileRunning() {
+    return this.node.getBalanceWhileRunning()
+  }
+
   get invoices() {
     return {
       create: (amountSats: number | null, customExpirySecs?: number) => {

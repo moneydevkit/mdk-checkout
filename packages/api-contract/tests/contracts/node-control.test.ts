@@ -9,13 +9,10 @@ describe('node-control contracts', () => {
       assert.equal(typeof getBalanceContract, 'object')
     })
 
-    it('is intentionally NOT yet wired into the nodeControl router', () => {
-      // Keep this assertion red until the implementation PR lands the SDK
-      // handler. Adding `getBalance` to `nodeControl` without the matching
-      // handler in @moneydevkit/core would break the workspace build via
-      // implement(nodeControl).router(...). Flip this assertion in PR3.
+    it('is wired into the nodeControl namespace as getBalance', () => {
       const router = nodeControl as Record<string, unknown>
-      assert.equal('getBalance' in router, false)
+      assert.equal('getBalance' in router, true)
+      assert.equal(router.getBalance, getBalanceContract)
     })
   })
 })

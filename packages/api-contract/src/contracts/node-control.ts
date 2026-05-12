@@ -37,11 +37,6 @@ export const invoiceCreateBolt12OfferContract = oc
 
 /**
  * Read the merchant node's spendable (outbound) balance.
- *
- * Deliberately not yet wired into the `nodeControl` router export below: the
- * SDK's `implement(nodeControl).router({...})` is exhaustive, so wiring here
- * without the matching handler in @moneydevkit/core would break the workspace
- * build. The wire-up lands together with the handler in the implementation PR.
  */
 export const getBalanceContract = oc
 	.input(z.void())
@@ -59,5 +54,6 @@ export const nodeControl = {
 		createBolt11: invoiceCreateBolt11Contract,
 		createBolt12Offer: invoiceCreateBolt12OfferContract,
 	},
+	getBalance: getBalanceContract,
 	events: nodeEventsContract,
 };

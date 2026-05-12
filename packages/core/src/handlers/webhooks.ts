@@ -222,6 +222,8 @@ async function unifiedLoop(
           cmd.resolve({
             offer: node.createBolt12OfferNow(cmd.amountMsat, cmd.description, cmd.expirySecs),
           });
+        } else if (cmd.kind === "getBalance") {
+          cmd.resolve({ balanceSats: node.getBalanceWhileRunning() });
         }
       } catch (e) {
         cmd.reject(e instanceof Error ? e : new Error(String(e)));

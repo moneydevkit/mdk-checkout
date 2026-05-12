@@ -176,6 +176,40 @@ test('events() yields buffered events even when subscribed late', async () => {
   }
 })
 
+test('getBalance rejects when nodeReady is false', async () => {
+  const ctx = makeContext({ sessionState: { nodeReady: false, draining: false } })
+  await assert.rejects(
+    call(nodeControlRouter.getBalance, undefined as unknown as void, { context: ctx }),
+    /node has not finished/,
+  )
+  assert.equal(ctx.queue.size, 0, 'no command should be enqueued')
+})
+
+test('getBalance rejects when draining', async () => {
+  const ctx = makeContext({ sessionState: { nodeReady: true, draining: true } })
+  await assert.rejects(
+    call(nodeControlRouter.getBalance, undefined as unknown as void, { context: ctx }),
+    /drain window/,
+  )
+  assert.equal(ctx.queue.size, 0)
+})
+
+test('getBalance enqueues a getBalance cmd and resolves with balanceSats', async () => {
+  const ctx = makeContext()
+  const pending = call(nodeControlRouter.getBalance, undefined as unknown as void, {
+    context: ctx,
+  })
+  await new Promise((r) => setImmediate(r))
+  const cmd = ctx.queue.shift()
+  assert.ok(cmd)
+  assert.equal(cmd?.kind, 'getBalance')
+  if (cmd?.kind === 'getBalance') {
+    cmd.resolve({ balanceSats: 42_424 })
+  }
+  const r = await pending
+  assert.deepEqual(r, { balanceSats: 42_424 })
+})
+
 test('payout reject resolves the RPC with an error from the loop', async () => {
   const ctx = makeContext()
   const pending = call(

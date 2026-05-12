@@ -2,6 +2,7 @@ import type {
 	InvoiceBolt11Result,
 	InvoiceBolt12OfferResult,
 	NodeEvent,
+	NodeGetBalanceResult,
 	PayoutResult,
 } from '@moneydevkit/api-contract'
 
@@ -36,6 +37,11 @@ export type Cmd =
 			description: string
 			expirySecs: number | undefined
 			resolve: (value: InvoiceBolt12OfferResult) => void
+			reject: (err: Error) => void
+	  }
+	| {
+			kind: 'getBalance'
+			resolve: (value: NodeGetBalanceResult) => void
 			reject: (err: Error) => void
 	  }
 
