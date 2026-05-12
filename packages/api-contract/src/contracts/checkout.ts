@@ -178,6 +178,17 @@ export type ProgrammaticPayoutResult = z.infer<
 	typeof ProgrammaticPayoutResultSchema
 >;
 
+/**
+ * Result of the merchant-server-facing getBalance command. Routed by mdk.com
+ * through the live WS session to the merchant node, which returns the total
+ * outbound (spendable) liquidity in sats. Same semantics as lightning-js
+ * `getBalanceWhileRunning()` (sum of `outbound_capacity_msat` / 1000).
+ */
+export const GetBalanceResultSchema = z.object({
+	balanceSats: z.number().int().nonnegative(),
+});
+export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
+
 export type CreateCheckout = z.infer<typeof CreateCheckoutInputSchema>;
 export type ConfirmCheckout = z.infer<typeof ConfirmCheckoutInputSchema>;
 export type RegisterInvoice = z.infer<typeof RegisterInvoiceInputSchema>;
@@ -263,6 +274,17 @@ export const programmaticPayoutContract = oc
 	.input(ProgrammaticPayoutInputSchema)
 	.output(ProgrammaticPayoutResultSchema);
 
+/**
+ * Read the merchant's spendable balance over the merchant-facing API.
+ *
+ * Auth is the same app-scoped API key path used by programmaticPayout; the
+ * mdk.com handler resolves the merchant's app and routes the call to the
+ * live WS session (or fires a spin-up webhook if none exists).
+ */
+export const getBalanceContract = oc
+	.input(z.void())
+	.output(GetBalanceResultSchema);
+
 export const redeemL402Contract = oc
 	.input(RedeemL402InputSchema)
 	.output(RedeemL402OutputSchema);
@@ -279,6 +301,7 @@ export const checkout = {
 	registerInvoice: registerInvoiceContract,
 	mintInvoice: mintInvoiceContract,
 	programmaticPayout: programmaticPayoutContract,
+	getBalance: getBalanceContract,
 	paymentReceived: paymentReceivedContract,
 	redeemL402: redeemL402Contract,
 	checkL402: checkL402Contract,

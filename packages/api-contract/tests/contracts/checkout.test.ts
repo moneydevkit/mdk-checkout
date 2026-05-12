@@ -8,6 +8,7 @@ import {
   RegisterInvoiceInputSchema,
   PaymentReceivedInputSchema,
   ProgrammaticPayoutInputSchema,
+  GetBalanceResultSchema,
   GetCheckoutInputSchema,
 } from '../../src/contracts/checkout'
 import { CheckoutSchema } from '../../src/schemas/checkout'
@@ -20,6 +21,7 @@ describe('Checkout Contracts', () => {
       assert.ok(checkout.confirm)
       assert.ok(checkout.registerInvoice)
       assert.ok(checkout.programmaticPayout)
+      assert.ok(checkout.getBalance)
       assert.ok(checkout.paymentReceived)
     })
 
@@ -30,6 +32,7 @@ describe('Checkout Contracts', () => {
       assert.equal(typeof checkout.confirm, 'object')
       assert.equal(typeof checkout.registerInvoice, 'object')
       assert.equal(typeof checkout.programmaticPayout, 'object')
+      assert.equal(typeof checkout.getBalance, 'object')
       assert.equal(typeof checkout.paymentReceived, 'object')
     })
 
@@ -41,6 +44,7 @@ describe('Checkout Contracts', () => {
       assert.ok(RegisterInvoiceInputSchema)
       assert.ok(PaymentReceivedInputSchema)
       assert.ok(ProgrammaticPayoutInputSchema)
+      assert.ok(GetBalanceResultSchema)
       assert.ok(GetCheckoutInputSchema)
     })
 
@@ -395,6 +399,28 @@ describe('Checkout Contracts', () => {
 
       const result = PaymentReceivedInputSchema.safeParse(input)
       assert.equal(result.success, false)
+    })
+  })
+
+  describe('GetBalanceResultSchema', () => {
+    it('accepts a non-negative integer sat balance', () => {
+      assert.equal(GetBalanceResultSchema.safeParse({ balanceSats: 0 }).success, true)
+      assert.equal(
+        GetBalanceResultSchema.safeParse({ balanceSats: 9_999_999 }).success,
+        true,
+      )
+    })
+
+    it('rejects negative balances', () => {
+      assert.equal(GetBalanceResultSchema.safeParse({ balanceSats: -1 }).success, false)
+    })
+
+    it('rejects fractional sats', () => {
+      assert.equal(GetBalanceResultSchema.safeParse({ balanceSats: 1.5 }).success, false)
+    })
+
+    it('rejects missing balanceSats', () => {
+      assert.equal(GetBalanceResultSchema.safeParse({}).success, false)
     })
   })
 
