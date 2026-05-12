@@ -1,6 +1,7 @@
 import { eventIterator, oc } from "@orpc/contract";
 import { z } from "zod";
 import {
+	GetBalanceResultSchema,
 	InvoiceBolt11ResultSchema,
 	InvoiceBolt12OfferResultSchema,
 	InvoiceCreateBolt11InputSchema,
@@ -33,6 +34,18 @@ export const invoiceCreateBolt11Contract = oc
 export const invoiceCreateBolt12OfferContract = oc
 	.input(InvoiceCreateBolt12OfferInputSchema)
 	.output(InvoiceBolt12OfferResultSchema);
+
+/**
+ * Read the merchant node's spendable (outbound) balance.
+ *
+ * Deliberately not yet wired into the `nodeControl` router export below: the
+ * SDK's `implement(nodeControl).router({...})` is exhaustive, so wiring here
+ * without the matching handler in @moneydevkit/core would break the workspace
+ * build. The wire-up lands together with the handler in the implementation PR.
+ */
+export const getBalanceContract = oc
+	.input(z.void())
+	.output(GetBalanceResultSchema);
 
 /** Server-pushed event stream. Single subscriber per session, buffered, FIFO. */
 export const nodeEventsContract = oc

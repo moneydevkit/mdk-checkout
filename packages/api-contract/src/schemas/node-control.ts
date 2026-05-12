@@ -84,6 +84,17 @@ export type InvoiceBolt12OfferResult = z.infer<
 >;
 
 /**
+ * Result of the getBalance command on a merchant node. Returns the merchant's
+ * total outbound liquidity in sats (matches lightning-js `getBalance()` /
+ * `getBalanceWhileRunning()` units, which sum `outbound_capacity_msat` across
+ * channels and divide by 1000).
+ */
+export const GetBalanceResultSchema = z.object({
+	balanceSats: z.number().int().nonnegative(),
+});
+export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
+
+/**
  * Events pushed from the node to mdk.com over the events() AsyncIterable.
  *
  * - ready: emitted once after node.startReceiving() + setupBolt12Receive() complete.

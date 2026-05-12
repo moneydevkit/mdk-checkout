@@ -198,6 +198,7 @@ export type {
 	InvoiceCreateBolt12OfferInput,
 	InvoiceBolt12OfferResult,
 	NodeEvent,
+	GetBalanceResult as NodeGetBalanceResult,
 } from "./schemas/node-control";
 export {
 	PayoutInputSchema,
@@ -208,6 +209,7 @@ export {
 	InvoiceCreateBolt12OfferInputSchema,
 	InvoiceBolt12OfferResultSchema,
 	NodeEventSchema,
+	GetBalanceResultSchema as NodeGetBalanceResultSchema,
 } from "./schemas/node-control";
 
 // SDK contract - only the methods the SDK router implements
