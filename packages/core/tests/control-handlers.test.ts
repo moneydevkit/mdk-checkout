@@ -6,6 +6,7 @@ import { call } from '@orpc/server'
 import type { ControlContext } from '../src/control/handlers'
 import { nodeControlRouter } from '../src/control/handlers'
 import { CmdQueue, EventQueue } from '../src/control/queue'
+import { createPayoutCommandError } from '../src/handlers/webhooks'
 
 function makeContext(overrides: Partial<ControlContext> = {}): ControlContext {
   return {
@@ -222,4 +223,12 @@ test('payout reject resolves the RPC with an error from the loop', async () => {
   assert.ok(cmd)
   cmd?.reject(new Error('payNow blew up'))
   await assert.rejects(pending, /payNow blew up/)
+})
+
+test('createPayoutCommandError preserves payout failure messages for oRPC', () => {
+  const err = createPayoutCommandError(new Error('payment path failed: no route found'))
+
+  assert.equal(err.code, 'PAYOUT_FAILED')
+  assert.equal(err.message, 'payment path failed: no route found')
+  assert.deepEqual(err.data, { reason: 'payment path failed: no route found' })
 })

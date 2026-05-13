@@ -3,6 +3,7 @@ import {
   SubscriptionSchema,
   SubscriptionWebhookEventSchema,
 } from "@moneydevkit/api-contract";
+import { ORPCError } from "@orpc/server";
 
 import { log, warn, error as logError } from "../logging";
 import { connectControl, type WsClient } from "../control/ws-client";
@@ -104,6 +105,22 @@ function createReceivedHandler(client: MoneyDevKitClient) {
       warn(`[webhook] Failed to confirm payment ${ev.paymentHash} to API`, err);
     }
   };
+}
+
+/**
+ * Convert node payment failures into a declared oRPC error so the caller sees
+ * the native/lightning-js message instead of oRPC's generic scrubbed text.
+ */
+export function createPayoutCommandError(
+  error: unknown,
+): ORPCError<"PAYOUT_FAILED", { reason: string }> {
+  const message = error instanceof Error ? error.message : String(error);
+  const reason = message || "payout failed";
+  return new ORPCError("PAYOUT_FAILED", {
+    message: reason,
+    data: { reason },
+    cause: error,
+  });
 }
 
 /**
@@ -226,7 +243,13 @@ async function unifiedLoop(
           cmd.resolve({ balanceSats: node.getBalanceWhileRunning() });
         }
       } catch (e) {
-        cmd.reject(e instanceof Error ? e : new Error(String(e)));
+        if (cmd.kind === "payout") {
+          const payoutError = createPayoutCommandError(e);
+          console.error("[webhook] payout command failed", payoutError.data.reason, e);
+          cmd.reject(payoutError);
+        } else {
+          cmd.reject(e instanceof Error ? e : new Error(String(e)));
+        }
       }
       continue;
     }
