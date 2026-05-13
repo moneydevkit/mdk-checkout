@@ -7,6 +7,7 @@ import {
 	InvoiceCreateBolt11InputSchema,
 	InvoiceCreateBolt12OfferInputSchema,
 	NodeEventSchema,
+	PayoutFailureDataSchema,
 	PayoutInputSchema,
 	PayoutResultSchema,
 	ProgrammaticPayoutInputSchema,
@@ -25,6 +26,21 @@ export const payoutContract = oc
  */
 export const programmaticPayoutContract = oc
 	.input(ProgrammaticPayoutInputSchema)
+	.errors({
+		NODE_NOT_READY: {
+			message: "node has not finished startReceiving yet",
+		},
+		DRAINING: {
+			message: "node is in drain window; retry on next session",
+		},
+		PROGRAMMATIC_PAYOUT_DESTINATION_UNSET: {
+			message: "payout destination is required",
+		},
+		PAYOUT_FAILED: {
+			message: "payout failed",
+			data: PayoutFailureDataSchema,
+		},
+	})
 	.output(PayoutResultSchema);
 
 export const invoiceCreateBolt11Contract = oc

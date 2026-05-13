@@ -28,6 +28,14 @@ export type ProgrammaticPayoutInput = z.infer<
 >;
 
 /**
+ * Structured payload for payout command failures raised by the merchant node.
+ */
+export const PayoutFailureDataSchema = z.object({
+	reason: z.string().min(1),
+});
+export type PayoutFailureData = z.infer<typeof PayoutFailureDataSchema>;
+
+/**
  * Result of a payout command. Returned synchronously after the underlying
  * payWhileRunning(_, _, 0) fire-and-forget call. The final outcome (Sent or Failed)
  * arrives later as a paymentSent or paymentFailed event over the events() iterator.

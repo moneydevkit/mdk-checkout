@@ -191,6 +191,7 @@ export const contract = {
 export { nodeControl };
 export type {
 	PayoutInput,
+	PayoutFailureData,
 	ProgrammaticPayoutInput as NodeProgrammaticPayoutInput,
 	PayoutResult,
 	InvoiceCreateBolt11Input,
@@ -202,6 +203,7 @@ export type {
 } from "./schemas/node-control";
 export {
 	PayoutInputSchema,
+	PayoutFailureDataSchema,
 	ProgrammaticPayoutInputSchema as NodeProgrammaticPayoutInputSchema,
 	PayoutResultSchema,
 	InvoiceCreateBolt11InputSchema,
