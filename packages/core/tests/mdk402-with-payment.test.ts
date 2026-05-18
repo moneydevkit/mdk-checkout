@@ -674,6 +674,46 @@ describe('withPayment', () => {
       const call = currentMocks.fakeClient.checkouts.create.mock.calls[0]
       assert.equal(call.arguments[0].metadata.sandbox, 'true')
     })
+
+    it('includes sandbox: true in 402 JSON body when in preview mode', async () => {
+      previewMode = true
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, true)
+    })
+
+    it('includes sandbox="true" parameter in WWW-Authenticate header when in preview mode', async () => {
+      previewMode = true
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth, 'WWW-Authenticate header must be present')
+      assert.ok(wwwAuth.includes('sandbox="true"'), `expected sandbox="true" in header, got: ${wwwAuth}`)
+      assert.ok(wwwAuth.startsWith('L402 '))
+      assert.ok(wwwAuth.includes('macaroon="'))
+      assert.ok(wwwAuth.includes('invoice="'))
+    })
+
+    it('omits sandbox signals in 402 response when NOT in preview mode (regression guard)', async () => {
+      previewMode = false
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, undefined, 'sandbox field must not be present in production responses')
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth)
+      assert.ok(!wwwAuth.includes('sandbox'), `WWW-Authenticate must not contain sandbox in production, got: ${wwwAuth}`)
+    })
   })
 
   describe('HTTP methods', () => {

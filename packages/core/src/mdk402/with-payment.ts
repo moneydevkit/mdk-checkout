@@ -321,8 +321,14 @@ async function create402Response(
       currency: config.currency,
     })
 
-    // 5. Build 402 response with L402-compatible headers (bLIP-26)
-    const wwwAuthenticate = `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
+    // 5. Build 402 response with L402-compatible headers (bLIP-26).
+    //    In preview/sandbox mode, signal the state on three independent channels
+    //    (JSON body, WWW-Authenticate param, BOLT11 description tag — the third
+    //    is set at mint time by the mdk.com backend) so AI agents detect sandbox
+    //    state and skip payment instead of failing with a generic Lightning error.
+    const wwwAuthenticate = isPreview
+      ? `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}", sandbox="true"`
+      : `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
 
     return new Response(
       JSON.stringify({
@@ -335,6 +341,7 @@ async function create402Response(
         paymentHash: invoiceFromDb.paymentHash,
         amountSats,
         expiresAt,
+        ...(isPreview ? { sandbox: true } : {}),
       }),
       {
         status: 402,
