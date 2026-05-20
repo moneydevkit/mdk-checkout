@@ -5,7 +5,11 @@ import {
   nodeControl,
   programmaticPayoutContract,
 } from '../../src/contracts/node-control'
-import { PayoutFailureDataSchema } from '../../src/schemas/node-control'
+import {
+  NodeEventSchema,
+  PayoutFailureDataSchema,
+  ProgrammaticPayoutInputSchema,
+} from '../../src/schemas/node-control'
 
 describe('node-control contracts', () => {
   describe('getBalanceContract', () => {
@@ -40,6 +44,48 @@ describe('node-control contracts', () => {
 
     it('is wired into the nodeControl namespace as programmaticPayout', () => {
       assert.equal(nodeControl.programmaticPayout, programmaticPayoutContract)
+    })
+
+    it('requires payoutId on node-control programmatic payout input', () => {
+      assert.equal(
+        ProgrammaticPayoutInputSchema.safeParse({
+          payoutId: 'pp_123',
+          amountMsat: 1000,
+          destination: 'lnbc1...',
+          idempotencyKey: 'idem_123',
+        }).success,
+        true,
+      )
+      assert.equal(
+        ProgrammaticPayoutInputSchema.safeParse({
+          amountMsat: 1000,
+          destination: 'lnbc1...',
+          idempotencyKey: 'idem_123',
+        }).success,
+        false,
+      )
+    })
+
+    it('requires payoutId on programmatic payout terminal events', () => {
+      assert.equal(
+        NodeEventSchema.safeParse({
+          type: 'programmaticPayoutSent',
+          payoutId: 'pp_123',
+          paymentId: 'pay_123',
+          paymentHash: 'hash_123',
+          preimage: 'preimage_123',
+        }).success,
+        true,
+      )
+      assert.equal(
+        NodeEventSchema.safeParse({
+          type: 'programmaticPayoutFailed',
+          paymentId: 'pay_123',
+          paymentHash: 'hash_123',
+          reason: 'route not found',
+        }).success,
+        false,
+      )
     })
   })
 })

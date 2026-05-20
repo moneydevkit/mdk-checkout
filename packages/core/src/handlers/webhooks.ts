@@ -151,7 +151,7 @@ async function unifiedLoop(
   // destroyed while any are in flight; otherwise the user loses confirmation
   // of whether the payment landed (LDK can usually resume on next start, but
   // the in-session caller has no way to learn the outcome).
-  const pendingOutbound = new Set<string>();
+  const pendingOutbound = new Map<string, string | undefined>();
   const onReceived = createReceivedHandler(client);
   let drainSoft = false;
   let lastActivity = sessionStart;
@@ -185,13 +185,24 @@ async function unifiedLoop(
           paymentsSent++;
           // paymentId is only present for outbound (per lightning-js/index.d.ts:47).
           if (ev.paymentId) {
+            const payoutId = pendingOutbound.get(ev.paymentId);
             pendingOutbound.delete(ev.paymentId);
-            eventQueue.push({
-              type: "paymentSent",
-              paymentId: ev.paymentId,
-              paymentHash: ev.paymentHash,
-              preimage: ev.preimage ?? "",
-            });
+            if (payoutId) {
+              eventQueue.push({
+                type: "programmaticPayoutSent",
+                payoutId,
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                preimage: ev.preimage ?? "",
+              });
+            } else {
+              eventQueue.push({
+                type: "paymentSent",
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                preimage: ev.preimage ?? "",
+              });
+            }
           }
           log(`[webhook] PaymentSent id=${ev.paymentId} hash=${ev.paymentHash}`);
           break;
@@ -203,13 +214,24 @@ async function unifiedLoop(
           // webhook behavior at webhooks.ts:124 and agent-wallet/server.ts:229.
           pendingClaims.delete(ev.paymentHash);
           if (ev.paymentId) {
+            const payoutId = pendingOutbound.get(ev.paymentId);
             pendingOutbound.delete(ev.paymentId);
-            eventQueue.push({
-              type: "paymentFailed",
-              paymentId: ev.paymentId,
-              paymentHash: ev.paymentHash,
-              ...(ev.reason ? { reason: ev.reason } : {}),
-            });
+            if (payoutId) {
+              eventQueue.push({
+                type: "programmaticPayoutFailed",
+                payoutId,
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                ...(ev.reason ? { reason: ev.reason } : {}),
+              });
+            } else {
+              eventQueue.push({
+                type: "paymentFailed",
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                ...(ev.reason ? { reason: ev.reason } : {}),
+              });
+            }
           }
           log(`[webhook] PaymentFailed id=${ev.paymentId} hash=${ev.paymentHash} reason=${ev.reason}`);
           break;
@@ -227,7 +249,7 @@ async function unifiedLoop(
       try {
         if (cmd.kind === "payout") {
           const r = node.payNow(cmd.destination, cmd.amountMsat);
-          pendingOutbound.add(r.paymentId);
+          pendingOutbound.set(r.paymentId, cmd.payoutId);
           cmd.resolve({
             accepted: true,
             paymentId: r.paymentId,

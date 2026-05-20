@@ -20,6 +20,7 @@ export type Cmd =
 			kind: 'payout'
 			destination: string
 			amountMsat: number
+			payoutId?: string
 			resolve: (value: PayoutResult) => void
 			reject: (err: Error) => void
 	  }

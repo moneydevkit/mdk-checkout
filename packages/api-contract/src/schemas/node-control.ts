@@ -14,6 +14,7 @@ export type PayoutInput = z.infer<typeof PayoutInputSchema>;
  * Input for trusted server-initiated payouts to a caller-provided destination.
  */
 export const ProgrammaticPayoutInputSchema = z.object({
+	payoutId: z.string().min(1),
 	amountMsat: z.number().int().positive(),
 	destination: z
 		.string()
@@ -107,6 +108,9 @@ export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
  *
  * - ready: emitted once after node.startReceiving() + setupBolt12Receive() complete.
  * - paymentSent / paymentFailed: outbound payment outcomes. Correlate by paymentId.
+ * - programmaticPayoutSent / programmaticPayoutFailed: terminal outcomes for
+ *   programmatic payouts. Correlate by the mdk.com programmatic_payout.id carried
+ *   as payoutId.
  * - draining: emitted when the node enters its drain window.
  * - leaseReleased: emitted right before the node initiates a graceful shutdown.
  */
@@ -120,6 +124,20 @@ export const NodeEventSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		type: z.literal("paymentFailed"),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		reason: z.string().optional(),
+	}),
+	z.object({
+		type: z.literal("programmaticPayoutSent"),
+		payoutId: z.string(),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		preimage: z.string(),
+	}),
+	z.object({
+		type: z.literal("programmaticPayoutFailed"),
+		payoutId: z.string(),
 		paymentId: z.string(),
 		paymentHash: z.string(),
 		reason: z.string().optional(),
