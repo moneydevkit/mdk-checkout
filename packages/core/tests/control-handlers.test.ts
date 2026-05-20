@@ -195,7 +195,7 @@ test('getBalance rejects when draining', async () => {
   assert.equal(ctx.queue.size, 0)
 })
 
-test('getBalance enqueues a getBalance cmd and resolves with balanceSats', async () => {
+test('getBalance enqueues a getBalance cmd and resolves with balanceSats and maxWithdrawableSats', async () => {
   const ctx = makeContext()
   const pending = call(nodeControlRouter.getBalance, undefined as unknown as void, {
     context: ctx,
@@ -205,10 +205,25 @@ test('getBalance enqueues a getBalance cmd and resolves with balanceSats', async
   assert.ok(cmd)
   assert.equal(cmd?.kind, 'getBalance')
   if (cmd?.kind === 'getBalance') {
-    cmd.resolve({ balanceSats: 42_424 })
+    cmd.resolve({ balanceSats: 42_424, maxWithdrawableSats: 42_000 })
   }
   const r = await pending
-  assert.deepEqual(r, { balanceSats: 42_424 })
+  assert.deepEqual(r, { balanceSats: 42_424, maxWithdrawableSats: 42_000 })
+})
+
+test('getBalance passes through null maxWithdrawableSats (no usable channel)', async () => {
+  const ctx = makeContext()
+  const pending = call(nodeControlRouter.getBalance, undefined as unknown as void, {
+    context: ctx,
+  })
+  await new Promise((r) => setImmediate(r))
+  const cmd = ctx.queue.shift()
+  assert.ok(cmd)
+  if (cmd?.kind === 'getBalance') {
+    cmd.resolve({ balanceSats: 0, maxWithdrawableSats: null })
+  }
+  const r = await pending
+  assert.deepEqual(r, { balanceSats: 0, maxWithdrawableSats: null })
 })
 
 test('payout reject resolves the RPC with an error from the loop', async () => {

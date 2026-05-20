@@ -149,13 +149,15 @@ const getBalanceImpl = impl.getBalance.handler(({ context }) => {
 	if (context.sessionState.draining) {
 		rejectWith('DRAINING', 'node is in drain window; retry on next session')
 	}
-	return new Promise<{ balanceSats: number }>((resolve, reject) => {
-		context.queue.push({
-			kind: 'getBalance',
-			resolve,
-			reject,
-		})
-	})
+	return new Promise<{ balanceSats: number; maxWithdrawableSats: number | null }>(
+		(resolve, reject) => {
+			context.queue.push({
+				kind: 'getBalance',
+				resolve,
+				reject,
+			})
+		},
+	)
 })
 
 export const nodeControlRouter = impl.router({

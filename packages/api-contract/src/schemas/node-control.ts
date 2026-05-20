@@ -96,9 +96,14 @@ export type InvoiceBolt12OfferResult = z.infer<
  * total outbound liquidity in sats (matches lightning-js `getBalance()` /
  * `getBalanceWhileRunning()` units, which sum `outbound_capacity_msat` across
  * channels and divide by 1000).
+ *
+ * `maxWithdrawableSats` is a best-effort estimate of the largest amount that
+ * can flow out over Lightning right now. `null` means no usable LSP channel
+ * exists yet.
  */
 export const GetBalanceResultSchema = z.object({
 	balanceSats: z.number().int().nonnegative(),
+	maxWithdrawableSats: z.number().int().nonnegative().nullable(),
 });
 export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
 

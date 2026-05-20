@@ -1,4 +1,4 @@
-import { PaymentEvent, PaymentResult } from '@moneydevkit/lightning-js'
+import { MaxSendableEstimate, PaymentEvent, PaymentResult } from '@moneydevkit/lightning-js'
 import { createRequire } from 'module'
 import { lightningLogErrorHandler, lightningLogHandler } from './lightning-logs'
 import { MAINNET_MDK_NODE_OPTIONS, SIGNET_MDK_NODE_OPTIONS } from './mdk-config'
@@ -249,6 +249,17 @@ export class MoneyDevKitNode {
 
   getBalanceWhileRunning() {
     return this.node.getBalanceWhileRunning()
+  }
+
+  /**
+   * Best-effort estimate of the largest outbound Lightning payment the node
+   * can route right now, with a routing-fee buffer subtracted. Returns null
+   * when no usable LSP channel exists; `amountMsat: 0` means a channel
+   * exists but its balance is consumed by the buffer (dust). Read-only and
+   * safe regardless of running state.
+   */
+  getMaxSendable(): MaxSendableEstimate | null {
+    return this.node.getMaxSendable()
   }
 
   get invoices() {

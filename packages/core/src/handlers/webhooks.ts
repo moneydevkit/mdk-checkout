@@ -240,7 +240,14 @@ async function unifiedLoop(
             offer: node.createBolt12OfferNow(cmd.amountMsat, cmd.description, cmd.expirySecs),
           });
         } else if (cmd.kind === "getBalance") {
-          cmd.resolve({ balanceSats: node.getBalanceWhileRunning() });
+          const maxSendable = node.getMaxSendable();
+          cmd.resolve({
+            balanceSats: node.getBalanceWhileRunning(),
+            maxWithdrawableSats:
+              maxSendable === null
+                ? null
+                : Math.floor(maxSendable.amountMsat / 1000),
+          });
         }
       } catch (e) {
         if (cmd.kind === "payout") {
