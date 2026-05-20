@@ -179,6 +179,45 @@ export type ProgrammaticPayoutResult = z.infer<
 >;
 
 /**
+ * Input for waitForPayoutResult. Caller identifies the payout by EITHER the
+ * idempotencyKey they used on programmaticPayout OR the paymentId returned by
+ * that call. Exactly one is required. timeoutMs is capped at 25s to stay under
+ * common edge-proxy idle timeouts; the SDK loops the call to extend.
+ */
+export const WaitForPayoutResultInputSchema = z
+	.object({
+		idempotencyKey: z.string().min(1).max(255).optional(),
+		paymentId: z.string().min(1).max(255).optional(),
+		timeoutMs: z.number().int().positive().max(25_000).optional(),
+	})
+	.refine(
+		(v) => Boolean(v.idempotencyKey) !== Boolean(v.paymentId),
+		"Exactly one of idempotencyKey or paymentId is required.",
+	);
+export type WaitForPayoutResultInput = z.infer<
+	typeof WaitForPayoutResultInputSchema
+>;
+
+/**
+ * Outcome of a waitForPayoutResult call. REQUESTED means the row is still
+ * pending (either no terminal event observed, or no row found yet because the
+ * dispatch ack and DB insert race the caller). SUCCESS / FAILED are terminal
+ * and accompanied by preimage / failureReason respectively.
+ *
+ * REQUESTED is returned on TIMEOUT as well so the SDK can loop without an
+ * artificial exception. The presence of `preimage` is the SUCCESS signal.
+ */
+export const WaitForPayoutResultOutputSchema = z.object({
+	status: z.enum(["REQUESTED", "SUCCESS", "FAILED"]),
+	preimage: z.string().optional(),
+	paymentHash: z.string().optional(),
+	failureReason: z.string().optional(),
+});
+export type WaitForPayoutResultOutput = z.infer<
+	typeof WaitForPayoutResultOutputSchema
+>;
+
+/**
  * Result of the merchant-server-facing getBalance command. Routed by mdk.com
  * through the live WS session to the merchant node, which returns the total
  * outbound (spendable) liquidity in sats. Same semantics as lightning-js
@@ -280,6 +319,17 @@ export const programmaticPayoutContract = oc
 	.output(ProgrammaticPayoutResultSchema);
 
 /**
+ * Block until the terminal Lightning outcome of a programmatic payout is
+ * known, or until `timeoutMs` elapses. Returns the row's current status; on
+ * timeout the status is REQUESTED, signalling the caller can poll again.
+ *
+ * Auth is the same app-scoped API key path as programmaticPayout.
+ */
+export const waitForPayoutResultContract = oc
+	.input(WaitForPayoutResultInputSchema)
+	.output(WaitForPayoutResultOutputSchema);
+
+/**
  * Read the merchant's spendable balance over the merchant-facing API.
  *
  * Auth is the same app-scoped API key path used by programmaticPayout; the
@@ -306,6 +356,7 @@ export const checkout = {
 	registerInvoice: registerInvoiceContract,
 	mintInvoice: mintInvoiceContract,
 	programmaticPayout: programmaticPayoutContract,
+	waitForPayoutResult: waitForPayoutResultContract,
 	getBalance: getBalanceContract,
 	paymentReceived: paymentReceivedContract,
 	redeemL402: redeemL402Contract,

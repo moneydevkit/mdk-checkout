@@ -23,6 +23,8 @@ export type {
 	MintInvoice,
 	ProgrammaticPayout,
 	ProgrammaticPayoutResult,
+	WaitForPayoutResultInput,
+	WaitForPayoutResultOutput,
 	GetBalanceResult,
 	RedeemL402Input,
 	RedeemL402Output,
@@ -41,6 +43,8 @@ export {
 	GetCheckoutInputSchema,
 	ProgrammaticPayoutInputSchema,
 	ProgrammaticPayoutResultSchema,
+	WaitForPayoutResultInputSchema,
+	WaitForPayoutResultOutputSchema,
 	GetBalanceResultSchema,
 } from "./contracts/checkout";
 export type {
