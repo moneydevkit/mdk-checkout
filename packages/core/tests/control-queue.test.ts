@@ -36,6 +36,13 @@ test('EventQueue delivers events pushed BEFORE subscribe (start-buffered)', asyn
   const q = new EventQueue()
   q.push({ type: 'ready', nodeId: 'node-1' })
   q.push({ type: 'paymentSent', paymentId: 'p1', paymentHash: 'h1', preimage: 'pi1' })
+  q.push({
+    type: 'programmaticPayoutFailed',
+    payoutId: 'pp_123',
+    paymentId: 'p2',
+    paymentHash: 'h2',
+    reason: 'route not found',
+  })
 
   const iter = q.subscribe()[Symbol.asyncIterator]()
   const first = await iter.next()
@@ -43,6 +50,9 @@ test('EventQueue delivers events pushed BEFORE subscribe (start-buffered)', asyn
   const second = await iter.next()
   assert.equal(second.done, false)
   assert.equal((second.value as NodeEvent).type, 'paymentSent')
+  const third = await iter.next()
+  assert.equal(third.done, false)
+  assert.equal((third.value as NodeEvent).type, 'programmaticPayoutFailed')
 })
 
 test('EventQueue delivers events pushed AFTER subscribe (live delivery)', async () => {

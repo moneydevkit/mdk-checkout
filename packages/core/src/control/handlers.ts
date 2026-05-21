@@ -80,6 +80,7 @@ const programmaticPayoutImpl = impl.programmaticPayout.handler(({ input, context
 			kind: 'payout',
 			destination,
 			amountMsat: input.amountMsat,
+			payoutId: input.payoutId,
 			resolve,
 			reject,
 		})

@@ -68,7 +68,12 @@ test('programmaticPayout enqueues with explicit input destination', async () => 
   const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: 'lnurl-pre-configured' } })
   const pending = call(
     nodeControlRouter.programmaticPayout,
-    { payoutId: 'pp_1', amountMsat: 12345, destination: ' lnbc-programmatic ', idempotencyKey: 'k1' },
+    {
+      payoutId: 'pp_123',
+      amountMsat: 12345,
+      destination: ' lnbc-programmatic ',
+      idempotencyKey: 'k1',
+    },
     { context: ctx },
   )
   await new Promise((r) => setImmediate(r))
@@ -78,6 +83,7 @@ test('programmaticPayout enqueues with explicit input destination', async () => 
   if (cmd?.kind === 'payout') {
     assert.equal(cmd.destination, 'lnbc-programmatic')
     assert.equal(cmd.amountMsat, 12345, 'msats round-trip with no 1000x conversion')
+    assert.equal(cmd.payoutId, 'pp_123')
     cmd.resolve({ accepted: true, paymentId: 'pay-id-1', paymentHash: 'hash-1' })
   }
   const result = await pending
@@ -164,6 +170,13 @@ test('events() yields buffered events even when subscribed late', async () => {
   const ctx = makeContext()
   ctx.eventQueue.push({ type: 'ready', nodeId: 'n1' })
   ctx.eventQueue.push({ type: 'paymentSent', paymentId: 'p1', paymentHash: 'h1', preimage: 'pi' })
+  ctx.eventQueue.push({
+    type: 'programmaticPayoutSent',
+    payoutId: 'pp_123',
+    paymentId: 'p2',
+    paymentHash: 'h2',
+    preimage: 'pi2',
+  })
 
   const iter = await call(nodeControlRouter.events, undefined as unknown as void, { context: ctx })
   const it = iter[Symbol.asyncIterator]()
@@ -174,6 +187,11 @@ test('events() yields buffered events even when subscribed late', async () => {
   assert.equal(second.done, false)
   if (second.value && typeof second.value === 'object' && 'type' in second.value) {
     assert.equal((second.value as { type: string }).type, 'paymentSent')
+  }
+  const third = await it.next()
+  assert.equal(third.done, false)
+  if (third.value && typeof third.value === 'object' && 'type' in third.value) {
+    assert.equal((third.value as { type: string }).type, 'programmaticPayoutSent')
   }
 })
 
