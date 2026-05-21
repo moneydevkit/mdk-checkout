@@ -68,7 +68,7 @@ test('programmaticPayout enqueues with explicit input destination', async () => 
   const ctx = makeContext({ env: { WITHDRAWAL_DESTINATION: 'lnurl-pre-configured' } })
   const pending = call(
     nodeControlRouter.programmaticPayout,
-    { amountMsat: 12345, destination: ' lnbc-programmatic ', idempotencyKey: 'k1' },
+    { payoutId: 'pp_1', amountMsat: 12345, destination: ' lnbc-programmatic ', idempotencyKey: 'k1' },
     { context: ctx },
   )
   await new Promise((r) => setImmediate(r))

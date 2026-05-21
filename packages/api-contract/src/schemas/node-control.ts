@@ -3,8 +3,17 @@ import { z } from "zod";
 /**
  * Input for the legacy payout command. The merchant node resolves the
  * destination from process.env.WITHDRAWAL_DESTINATION.
+ *
+ * `withdrawalId` is optional for backward compatibility with callers that
+ * predate the WS-event reconciliation flow. When present, the merchant
+ * echoes it back as `withdrawalId` on the terminal `withdrawalSent` /
+ * `withdrawalFailed` event so mdk.com can look up the Withdrawal row by
+ * its own PK instead of correlating by paymentId (which races with the
+ * dispatch-ack DB write). Same trick the programmatic payout flow uses
+ * via `payoutId`.
  */
 export const PayoutInputSchema = z.object({
+	withdrawalId: z.string().min(1).optional(),
 	amountMsat: z.number().int().positive(),
 	idempotencyKey: z.string(),
 });
@@ -14,6 +23,7 @@ export type PayoutInput = z.infer<typeof PayoutInputSchema>;
  * Input for trusted server-initiated payouts to a caller-provided destination.
  */
 export const ProgrammaticPayoutInputSchema = z.object({
+	payoutId: z.string().min(1),
 	amountMsat: z.number().int().positive(),
 	destination: z
 		.string()
@@ -112,6 +122,14 @@ export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
  *
  * - ready: emitted once after node.startReceiving() + setupBolt12Receive() complete.
  * - paymentSent / paymentFailed: outbound payment outcomes. Correlate by paymentId.
+ * - programmaticPayoutSent / programmaticPayoutFailed: terminal outcomes for
+ *   programmatic payouts. Correlate by the mdk.com programmatic_payout.id carried
+ *   as payoutId.
+ * - withdrawalSent / withdrawalFailed: terminal outcomes for legacy payouts
+ *   (autopayout and manual dashboard withdrawals). Correlate by the
+ *   mdk.com withdrawal.id carried as withdrawalId. Only emitted when the
+ *   dispatch input included a withdrawalId; older mdk.com versions still
+ *   get plain paymentSent / paymentFailed and reconcile by paymentId.
  * - draining: emitted when the node enters its drain window.
  * - leaseReleased: emitted right before the node initiates a graceful shutdown.
  */
@@ -125,6 +143,34 @@ export const NodeEventSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		type: z.literal("paymentFailed"),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		reason: z.string().optional(),
+	}),
+	z.object({
+		type: z.literal("programmaticPayoutSent"),
+		payoutId: z.string(),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		preimage: z.string(),
+	}),
+	z.object({
+		type: z.literal("programmaticPayoutFailed"),
+		payoutId: z.string(),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		reason: z.string().optional(),
+	}),
+	z.object({
+		type: z.literal("withdrawalSent"),
+		withdrawalId: z.string(),
+		paymentId: z.string(),
+		paymentHash: z.string(),
+		preimage: z.string(),
+	}),
+	z.object({
+		type: z.literal("withdrawalFailed"),
+		withdrawalId: z.string(),
 		paymentId: z.string(),
 		paymentHash: z.string(),
 		reason: z.string().optional(),
