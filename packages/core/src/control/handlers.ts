@@ -51,6 +51,7 @@ const payoutImpl = impl.payout.handler(({ input, context }) => {
 			kind: 'payout',
 			destination: destination.trim(),
 			amountMsat: input.amountMsat,
+			withdrawalId: input.withdrawalId,
 			resolve,
 			reject,
 		})

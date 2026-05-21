@@ -151,7 +151,14 @@ async function unifiedLoop(
   // destroyed while any are in flight; otherwise the user loses confirmation
   // of whether the payment landed (LDK can usually resume on next start, but
   // the in-session caller has no way to learn the outcome).
-  const pendingOutbound = new Map<string, string | undefined>();
+  // Carries the correlation IDs the dispatch caller wants echoed back on the
+  // terminal event. At most one of payoutId / withdrawalId is set per
+  // outbound: payoutId for programmaticPayout (trusted server-supplied dest)
+  // and withdrawalId for the legacy payout RPC (autopayout + manual dashboard
+  // withdrawals). Lets mdk.com reconcile by its own PK on the right table
+  // without correlating by paymentId.
+  type PendingOutbound = { payoutId?: string; withdrawalId?: string };
+  const pendingOutbound = new Map<string, PendingOutbound>();
   const onReceived = createReceivedHandler(client);
   let drainSoft = false;
   let lastActivity = sessionStart;
@@ -185,12 +192,20 @@ async function unifiedLoop(
           paymentsSent++;
           // paymentId is only present for outbound (per lightning-js/index.d.ts:47).
           if (ev.paymentId) {
-            const payoutId = pendingOutbound.get(ev.paymentId);
+            const correlation = pendingOutbound.get(ev.paymentId);
             pendingOutbound.delete(ev.paymentId);
-            if (payoutId) {
+            if (correlation?.payoutId) {
               eventQueue.push({
                 type: "programmaticPayoutSent",
-                payoutId,
+                payoutId: correlation.payoutId,
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                preimage: ev.preimage ?? "",
+              });
+            } else if (correlation?.withdrawalId) {
+              eventQueue.push({
+                type: "withdrawalSent",
+                withdrawalId: correlation.withdrawalId,
                 paymentId: ev.paymentId,
                 paymentHash: ev.paymentHash,
                 preimage: ev.preimage ?? "",
@@ -214,12 +229,20 @@ async function unifiedLoop(
           // webhook behavior at webhooks.ts:124 and agent-wallet/server.ts:229.
           pendingClaims.delete(ev.paymentHash);
           if (ev.paymentId) {
-            const payoutId = pendingOutbound.get(ev.paymentId);
+            const correlation = pendingOutbound.get(ev.paymentId);
             pendingOutbound.delete(ev.paymentId);
-            if (payoutId) {
+            if (correlation?.payoutId) {
               eventQueue.push({
                 type: "programmaticPayoutFailed",
-                payoutId,
+                payoutId: correlation.payoutId,
+                paymentId: ev.paymentId,
+                paymentHash: ev.paymentHash,
+                ...(ev.reason ? { reason: ev.reason } : {}),
+              });
+            } else if (correlation?.withdrawalId) {
+              eventQueue.push({
+                type: "withdrawalFailed",
+                withdrawalId: correlation.withdrawalId,
                 paymentId: ev.paymentId,
                 paymentHash: ev.paymentHash,
                 ...(ev.reason ? { reason: ev.reason } : {}),
@@ -249,7 +272,10 @@ async function unifiedLoop(
       try {
         if (cmd.kind === "payout") {
           const r = node.payNow(cmd.destination, cmd.amountMsat);
-          pendingOutbound.set(r.paymentId, cmd.payoutId);
+          pendingOutbound.set(r.paymentId, {
+            payoutId: cmd.payoutId,
+            withdrawalId: cmd.withdrawalId,
+          });
           cmd.resolve({
             accepted: true,
             paymentId: r.paymentId,

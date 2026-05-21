@@ -20,7 +20,12 @@ export type Cmd =
 			kind: 'payout'
 			destination: string
 			amountMsat: number
+			// Carries one of payoutId (programmaticPayout) or withdrawalId
+			// (legacy payout). The SDK echoes whichever is set on the
+			// terminal event so mdk.com can reconcile by its own PK instead
+			// of correlating by paymentId (which races with the ack DB write).
 			payoutId?: string
+			withdrawalId?: string
 			resolve: (value: PayoutResult) => void
 			reject: (err: Error) => void
 	  }
