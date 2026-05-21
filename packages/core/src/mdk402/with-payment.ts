@@ -1,4 +1,6 @@
 import type { Currency } from '@moneydevkit/api-contract'
+import type { CustomerInput } from '../actions'
+import type { CreateCheckoutParams } from '../actions'
 import { createMoneyDevKitClient, deriveNodeIdFromConfig } from '../mdk'
 import { is_preview_environment } from '../preview'
 import {
@@ -7,18 +9,182 @@ import {
   verifyL402Credential,
   verifyPreimage,
 } from './token'
+import type { VerifyL402CredentialResult } from './token'
+
+/** Sugar: a value of type T or a function that derives it from the request. */
+type Dynamic<T> = T | ((req: Request) => T | Promise<T>)
 
 /**
- * Configuration for the withPayment and withDeferredConfirmation wrappers.
- * Defines pricing and token expiry for L402-gated endpoints.
+ * Distributive mapped type. Each branch of CreateCheckoutParams gets its own
+ * fields independently dynamified, preserving the AMOUNT/PRODUCTS discrimination.
+ * The `T extends unknown` triggers distribution; without it, `keyof` collapses
+ * to the intersection of keys (common fields only) and branch-specific fields
+ * like `amount` and `product` would not be wrapped.
  */
-export type PaymentConfig = {
-  /** Fixed amount or async callback that receives the request and returns the amount. */
-  amount: number | ((req: Request) => number | Promise<number>)
-  /** Currency for pricing. SAT for direct satoshi amounts, USD for fiat conversion. */
-  currency: Currency
-  /** How long the credential (and invoice) remain valid, in seconds. Default: 900 (15 min). */
+type Dynamify<T> = T extends unknown
+  ? { [K in keyof T]: Dynamic<T[K]> }
+  : never
+
+/**
+ * Configuration for `withPayment` and `withDeferredSettlement`. Mirrors
+ * `CreateCheckoutParams` from actions.ts with two additions:
+ *   - Every field accepts a `(req: Request) => value` resolver (or async).
+ *   - `expirySeconds` controls the credential + invoice lifetime (default 900).
+ *
+ * The AMOUNT/PRODUCTS discriminator lives in CreateCheckoutParams. There is
+ * deliberately no separate `PaymentConfig` taxonomy — keeping the contract
+ * single-sourced prevents the two surfaces from drifting.
+ */
+export type WithPaymentConfig = Dynamify<CreateCheckoutParams> & {
   expirySeconds?: number
+}
+
+/** All system-controlled keys on `Checkout.userMetadata`. Merchants cannot override. */
+const RESERVED_METADATA_KEYS = ['source', 'resource', 'sandbox'] as const
+
+/** Sentinel for the `source` metadata key — distinguishes 402-created checkouts. */
+const METADATA_SOURCE_402 = '402'
+
+/** Sentinel for the `sandbox` metadata key when the merchant is in preview mode. */
+const METADATA_SANDBOX_FLAG = 'true'
+
+/** Resolve a Dynamic<T> against a Request, awaiting async resolvers. */
+async function resolveDynamic<T>(
+  value: Dynamic<T> | undefined,
+  req: Request,
+): Promise<T | undefined> {
+  if (value === undefined) return undefined
+  if (typeof value === 'function') {
+    return await Promise.resolve((value as (r: Request) => T | Promise<T>)(req))
+  }
+  return value
+}
+
+/**
+ * Compose the `userMetadata` blob attached to the Checkout on creation. The
+ * precedence order is encoded in the function signature rather than a comment:
+ *
+ *   merchant  →  top-level title/description  →  system-reserved keys
+ *
+ * System-reserved keys (`source`, `resource`, `sandbox`) always win; a merchant
+ * cannot spoof them. Top-level `title`/`description` beat any matching keys
+ * in `merchant` for parity with `actions.ts` (the dashboard SDK uses the same
+ * precedence).
+ */
+function composeCheckoutMetadata(args: {
+  merchant: Record<string, string> | undefined
+  title: string | undefined
+  description: string | undefined
+  resourceUrl: string
+  isSandbox: boolean
+}): Record<string, string> {
+  return {
+    ...(args.merchant ?? {}),
+    ...(args.title !== undefined ? { title: args.title } : {}),
+    ...(args.description !== undefined ? { description: args.description } : {}),
+    source: METADATA_SOURCE_402,
+    resource: args.resourceUrl,
+    ...(args.isSandbox ? { sandbox: METADATA_SANDBOX_FLAG } : {}),
+  }
+}
+
+/**
+ * Resolve a WithPaymentConfig into a fully-evaluated CreateCheckoutParams.
+ * Walks the Dynamic<T> resolvers and runs the static-validation guards.
+ * Returns a Response (500) if any callback throws or static validation fails.
+ *
+ * Two separate try/catch blocks isolate failure provenance:
+ *   - amount/product resolution → `pricing_error` (back-compat with pre-PR)
+ *   - title/description/metadata resolution → `config_error` (MDK-707 addition)
+ *
+ * Static-validation failures (amount not finite, product empty string) use
+ * `config_invalid` — they're config bugs, not runtime callback failures.
+ */
+async function resolveConfig(
+  config: WithPaymentConfig,
+  req: Request,
+): Promise<CreateCheckoutParams | Response> {
+  const isProducts = config.type === 'PRODUCTS'
+
+  // Pricing-related resolution (amount or product). Throws → pricing_error.
+  let amount: number | undefined
+  let product: string | undefined
+  try {
+    if (isProducts) {
+      product = await resolveDynamic(config.product, req)
+    } else {
+      amount = await resolveDynamic(config.amount, req)
+    }
+  } catch (err) {
+    return errorResponse(500, {
+      code: 'pricing_error',
+      message: 'Failed to determine price',
+      details: err instanceof Error ? err.message : String(err),
+      phase: 'create',
+    })
+  }
+
+  // Static-validation guards (catches JS callers bypassing the TS types).
+  if (isProducts) {
+    if (typeof product !== 'string' || product.length === 0) {
+      return errorResponse(500, {
+        code: 'config_invalid',
+        message: 'PRODUCTS-mode withPayment requires a non-empty product id',
+      })
+    }
+  } else {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+      return errorResponse(500, {
+        code: 'config_invalid',
+        message: 'AMOUNT-mode withPayment requires a finite numeric amount',
+      })
+    }
+  }
+
+  // Non-pricing resolution (title, description, metadata). Throws → config_error.
+  // title/description only resolve in AMOUNT mode — the contract excludes
+  // them from PRODUCTS, so a JS caller bypassing the types gets a silent drop
+  // rather than an executed callback whose result we'd discard anyway.
+  let title: string | undefined
+  let description: string | undefined
+  let merchantMetadata: Record<string, unknown> | undefined
+  try {
+    if (!isProducts) {
+      title = await resolveDynamic(config.title, req)
+      description = await resolveDynamic(config.description, req)
+    }
+    merchantMetadata = await resolveDynamic(config.metadata, req)
+  } catch (err) {
+    return errorResponse(500, {
+      code: 'config_error',
+      message: 'Failed to resolve withPayment config',
+      details: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  // Return the plain CreateCheckoutParams shape. Branch on isProducts so TS
+  // narrows correctly; title/description are AMOUNT-only by contract (the
+  // product's own name/description drive the dashboard + payer-facing surfaces
+  // in PRODUCTS mode), so the PRODUCTS branch omits them entirely.
+  if (isProducts) {
+    return {
+      type: 'PRODUCTS',
+      product: product!,
+      metadata: merchantMetadata,
+      customer: config.customer as CustomerInput | undefined,
+      requireCustomerData: config.requireCustomerData as string[] | undefined,
+    }
+  }
+  return {
+    type: 'AMOUNT',
+    amount: amount!,
+    currency: config.currency as Currency,
+    title,
+    description,
+    metadata: merchantMetadata,
+    customer: config.customer as CustomerInput | undefined,
+    requireCustomerData: config.requireCustomerData as string[] | undefined,
+  }
 }
 
 type Handler = (req: Request, context?: any) => Response | Promise<Response>
@@ -45,22 +211,111 @@ type VerifiedCredential = {
   paymentHash: string
 }
 
+/** Narrow type for a verified-valid credential, for use inside the mode helpers. */
+type ValidCredential = Extract<VerifyL402CredentialResult, { valid: true }>
+
 /**
- * Verify the L402 credential from the request.
- * Checks HMAC integrity, resource binding, amount match, and preimage proof.
- * Returns the payment hash on success, or an error Response on failure.
+ * Retry verification: re-resolve the endpoint's current price and compare to
+ * the credential's frozen amount + currency. This is uniform across AMOUNT
+ * and PRODUCTS modes — the credential carries no mode-specific binding (no
+ * productId/priceId), so the endpoint's `config.type` decides how to compute
+ * the current price.
+ *
+ *   AMOUNT   → re-run config.amount (with dynamic resolver if any).
+ *   PRODUCTS → resolve config.product, fetch the product from mdk.com, look
+ *              for a price snapshot whose (priceAmount, currency) matches the
+ *              credential. No match = the price was retired or the product
+ *              archived = 403 amount_mismatch (recoverable).
+ *
+ * Returns `null` on success, or a Response describing the failure.
+ *
+ * Caveat: if config.product is a dynamic resolver that returns different
+ * product IDs on issue vs retry, the lookup will mismatch even for a
+ * legitimately-issued credential. Merchants should keep config.product stable.
+ */
+async function verifyCurrentPrice(
+  credential: ValidCredential,
+  config: WithPaymentConfig,
+  req: Request,
+): Promise<Response | null> {
+  let currentAmount: number
+  let currentCurrency: string
+
+  try {
+    if (config.type === 'PRODUCTS') {
+      const productId = await resolveDynamic(config.product, req)
+      if (typeof productId !== 'string' || productId.length === 0) {
+        // Defensive: PRODUCTS config without a valid product ID at retry time.
+        return errorResponse(500, {
+          code: 'pricing_error',
+          message: 'PRODUCTS endpoint config.product resolved to an invalid value',
+          phase: 'verify',
+        })
+      }
+      const client = createMoneyDevKitClient()
+      const product = await client.products.get({ id: productId })
+      const matchingPrice = product.prices.find(
+        (p: { priceAmount: number | null; currency: string }) =>
+          p.priceAmount === credential.amount && p.currency === credential.currency,
+      )
+      if (!matchingPrice) {
+        // Product exists but the price snapshot the credential paid for is gone.
+        return errorResponse(403, {
+          code: 'amount_mismatch',
+          message: 'Credential was not issued for any currently-active price of this product',
+          recoverable: true,
+        })
+      }
+      currentAmount = matchingPrice.priceAmount as number
+      currentCurrency = matchingPrice.currency
+    } else {
+      const amountField = config.amount as Dynamic<number>
+      currentAmount = typeof amountField === 'function'
+        ? await Promise.resolve(amountField(req))
+        : amountField
+      currentCurrency = config.currency as string
+    }
+  } catch (err) {
+    return errorResponse(500, {
+      code: 'pricing_error',
+      message: 'Failed to determine current price',
+      details: err instanceof Error ? err.message : String(err),
+      phase: 'verify',
+    })
+  }
+
+  if (credential.amount !== currentAmount || credential.currency !== currentCurrency) {
+    return errorResponse(403, {
+      code: 'amount_mismatch',
+      message: 'Credential was not issued for the endpoint\'s current price',
+      recoverable: true,
+    })
+  }
+
+  return null
+}
+
+/**
+ * Verify the L402 credential from the request. Top-level dispatcher:
+ *   1. Parse auth header → 401 invalid_credential / 402 dispatch on absent
+ *   2. Verify HMAC signature → 401 invalid_credential
+ *   3. Resource match → 403 resource_mismatch
+ *   4. Price verification via verifyCurrentPrice
+ *   5. Preimage proof (skipped in preview mode) → 401 invalid_payment_proof
+ *
+ * Returns { paymentHash } on success, or a Response describing the failure.
  */
 async function verifyCredential(
   req: Request,
-  config: PaymentConfig,
+  config: WithPaymentConfig,
   accessToken: string,
 ): Promise<VerifiedCredential | Response> {
   const authHeader = req.headers.get('authorization')
   const parsed = parseAuthorizationHeader(authHeader)
 
   if (!parsed.valid) {
-    // L402/LSAT scheme present but malformed - don't issue a new invoice
     if (parsed.attempted) {
+      // L402/LSAT scheme present but malformed - don't issue a new invoice
       return errorResponse(401, {
         code: 'invalid_credential',
         message: 'Malformed L402 authorization header',
@@ -72,7 +327,6 @@ async function verifyCredential(
 
   // Verify credential integrity (expiry is NOT checked - a paid credential never expires)
   const credentialResult = verifyL402Credential(parsed.macaroon, accessToken)
-
   if (!credentialResult.valid) {
     return errorResponse(401, {
       code: 'invalid_credential',
@@ -89,30 +343,12 @@ async function verifyCredential(
     })
   }
 
-  // Verify credential was issued for the current price
-  let currentAmount: number
-  try {
-    currentAmount = typeof config.amount === 'function'
-      ? await Promise.resolve(config.amount(req))
-      : config.amount
-  } catch (err) {
-    return errorResponse(500, {
-      code: 'pricing_error',
-      message: 'Failed to determine price',
-      details: err instanceof Error ? err.message : String(err),
-    })
-  }
-
-  if (credentialResult.amount !== currentAmount || credentialResult.currency !== config.currency) {
-    return errorResponse(403, {
-      code: 'amount_mismatch',
-      message: 'Credential was not issued for this price',
-    })
-  }
+  // Price verification: re-resolve the current price and compare to the frozen credential values.
+  const priceError = await verifyCurrentPrice(credentialResult, config, req)
+  if (priceError) return priceError
 
   // Verify payment proof (skip in preview/sandbox mode)
-  const isPreview = is_preview_environment()
-  if (!isPreview) {
+  if (!is_preview_environment()) {
     if (!verifyPreimage(parsed.preimage, credentialResult.paymentHash)) {
       return errorResponse(401, {
         code: 'invalid_payment_proof',
@@ -133,7 +369,7 @@ async function verifyCredential(
  *
  * Also accepts the legacy LSAT scheme per bLIP-26 backwards compatibility.
  */
-export function withPayment(config: PaymentConfig, handler: Handler): Handler {
+export function withPayment(config: WithPaymentConfig, handler: Handler): Handler {
   return async (req: Request, context?: any): Promise<Response> => {
     const accessToken = process.env.MDK_ACCESS_TOKEN
     if (!accessToken) {
@@ -178,7 +414,7 @@ export function withPayment(config: PaymentConfig, handler: Handler): Handler {
  *
  * settle() is callable only once - subsequent calls return an error.
  */
-export function withDeferredSettlement(config: PaymentConfig, handler: DeferredHandler): Handler {
+export function withDeferredSettlement(config: WithPaymentConfig, handler: DeferredHandler): Handler {
   return async (req: Request, context?: any): Promise<Response> => {
     const accessToken = process.env.MDK_ACCESS_TOKEN
     if (!accessToken) {
@@ -233,56 +469,45 @@ export function withDeferredSettlement(config: PaymentConfig, handler: DeferredH
 
 /**
  * Build the 402 Payment Required response with a Lightning invoice.
- * Creates a checkout on the MDK backend for dashboard visibility,
- * generates an invoice via the local Lightning node, and signs an L402 credential.
+ * Creates a checkout on the MDK backend for dashboard visibility, mints an
+ * invoice through the WS control plane, and signs an L402 credential bound
+ * to this endpoint.
  *
  * The WWW-Authenticate header follows bLIP-26 format:
  *   L402 macaroon="<credential>", invoice="<bolt11>"
+ * (with an additional `sandbox="true"` parameter in preview mode).
  */
 async function create402Response(
   req: Request,
-  config: PaymentConfig,
+  config: WithPaymentConfig,
   accessToken: string,
 ): Promise<Response> {
-  // Resolve dynamic pricing
-  let amount: number
-  try {
-    amount = typeof config.amount === 'function'
-      ? await Promise.resolve(config.amount(req))
-      : config.amount
-  } catch (err) {
-    return errorResponse(500, {
-      code: 'pricing_error',
-      message: 'Failed to determine price',
-      details: err instanceof Error ? err.message : String(err),
-    })
-  }
-
   const expirySeconds = config.expirySeconds ?? DEFAULT_EXPIRY_SECONDS
+
+  const resolved = await resolveConfig(config, req)
+  if (resolved instanceof Response) return resolved
+
   const isPreview = is_preview_environment()
 
   try {
     const client = createMoneyDevKitClient()
-
-    // 1. Create checkout on MDK backend (gives dashboard visibility). The
-    //    nodeId is derived from the mnemonic cheaply (~1ms) without building
-    //    the full ldk-node; the actual node that mints lives on a merchant
-    //    webhook function and is reached via the WS control plane.
     const nodeId = deriveNodeIdFromConfig()
+
+    const metadata = composeCheckoutMetadata({
+      merchant: resolved.metadata as Record<string, string> | undefined,
+      title: resolved.title,
+      description: resolved.description,
+      resourceUrl: req.url,
+      isSandbox: isPreview,
+    })
+
+    // resolved is already a CreateCheckoutParams. Spread it and override
+    // metadata with the composed (system-keys-on-top) version.
     const checkout = await client.checkouts.create(
-      {
-        amount,
-        currency: config.currency,
-        metadata: {
-          source: '402',
-          resource: req.url,
-          ...(isPreview ? { sandbox: 'true' } : {}),
-        },
-      },
+      { ...resolved, metadata },
       nodeId,
     )
 
-    // The checkout should be auto-confirmed for AMOUNT type without customer data
     if (checkout.status !== 'CONFIRMED') {
       return errorResponse(502, {
         code: 'checkout_creation_failed',
@@ -290,10 +515,6 @@ async function create402Response(
       })
     }
 
-    // 2. Mint invoice via mdk.com (WS control plane). Previously this built a
-    //    local ldk-node and called node.invoices.create/createWithScid; that
-    //    caused the dual-node race against any receive webhook session for
-    //    the same merchant.
     const pendingCheckout = await client.checkouts.mintInvoice({
       checkoutId: checkout.id,
       expirySecs: expirySeconds,
@@ -307,35 +528,37 @@ async function create402Response(
       })
     }
 
-    // 3. Create signed L402 credential bound to this endpoint
     const expiresAt = Math.floor(invoiceFromDb.expiresAt.getTime() / 1000)
     const amountSats = pendingCheckout.invoiceAmountSats ?? checkout.invoiceAmountSats ?? 0
     const resource = `${req.method}:${new URL(req.url).pathname}`
+
+    // Credential amount/currency:
+    //   AMOUNT   → merchant's resolved input.
+    //   PRODUCTS → resolved from the pending checkout (MDK-server derived).
+    const credentialAmount = resolved.type === 'PRODUCTS'
+      ? pendingCheckout.providedAmount ?? 0
+      : resolved.amount
+    const credentialCurrency = resolved.type === 'PRODUCTS'
+      ? pendingCheckout.currency ?? 'SAT'
+      : resolved.currency
+
     const macaroon = createL402Credential({
       paymentHash: invoiceFromDb.paymentHash,
       amountSats,
       expiresAt,
       accessToken,
       resource,
-      amount,
-      currency: config.currency,
+      amount: credentialAmount,
+      currency: credentialCurrency,
     })
 
-    // 5. Build 402 response with L402-compatible headers (bLIP-26).
-    //    In preview/sandbox mode, signal the state on three independent channels
-    //    (JSON body, WWW-Authenticate param, BOLT11 description tag — the third
-    //    is set at mint time by the mdk.com backend) so AI agents detect sandbox
-    //    state and skip payment instead of failing with a generic Lightning error.
     const wwwAuthenticate = isPreview
       ? `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}", sandbox="true"`
       : `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
 
     return new Response(
       JSON.stringify({
-        error: {
-          code: 'payment_required',
-          message: 'Payment required',
-        },
+        error: { code: 'payment_required', message: 'Payment required' },
         macaroon,
         invoice: invoiceFromDb.invoice,
         paymentHash: invoiceFromDb.paymentHash,
@@ -359,11 +582,31 @@ async function create402Response(
   }
 }
 
+/**
+ * Error envelope returned in JSON bodies. `recoverable` and `phase` are
+ * optional extensions added in this refactor:
+ *
+ *   recoverable=true  → the client should discard the credential and request
+ *                       a fresh 402 (e.g., price changed, product/price retired)
+ *   recoverable=false → the client has fundamentally wrong credential for this
+ *                       endpoint (e.g., AMOUNT credential on PRODUCTS endpoint)
+ *   phase             → for pricing_error specifically, distinguishes failures
+ *                       at 402 issuance ("create") vs authenticated retry
+ *                       ("verify"). Helps merchants grep logs by failure point.
+ *
+ * `details` stays a string for back-compat with the pre-refactor contract.
+ */
+type L402ErrorEnvelope = {
+  code: string
+  message: string
+  details?: string
+  suggestion?: string
+  recoverable?: boolean
+  phase?: 'create' | 'verify'
+}
+
 /** Build a JSON error response following the MdkError format. */
-function errorResponse(
-  status: number,
-  error: { code: string; message: string; details?: string; suggestion?: string },
-): Response {
+function errorResponse(status: number, error: L402ErrorEnvelope): Response {
   return new Response(JSON.stringify({ error }), {
     status,
     headers: { 'content-type': 'application/json' },

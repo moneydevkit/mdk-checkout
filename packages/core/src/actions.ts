@@ -193,11 +193,16 @@ type CommonCheckoutFields = {
 }
 
 type AmountCheckoutParams = CommonCheckoutFields & {
-  type: 'AMOUNT'
+  type?: 'AMOUNT'
   /** Currency for the checkout amount. */
   currency: Currency
   amount: number
+  /** Short label surfaced on dashboard/order/webhook surfaces. */
   title?: string
+  /**
+   * Free-form description. For AMOUNT-mode L402 endpoints this flows through
+   * to the BOLT11 invoice's description tag (truncated server-side).
+   */
   description?: string
   product?: never
 }
@@ -211,6 +216,9 @@ type ProductCheckoutParams = CommonCheckoutFields & {
   product: string
   currency?: never
   amount?: never
+  // The product's own name/description drive the dashboard + payer-facing
+  // surfaces; checkout-level title/description would land nowhere visible and
+  // are intentionally excluded from this branch of the contract.
   title?: never
   description?: never
 }
@@ -237,8 +245,10 @@ export async function createCheckout(
 
   const product = isProductCheckout ? params.product : undefined
   const amount = isProductCheckout ? undefined : params.amount
-  const title = isProductCheckout ? undefined : params.title
-  const description = isProductCheckout ? undefined : params.description
+  // title/description are AMOUNT-only at the type level — TS narrows them to
+  // undefined on the PRODUCTS branch.
+  const title = params.title
+  const description = params.description
 
   try {
     const client = createMoneyDevKitClient()

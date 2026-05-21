@@ -4,6 +4,81 @@ import { createHash } from 'crypto'
 
 import { createL402Credential } from '../src/mdk402/token'
 
+// =============================================================================
+// Type-level tests (compile-time assertions for the unified WithPaymentConfig)
+//
+// These don't run; tsc enforces them at typecheck time. The point is to lock
+// down the contract: WithPaymentConfig must accept the same shapes that
+// createCheckout accepts, plus the L402 extras (Dynamic<T>, expirySeconds).
+// If this file stops compiling, the contract has drifted.
+// =============================================================================
+
+import type { WithPaymentConfig } from '../src/mdk402/with-payment'
+import type { CreateCheckoutParams } from '../src/actions'
+
+/** Helper: assert that A is assignable to B. */
+type Assignable<A, B> = A extends B ? true : false
+
+// A plain CreateCheckoutParams (AMOUNT) must be assignable to WithPaymentConfig.
+const _amountLiteral: WithPaymentConfig = {
+  type: 'AMOUNT',
+  amount: 100,
+  currency: 'SAT',
+  title: 'demo',
+  description: 'demo desc',
+  metadata: { tier: 'pro' },
+}
+void _amountLiteral
+
+// AMOUNT without explicit type (the legacy shape) still works.
+const _amountLegacy: WithPaymentConfig = { amount: 100, currency: 'SAT' }
+void _amountLegacy
+
+// A PRODUCTS literal must be assignable. title/description are AMOUNT-only by
+// contract — the product's own name/description drive the payer- and
+// dashboard-facing surfaces in PRODUCTS mode.
+const _productsLiteral: WithPaymentConfig = {
+  type: 'PRODUCTS',
+  product: 'prod_123',
+}
+void _productsLiteral
+
+// Negative assertion: PRODUCTS mode must reject title/description.
+// @ts-expect-error - title is not allowed on PRODUCTS-mode WithPaymentConfig
+const _productsRejectsTitle: WithPaymentConfig = {
+  type: 'PRODUCTS',
+  product: 'prod_123',
+  title: 'should not compile',
+}
+void _productsRejectsTitle
+
+// Dynamic resolvers must be accepted on each field.
+const _dynamicAmount: WithPaymentConfig = {
+  amount: (req: Request) => req.headers.get('x-tier') === 'pro' ? 200 : 100,
+  currency: 'SAT',
+}
+void _dynamicAmount
+
+const _dynamicProduct: WithPaymentConfig = {
+  type: 'PRODUCTS',
+  product: async (req: Request) => `prod_${req.headers.get('x-sku')}`,
+}
+void _dynamicProduct
+
+// L402 extras: expirySeconds must be accepted alongside any of the above.
+const _withExpiry: WithPaymentConfig = {
+  amount: 100,
+  currency: 'SAT',
+  expirySeconds: 1800,
+}
+void _withExpiry
+
+// Assignability check (lives at the type level — tsc enforces it).
+// CreateCheckoutParams is a strict subset of WithPaymentConfig (no dynamics, no expiry).
+type _checkoutFitsWithPayment = Assignable<CreateCheckoutParams, WithPaymentConfig>
+const _check: _checkoutFitsWithPayment = true
+void _check
+
 // Known preimage/hash pair
 const TEST_PREIMAGE = '0000000000000000000000000000000000000000000000000000000000000001'
 const TEST_PAYMENT_HASH = createHash('sha256')
@@ -17,6 +92,8 @@ const FAKE_INVOICE = 'lnbc1000n1test...'
 const FAKE_SCID = 'test-scid-123'
 const FAKE_CHECKOUT_ID = 'checkout-123'
 const FAKE_NODE_ID = 'node-abc-123'
+const FAKE_PRODUCT_ID = 'prod_test_abc'
+const FAKE_PRICE_ID = 'price_test_xyz'
 
 function futureTimestamp(seconds: number): number {
   return Math.floor(Date.now() / 1000) + seconds
@@ -78,8 +155,26 @@ function makeFakePendingCheckout(amountSats: number) {
 /** Build fake client for mocking. fakeNode is gone - the merchant SDK no
  *  longer spins up a local ldk-node to mint invoices (race fix). mdk.com
  *  mints via the WS control plane and returns the full pending checkout with
- *  the invoice attached. */
+ *  the invoice attached.
+ *
+ *  products.get is mocked so PRODUCTS-mode retry-verification tests can
+ *  exercise the active-product/active-price check path. By default it returns
+ *  a product with a single price whose id matches FAKE_PRICE_ID. */
 function buildMocks(amountSats = 100) {
+  const fakeProduct = {
+    id: FAKE_PRODUCT_ID,
+    name: 'Test product',
+    description: null,
+    recurringInterval: null,
+    prices: [
+      { id: FAKE_PRICE_ID, amountType: 'FIXED' as const, priceAmount: amountSats, currency: 'SAT' as const },
+    ],
+    userMetadata: null,
+    organizationId: 'org_test',
+    createdAt: new Date(),
+    modifiedAt: null,
+  }
+
   const fakeClient = {
     checkouts: {
       create: mock.fn(async () => makeFakeConfirmedCheckout(amountSats)),
@@ -89,9 +184,12 @@ function buildMocks(amountSats = 100) {
       redeemL402: mock.fn(async () => ({ redeemed: true })),
       checkL402: mock.fn(async () => ({ redeemed: false })),
     },
+    products: {
+      get: mock.fn(async (_input: { id: string }) => fakeProduct),
+    },
   }
 
-  return { fakeClient }
+  return { fakeClient, fakeProduct }
 }
 
 // We need to mock the mdk module to avoid real Lightning/backend calls.
@@ -292,6 +390,22 @@ describe('withPayment', () => {
       const res = await wrapped(makeRequest('http://localhost/api/premium', 'Bearer sometoken'))
 
       assert.equal(res.status, 402)
+    })
+
+    // BACK-COMPAT GAP-FILL: when the credential is malformed AND the URL the
+    // client hits doesn't match the credential's resource, the malformed-
+    // credential 401 must win over the resource-mismatch 403. Fail-fast on
+    // structural issues before doing semantic checks. Locks in the order so
+    // the refactor doesn't accidentally swap them.
+    it('malformed L402 credential beats resource_mismatch (fail-fast on structural error)', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(
+        makeRequest('http://localhost/api/different-endpoint', 'L402 garbage:nopreimage'),
+      )
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_credential')
     })
   })
 
@@ -525,6 +639,23 @@ describe('withPayment', () => {
       assert.equal(body.error.code, 'pricing_error')
     })
 
+    // BACK-COMPAT GAP-FILL: the pricing_error body must surface the thrown
+    // Error.message via `details` so merchants can debug their config from logs.
+    // Locks this in before the refactor potentially restructures the error shape.
+    it('pricing_error response includes the thrown error message in details', async () => {
+      const failingPriceFn = () => {
+        throw new Error('External rate API is down')
+      }
+
+      const wrapped = withPayment({ amount: failingPriceFn, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'pricing_error')
+      assert.equal(body.error.details, 'External rate API is down')
+    })
+
     it('returns 403 when credential amount does not match current dynamic price', async () => {
       // Credential was issued for amount=50, but pricing function now returns 250
       const auth = makeValidAuth({ amount: 50, resource: 'GET:/api/dynamic' })
@@ -617,6 +748,23 @@ describe('withPayment', () => {
       assert.equal(res.status, 502)
       const body = await res.json()
       assert.equal(body.error.code, 'checkout_creation_failed')
+    })
+
+    // BACK-COMPAT GAP-FILL: mintInvoice succeeding but returning a checkout
+    // without an invoice attached is a distinct backend failure mode and gets
+    // its own code. Locks in the discriminator before the refactor.
+    it('returns 502 invoice_mint_failed when mintInvoice returns checkout without invoice', async () => {
+      currentMocks.fakeClient.checkouts.mintInvoice = mock.fn(async () => ({
+        ...makeFakePendingCheckout(100),
+        invoice: null,
+      }))
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 502)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invoice_mint_failed')
     })
   })
 
@@ -809,6 +957,580 @@ describe('withPayment', () => {
       assert.equal(typeof body.paymentHash, 'string')
       assert.equal(typeof body.amountSats, 'number')
       assert.equal(typeof body.expiresAt, 'number')
+    })
+
+    // BACK-COMPAT GAP-FILL: sandbox-mode responses must keep
+    // `content-type: application/json` like production. Locks in the header
+    // so the refactor doesn't drop it from the sandbox branch.
+    it('content-type is application/json in sandbox mode too', async () => {
+      previewMode = true
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.headers.get('content-type'), 'application/json')
+    })
+  })
+
+  describe('title/description/metadata config (AMOUNT mode)', () => {
+    it('passes static title through to checkouts.create metadata', async () => {
+      const wrapped = withPayment(
+        { amount: 100, currency: 'SAT', title: 'Premium endpoint' },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const call = currentMocks.fakeClient.checkouts.create.mock.calls[0]
+      assert.equal(call.arguments[0].metadata.title, 'Premium endpoint')
+    })
+
+    it('resolves dynamic title callback with the request', async () => {
+      let receivedUrl = ''
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          title: (req) => {
+            receivedUrl = req.url
+            return `API for ${new URL(req.url).pathname}`
+          },
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/api/v1/foo'))
+
+      assert.equal(receivedUrl, 'http://localhost/api/v1/foo')
+      const call = currentMocks.fakeClient.checkouts.create.mock.calls[0]
+      assert.equal(call.arguments[0].metadata.title, 'API for /api/v1/foo')
+    })
+
+    it('passes static description through to checkouts.create metadata', async () => {
+      const wrapped = withPayment(
+        { amount: 100, currency: 'SAT', description: 'Daily wine pairing' },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const call = currentMocks.fakeClient.checkouts.create.mock.calls[0]
+      assert.equal(call.arguments[0].metadata.description, 'Daily wine pairing')
+    })
+
+    it('merges static merchant metadata, system keys take precedence', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          metadata: { tier: 'pro', source: 'overridden-by-merchant', resource: 'hijack-attempt' },
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/api/premium'))
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      // Merchant key preserved
+      assert.equal(md.tier, 'pro')
+      // System keys cannot be overridden
+      assert.equal(md.source, '402')
+      assert.equal(md.resource, 'http://localhost/api/premium')
+    })
+
+    it('top-level title/description override matching merchant metadata keys', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          title: 'Top-level title',
+          metadata: { title: 'Metadata title (should lose)' },
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.title, 'Top-level title')
+    })
+
+    it('resolves dynamic metadata callback with the request', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          metadata: (req) => ({ requestId: new URL(req.url).searchParams.get('id') ?? 'none' }),
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/api/premium?id=req-42'))
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.requestId, 'req-42')
+    })
+
+    it('forwards customer and requireCustomerData to checkouts.create', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          customer: { name: 'Agent X', email: 'agent@example.com', externalId: 'ext-1' },
+          requireCustomerData: ['name', 'email'],
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const arg = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0]
+      assert.deepEqual(arg.customer, { name: 'Agent X', email: 'agent@example.com', externalId: 'ext-1' })
+      assert.deepEqual(arg.requireCustomerData, ['name', 'email'])
+    })
+
+    it('returns 500 config_error when title callback throws', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          title: () => {
+            throw new Error('boom')
+          },
+        },
+        innerHandler,
+      )
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'config_error')
+    })
+
+    // EXTENSION GAP-FILL: async title/description/metadata callbacks (parity
+    // with the existing async amount callback test on line 525). resolveDynamic
+    // awaits Promise returns, so this should already work — locks it in before
+    // the refactor changes the resolution path.
+    it('awaits an async title callback', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          title: async (req) => `async-title-for-${new URL(req.url).pathname}`,
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/api/x'))
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.title, 'async-title-for-/api/x')
+    })
+
+    it('awaits an async description callback', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          description: async () => 'async-description',
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.description, 'async-description')
+    })
+
+    it('awaits an async metadata callback', async () => {
+      const wrapped = withPayment(
+        {
+          amount: 100,
+          currency: 'SAT',
+          metadata: async () => ({ flavor: 'async' }),
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.flavor, 'async')
+    })
+
+    // EXTENSION GAP-FILL: explicit `type: 'AMOUNT'` must behave identically to
+    // omitting type (the default). Locks in the discriminator default-value
+    // semantics before the refactor that may reshape the config dispatch.
+    it('accepts explicit type: "AMOUNT" identically to omitting type', async () => {
+      const wrapped = withPayment({ type: 'AMOUNT', amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(typeof body.macaroon, 'string')
+      // Should hit the AMOUNT checkouts.create branch (no `product` field).
+      const arg = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0]
+      assert.equal(arg.amount, 100)
+      assert.equal(arg.currency, 'SAT')
+      assert.equal(arg.product, undefined)
+    })
+
+  })
+
+  describe('PRODUCTS-mode 402 issuance', () => {
+    // Mint returns a checkout that looks like an MDK-resolved product checkout:
+    // productId/productPriceId set, providedAmount populated from the price.
+    function setProductsMintMock() {
+      currentMocks.fakeClient.checkouts.mintInvoice = mock.fn(async () => ({
+        ...makeFakePendingCheckout(100),
+        productId: FAKE_PRODUCT_ID,
+        productPriceId: FAKE_PRICE_ID,
+        providedAmount: 100,
+        currency: 'SAT',
+      }))
+      currentMocks.fakeClient.checkouts.create = mock.fn(async () => ({
+        ...makeFakeConfirmedCheckout(100),
+        productId: FAKE_PRODUCT_ID,
+        productPriceId: FAKE_PRICE_ID,
+      }))
+    }
+
+    it('passes product (not amount/currency) to checkouts.create', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment({ type: 'PRODUCTS', product: FAKE_PRODUCT_ID }, innerHandler)
+      await wrapped(makeRequest())
+
+      const arg = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0]
+      assert.equal(arg.product, FAKE_PRODUCT_ID)
+      assert.equal(arg.amount, undefined)
+      assert.equal(arg.currency, undefined)
+    })
+
+    it('resolves dynamic product callback with the request', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment(
+        {
+          type: 'PRODUCTS',
+          product: (req) => `prod_${new URL(req.url).pathname.slice(1)}`,
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/premium'))
+
+      const arg = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0]
+      assert.equal(arg.product, 'prod_premium')
+    })
+
+    it('returns 500 pricing_error when product callback throws', async () => {
+      const wrapped = withPayment(
+        {
+          type: 'PRODUCTS',
+          product: () => {
+            throw new Error('product lookup failed')
+          },
+        },
+        innerHandler,
+      )
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'pricing_error')
+    })
+
+    // EXTENSION GAP-FILL: expirySeconds must work in PRODUCTS mode (locks in
+    // that the option isn't AMOUNT-specific).
+    it('passes custom expirySeconds to mintInvoice in PRODUCTS mode', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment(
+        { type: 'PRODUCTS', product: FAKE_PRODUCT_ID, expirySeconds: 1800 },
+        innerHandler,
+      )
+      await wrapped(makeRequest())
+
+      assert.equal(currentMocks.fakeClient.checkouts.mintInvoice.mock.callCount(), 1)
+      const call = currentMocks.fakeClient.checkouts.mintInvoice.mock.calls[0]
+      assert.equal(call.arguments[0].expirySecs, 1800)
+    })
+
+    // EXTENSION GAP-FILL: system-reserved metadata keys (source, resource,
+    // sandbox) must override merchant metadata in PRODUCTS mode too. Only
+    // tested for AMOUNT today (line 841).
+    it('system-reserved metadata keys override merchant metadata in PRODUCTS mode', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment(
+        {
+          type: 'PRODUCTS',
+          product: FAKE_PRODUCT_ID,
+          metadata: { source: 'overridden', resource: 'hijack', tier: 'pro' },
+        },
+        innerHandler,
+      )
+      await wrapped(makeRequest('http://localhost/api/products-endpoint'))
+
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.tier, 'pro')
+      assert.equal(md.source, '402')
+      assert.equal(md.resource, 'http://localhost/api/products-endpoint')
+    })
+
+    // EXTENSION GAP-FILL: PRODUCTS-mode 402 body must have the same shape as
+    // AMOUNT-mode (no extra/missing top-level fields). The product binding
+    // lives INSIDE the macaroon, not at the body's top level.
+    it('PRODUCTS-mode 402 body has identical top-level shape to AMOUNT mode', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment({ type: 'PRODUCTS', product: FAKE_PRODUCT_ID }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.ok(body.error)
+      assert.equal(typeof body.macaroon, 'string')
+      assert.equal(typeof body.invoice, 'string')
+      assert.equal(typeof body.paymentHash, 'string')
+      assert.equal(typeof body.amountSats, 'number')
+      assert.equal(typeof body.expiresAt, 'number')
+      // No leaked product/price fields at the body level.
+      assert.equal(body.productId, undefined)
+      assert.equal(body.priceId, undefined)
+    })
+
+    // EXTENSION GAP-FILL: amountSats in the 402 body reflects what mdk.com
+    // resolved from the product price (advisory but exposed to callers so
+    // they can display "X sats due"). Locks in the wire field.
+    it('PRODUCTS-mode 402 amountSats comes from the pending checkout invoiceAmountSats', async () => {
+      setProductsMintMock()
+      const wrapped = withPayment({ type: 'PRODUCTS', product: FAKE_PRODUCT_ID }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      const body = await res.json()
+      assert.equal(body.amountSats, 100) // matches makeFakePendingCheckout(100)
+    })
+  })
+
+  describe('PRODUCTS-mode credential retry verification', () => {
+    /**
+     * Create a v1 PRODUCTS-mode credential. The v1 token contract carries no
+     * productId/priceId — verification matches by amount+currency instead.
+     * amount defaults to 100 SAT to match the fakeProduct price in buildMocks.
+     */
+    function makeProductsCredential(opts?: { amount?: number; currency?: string; resource?: string }) {
+      return createL402Credential({
+        paymentHash: TEST_PAYMENT_HASH,
+        amountSats: 100,
+        expiresAt: futureTimestamp(900),
+        accessToken: TEST_ACCESS_TOKEN,
+        resource: opts?.resource ?? 'GET:/api/premium',
+        amount: opts?.amount ?? 100,
+        currency: opts?.currency ?? 'SAT',
+      })
+    }
+
+    it('returns 200 when product has a matching price snapshot (amount + currency)', async () => {
+      // buildMocks fakeProduct has prices[0] = { priceAmount: 100, currency: 'SAT' }
+      // credential has amount=100, currency='SAT' → match → 200.
+      const macaroon = makeProductsCredential()
+      const wrapped = withPayment(
+        { type: 'PRODUCTS', product: FAKE_PRODUCT_ID },
+        innerHandler,
+      )
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${TEST_PREIMAGE}`),
+      )
+
+      assert.equal(res.status, 200)
+      // products.get must have been called for the verification check
+      assert.equal(currentMocks.fakeClient.products.get.mock.callCount(), 1)
+      assert.equal(currentMocks.fakeClient.products.get.mock.calls[0].arguments[0].id, FAKE_PRODUCT_ID)
+    })
+
+    // EXTENSION GAP-FILL: products.get must NOT be called on AMOUNT-mode
+    // retries. Negative assertion guards against a future regression where
+    // every retry needlessly hits the product API.
+    it('does NOT call products.get during AMOUNT-mode credential retry', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', makeValidAuth()),
+      )
+
+      assert.equal(res.status, 200)
+      assert.equal(currentMocks.fakeClient.products.get.mock.callCount(), 0)
+    })
+
+    it('returns 500 pricing_error when product fetch throws (product archived)', async () => {
+      currentMocks.fakeClient.products.get = mock.fn(async () => {
+        throw new Error('product not found')
+      })
+      const macaroon = makeProductsCredential()
+      const wrapped = withPayment(
+        { type: 'PRODUCTS', product: FAKE_PRODUCT_ID },
+        innerHandler,
+      )
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${TEST_PREIMAGE}`),
+      )
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'pricing_error')
+      assert.equal(body.error.recoverable, undefined)
+    })
+
+    it('returns 403 amount_mismatch when no price snapshot matches the credential (price retired)', async () => {
+      // Credential was issued for amount=999 (no price in the product has this amount)
+      const macaroon = makeProductsCredential({ amount: 999 })
+      const wrapped = withPayment(
+        { type: 'PRODUCTS', product: FAKE_PRODUCT_ID },
+        innerHandler,
+      )
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${TEST_PREIMAGE}`),
+      )
+
+      assert.equal(res.status, 403)
+      const body = await res.json()
+      assert.equal(body.error.code, 'amount_mismatch')
+      assert.equal(body.error.recoverable, true)
+    })
+
+  })
+
+  describe('sandbox body + WWW-Authenticate signals', () => {
+    it('includes "sandbox": true in 402 JSON body when in preview mode', async () => {
+      previewMode = true
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, true)
+    })
+
+    it('includes sandbox="true" parameter in WWW-Authenticate header when in preview mode', async () => {
+      previewMode = true
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth)
+      assert.ok(wwwAuth.includes('sandbox="true"'), `expected sandbox="true" in header, got: ${wwwAuth}`)
+      assert.ok(wwwAuth.startsWith('L402 '))
+      assert.ok(wwwAuth.includes('macaroon="'))
+      assert.ok(wwwAuth.includes('invoice="'))
+    })
+
+    it('omits sandbox signals in 402 response when NOT in preview mode (regression guard)', async () => {
+      previewMode = false
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, undefined)
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth)
+      assert.ok(!wwwAuth.includes('sandbox'), `WWW-Authenticate must not contain sandbox in production, got: ${wwwAuth}`)
+    })
+
+    // EXTENSION GAP-FILL: all three sandbox signals (body, header, checkout
+    // metadata) must fire in PRODUCTS mode just like AMOUNT mode. Locks in
+    // sandbox-mode parity across both config shapes.
+    it('emits all sandbox signals in PRODUCTS mode (body + header + checkout metadata)', async () => {
+      previewMode = true
+      // Match the PRODUCTS-mode mint mock pattern from the issuance describe block.
+      currentMocks.fakeClient.checkouts.create = mock.fn(async () => ({
+        ...makeFakeConfirmedCheckout(100),
+        productId: FAKE_PRODUCT_ID,
+        productPriceId: FAKE_PRICE_ID,
+      }))
+      currentMocks.fakeClient.checkouts.mintInvoice = mock.fn(async () => ({
+        ...makeFakePendingCheckout(100),
+        productId: FAKE_PRODUCT_ID,
+        productPriceId: FAKE_PRICE_ID,
+        providedAmount: 100,
+        currency: 'SAT',
+      }))
+
+      const wrapped = withPayment({ type: 'PRODUCTS', product: FAKE_PRODUCT_ID }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, true)
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth)
+      assert.ok(wwwAuth.includes('sandbox="true"'))
+
+      // The metadata.sandbox='true' string flag is what mdk.com reads to force
+      // the BOLT11 sentinel description — must be set in PRODUCTS mode too.
+      const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
+      assert.equal(md.sandbox, 'true')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Contract extensions (still valid after v2 revert):
+  //   - `recoverable: boolean` on error responses for codes that imply
+  //     "discard credential and retry" (amount_mismatch) vs permanent failure.
+  //   - `config_invalid` for the static-validation paths (replaces the
+  //     overloaded `pricing_error` for non-callback validation).
+  //   - `pricing_error` carries top-level `phase: 'create' | 'verify'` to
+  //     disambiguate where the failure occurred.
+  // Note: `mode_mismatch`, `product_not_active`, and `price_not_active` were
+  // v2-only error codes and have been removed. `amount_mismatch` (recoverable)
+  // covers all "credential can't pay for what this endpoint costs" scenarios.
+  // ---------------------------------------------------------------------------
+  describe('refactor extensions to the contract', () => {
+    it('amount_mismatch (price changed) carries recoverable: true', async () => {
+      // Existing back-compat code; new `recoverable` field is the extension.
+      const auth = makeValidAuth({ amount: 50, resource: 'GET:/api/dynamic' })
+      const priceFn = () => 250
+      const wrapped = withPayment({ amount: priceFn, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest('http://localhost/api/dynamic', auth))
+
+      const body = await res.json()
+      assert.equal(body.error.code, 'amount_mismatch')
+      assert.equal(body.error.recoverable, true)
+    })
+
+    it('static amount: non-number → 500 config_invalid (not pricing_error)', async () => {
+      const wrapped = withPayment(
+        { amount: 'not-a-number' as unknown as number, currency: 'SAT' },
+        innerHandler,
+      )
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'config_invalid')
+    })
+
+    it('static product: empty string → 500 config_invalid (not pricing_error)', async () => {
+      const wrapped = withPayment({ type: 'PRODUCTS', product: '' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 500)
+      const body = await res.json()
+      assert.equal(body.error.code, 'config_invalid')
+    })
+
+    it('pricing_error carries a top-level phase to distinguish create-time vs verify-time failure', async () => {
+      // Verify-time failure: pricing callback that succeeds at 402 issuance
+      // (returning 100) but throws when re-evaluated during retry. `phase` is
+      // a new top-level optional field on the error envelope; `details` stays
+      // a string for back-compat with the existing pricing_error contract.
+      let callCount = 0
+      const priceFn = () => {
+        callCount++
+        if (callCount === 1) return 100
+        throw new Error('rate service down on retry')
+      }
+
+      const wrapped = withPayment({ amount: priceFn, currency: 'SAT' }, innerHandler)
+      const res402 = await wrapped(makeRequest())
+      assert.equal(res402.status, 402)
+      const body402 = await res402.json()
+      const macaroon = body402.macaroon
+
+      const resVerify = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${TEST_PREIMAGE}`),
+      )
+      assert.equal(resVerify.status, 500)
+      const bodyVerify = await resVerify.json()
+      assert.equal(bodyVerify.error.code, 'pricing_error')
+      assert.equal(bodyVerify.error.phase, 'verify')
     })
   })
 })

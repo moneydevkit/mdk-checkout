@@ -2,7 +2,7 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { ContractRouterClient } from '@orpc/contract'
 
-import { contract, Checkout, CreateCheckout, ConfirmCheckout, RegisterInvoice, MintInvoice, PaymentReceived, RedeemL402Input, RedeemL402Output, CheckL402Input, CheckL402Output, Product, Subscription, CustomerWithSubscriptions, GetCustomerInput } from '@moneydevkit/api-contract'
+import { contract, Checkout, CreateCheckout, ConfirmCheckout, RegisterInvoice, MintInvoice, PaymentReceived, RedeemL402Input, RedeemL402Output, CheckL402Input, CheckL402Output, Product, ProductDetail, Subscription, CustomerWithSubscriptions, GetCustomerInput } from '@moneydevkit/api-contract'
 
 export type MoneyDevKitClientOptions = {
   accessToken: string
@@ -76,6 +76,9 @@ export class MoneyDevKitClient {
     return {
       list: async (): Promise<{ products: Product[] }> => {
         return await this.client.products.list({})
+      },
+      get: async (params: { id: string }): Promise<ProductDetail> => {
+        return await this.client.products.get(params)
       },
     }
   }
