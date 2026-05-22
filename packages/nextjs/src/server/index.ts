@@ -4,6 +4,8 @@ export { programmaticPayout } from '@moneydevkit/core/server'
 export type { ProgrammaticPayoutOptions } from '@moneydevkit/core/server'
 export { waitForPayoutResult } from '@moneydevkit/core/server'
 export type { WaitForPayoutResultOptions } from '@moneydevkit/core/server'
+export { pay402, Pay402Error } from '@moneydevkit/core/server'
+export type { Pay402Options, Pay402ErrorCode } from '@moneydevkit/core/server'
 export { getBalance } from '@moneydevkit/core/server'
 
 export { withPayment, withDeferredSettlement } from '@moneydevkit/core/mdk402'

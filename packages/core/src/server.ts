@@ -419,3 +419,6 @@ export async function waitForPayoutResult(
   // server response.
   return success(lastResult ?? { status: 'REQUESTED' })
 }
+
+export { pay402, Pay402Error } from "./pay402"
+export type { Pay402Options, Pay402ErrorCode } from "./pay402"
