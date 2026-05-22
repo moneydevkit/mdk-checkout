@@ -254,3 +254,87 @@ test('server module does not import lightning-js stack', () => {
   assert.doesNotMatch(serverEntry, /from ['"]\.\/lightning-node['"]/)
   assert.doesNotMatch(serverEntry, /@moneydevkit\/lightning-js/)
 })
+
+test('programmaticPayout fills in amountSats from a fixed BOLT11 when caller omits it', async () => {
+  const result = await programmaticPayout({
+    // 1500u = 150_000 sats
+    destination: 'lnbc1500u1pdummy',
+    idempotencyKey: 'idem-bolt11-derived',
+  })
+
+  assert.equal(result.error, null)
+  assert.equal(programmaticPayoutCall.mock.callCount(), 1)
+  assert.deepEqual(programmaticPayoutCall.mock.calls[0]?.arguments[0], {
+    amountSats: 150_000,
+    destination: 'lnbc1500u1pdummy',
+    idempotencyKey: 'idem-bolt11-derived',
+  })
+})
+
+test('programmaticPayout rejects amount_required for LNURL / variable destinations when amountSats is omitted', async () => {
+  const result = await programmaticPayout({
+    destination: 'https://example.com/.well-known/lnurlp/alice',
+    idempotencyKey: 'idem-no-amount',
+  })
+
+  assert.equal(result.data, null)
+  assert.equal(result.error?.code, 'amount_required')
+  assert.equal(result.error?.retryable, false)
+  assert.equal(programmaticPayoutCall.mock.callCount(), 0)
+})
+
+test('programmaticPayout rejects amount_required for an amountless BOLT11 when amountSats is omitted', async () => {
+  const result = await programmaticPayout({
+    destination: 'lnbc1pdummy',
+    idempotencyKey: 'idem-amountless',
+  })
+
+  assert.equal(result.data, null)
+  assert.equal(result.error?.code, 'amount_required')
+  assert.equal(programmaticPayoutCall.mock.callCount(), 0)
+})
+
+test('programmaticPayout rejects amount_mismatch when amountSats disagrees with a fixed-amount BOLT11', async () => {
+  // BOLT11 says 1500u = 150_000 sats; caller passes 500 sats. lightning-js's
+  // FixedAmount branch would silently pay 150_000 - we don't want that.
+  const result = await programmaticPayout({
+    amountSats: 500,
+    destination: 'lnbc1500u1pdummy',
+    idempotencyKey: 'idem-mismatch',
+  })
+
+  assert.equal(result.data, null)
+  assert.equal(result.error?.code, 'amount_mismatch')
+  assert.equal(result.error?.retryable, false)
+  assert.equal(programmaticPayoutCall.mock.callCount(), 0)
+})
+
+test('programmaticPayout accepts matching amountSats + fixed-amount BOLT11', async () => {
+  const result = await programmaticPayout({
+    amountSats: 150_000,
+    destination: 'lnbc1500u1pdummy',
+    idempotencyKey: 'idem-match',
+  })
+
+  assert.equal(result.error, null)
+  assert.equal(programmaticPayoutCall.mock.callCount(), 1)
+  assert.deepEqual(programmaticPayoutCall.mock.calls[0]?.arguments[0], {
+    amountSats: 150_000,
+    destination: 'lnbc1500u1pdummy',
+    idempotencyKey: 'idem-match',
+  })
+})
+
+test('programmaticPayout passes amountSats unchanged for an amountless BOLT11 when caller supplies it', async () => {
+  // Amountless BOLT11 -> the destination tells the node "match the
+  // pay-as-you-wish", and amountSats is what tells the node how much to send.
+  const result = await programmaticPayout({
+    amountSats: 250,
+    destination: 'lnbc1pdummyamountless',
+    idempotencyKey: 'idem-amountless-explicit',
+  })
+
+  assert.equal(result.error, null)
+  assert.equal(programmaticPayoutCall.mock.callCount(), 1)
+  assert.equal(programmaticPayoutCall.mock.calls[0]?.arguments[0]?.amountSats, 250)
+})

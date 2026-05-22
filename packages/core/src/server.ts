@@ -6,17 +6,30 @@ import {
   contract,
   type GetBalanceResult,
   type ProgrammaticPayoutResult,
+  type WaitForPayoutResultOutput,
 } from '@moneydevkit/api-contract'
 
+import { decodeBolt11AmountSats } from './bolt11'
 import { MAINNET_MDK_BASE_URL } from './mdk-config'
 import { failure, success, type MdkError, type Result } from './types'
 
 /**
  * Options accepted by the server-only programmatic payout helper.
+ *
+ * `amountSats` is optional: when the destination is a fixed-amount BOLT11 the
+ * SDK decodes the amount locally. Variable-amount destinations (LNURL,
+ * lightning address, amountless BOLT11, BOLT12 invreq) still require an
+ * explicit `amountSats`. If both are supplied and a fixed BOLT11 says
+ * otherwise, the call is rejected before it hits the wire so a misconfigured
+ * caller can't pay a different amount than they think they are paying.
  */
 export type ProgrammaticPayoutOptions = {
-  /** Amount to send, in sats. */
-  amountSats: number
+  /**
+   * Amount to send, in sats. Optional when the destination is a fixed-amount
+   * BOLT11; required for amountless BOLT11, LNURL, lightning addresses, and
+   * BOLT12 destinations.
+   */
+  amountSats?: number
   /** Lightning destination to pay from this server-side request. */
   destination: string
   /**
@@ -26,6 +39,24 @@ export type ProgrammaticPayoutOptions = {
    * payout, not a fresh value generated on each call.
    */
   idempotencyKey: string
+}
+
+/**
+ * Options accepted by the server-only waitForPayoutResult helper. Caller
+ * identifies the payout by EITHER the idempotencyKey used at dispatch OR the
+ * paymentId returned by the dispatch. Exactly one is required.
+ */
+export type WaitForPayoutResultOptions = {
+  /** The idempotencyKey passed to programmaticPayout, if known. */
+  idempotencyKey?: string
+  /** The paymentId returned by programmaticPayout, if known. */
+  paymentId?: string
+  /**
+   * Total wait budget in milliseconds. Defaults to 15s. Values above 25s are
+   * split into multiple back-to-back RPC calls so each individual call stays
+   * inside common edge-proxy idle timeouts.
+   */
+  timeoutMs?: number
 }
 
 /**
@@ -114,13 +145,6 @@ export async function programmaticPayout(
     })
   }
 
-  if (!Number.isInteger(options.amountSats) || options.amountSats <= 0) {
-    return failure({
-      code: 'invalid_amount',
-      message: 'Enter a positive whole-sat amount before triggering a payout.',
-      retryable: false,
-    })
-  }
   const destination = options.destination.trim()
   if (!destination || destination.length > 4096) {
     return failure({
@@ -145,6 +169,44 @@ export async function programmaticPayout(
     })
   }
 
+  // Resolve the effective amount AFTER cheap input rejections.
+  //   1. Caller passed amountSats: validate it. If destination is a
+  //      fixed-amount BOLT11 with a different amount, reject - the user
+  //      almost certainly has a bug, and lightning-js's FixedAmount branch
+  //      would silently pay the BOLT11 amount and ignore the caller.
+  //   2. Caller omitted amountSats and destination is fixed-amount BOLT11:
+  //      decode the amount locally and use it.
+  //   3. Caller omitted amountSats and destination is variable (LNURL,
+  //      lightning address, amountless BOLT11, BOLT12): reject.
+  const bolt11AmountSats = decodeBolt11AmountSats(destination)
+  let effectiveAmountSats: number
+  if (typeof options.amountSats === 'number') {
+    if (!Number.isInteger(options.amountSats) || options.amountSats <= 0) {
+      return failure({
+        code: 'invalid_amount',
+        message: 'Enter a positive whole-sat amount before triggering a payout.',
+        retryable: false,
+      })
+    }
+    if (bolt11AmountSats !== null && bolt11AmountSats !== options.amountSats) {
+      return failure({
+        code: 'amount_mismatch',
+        message: `BOLT11 invoice amount (${bolt11AmountSats} sats) does not match the amountSats passed (${options.amountSats}). Remove amountSats or pass the matching value.`,
+        retryable: false,
+      })
+    }
+    effectiveAmountSats = options.amountSats
+  } else if (bolt11AmountSats !== null) {
+    effectiveAmountSats = bolt11AmountSats
+  } else {
+    return failure({
+      code: 'amount_required',
+      message:
+        'amountSats is required for amountless BOLT11, LNURL, lightning address, and BOLT12 destinations.',
+      retryable: false,
+    })
+  }
+
   const accessToken = process.env.MDK_ACCESS_TOKEN
   if (!accessToken) {
     return failure({
@@ -164,7 +226,7 @@ export async function programmaticPayout(
     })
     const client: ContractRouterClient<typeof contract> = createORPCClient(link)
     const result = await client.checkout.programmaticPayout({
-      amountSats: options.amountSats,
+      amountSats: effectiveAmountSats,
       destination,
       idempotencyKey: options.idempotencyKey,
     })
@@ -257,4 +319,103 @@ export async function getBalance(): Promise<Result<GetBalanceResult>> {
       retryable: true,
     })
   }
+}
+
+/** Per-RPC timeout cap. Matches the contract's server-side ceiling. */
+const WAIT_FOR_PAYOUT_RPC_MAX_MS = 25_000
+
+/** Default total wait budget when the caller does not specify timeoutMs. */
+const WAIT_FOR_PAYOUT_DEFAULT_MS = 15_000
+
+/**
+ * Block until a previously-dispatched programmatic payout reaches a terminal
+ * Lightning outcome (SUCCESS or FAILED), or the wait budget is exhausted.
+ *
+ * Pass EITHER the idempotencyKey used at dispatch OR the paymentId returned
+ * by it. Exactly one is required.
+ *
+ * If the call returns `status: 'REQUESTED'` the merchant node has not yet
+ * observed paymentSent / paymentFailed for this payment. Callers can re-invoke
+ * to keep waiting; idempotency keys / paymentIds are stable across retries.
+ *
+ * `timeoutMs` over 25s is split into multiple back-to-back RPC calls so each
+ * individual call stays inside common edge-proxy idle timeouts. The function
+ * itself stops at the total budget.
+ */
+export async function waitForPayoutResult(
+  options: WaitForPayoutResultOptions,
+): Promise<Result<WaitForPayoutResultOutput>> {
+  if (typeof window !== 'undefined') {
+    return failure({
+      code: 'server_only',
+      message: 'waitForPayoutResult() can only be called from a server function.',
+      retryable: false,
+    })
+  }
+
+  const hasIdempotencyKey =
+    typeof options.idempotencyKey === 'string' && options.idempotencyKey.length > 0
+  const hasPaymentId = typeof options.paymentId === 'string' && options.paymentId.length > 0
+  if (hasIdempotencyKey === hasPaymentId) {
+    return failure({
+      code: 'invalid_arguments',
+      message: 'Pass exactly one of idempotencyKey or paymentId.',
+      retryable: false,
+    })
+  }
+
+  const totalBudgetMs = Math.max(options.timeoutMs ?? WAIT_FOR_PAYOUT_DEFAULT_MS, 1)
+  const accessToken = process.env.MDK_ACCESS_TOKEN
+  if (!accessToken) {
+    return failure({
+      code: 'missing_access_token',
+      message: 'Set MDK_ACCESS_TOKEN in your environment before waiting on a payout.',
+      retryable: false,
+    })
+  }
+  const baseUrl = process.env.MDK_API_BASE_URL ?? MAINNET_MDK_BASE_URL
+
+  const link = new RPCLink({
+    url: baseUrl,
+    headers: () => ({ 'x-api-key': accessToken }),
+  })
+  const client: ContractRouterClient<typeof contract> = createORPCClient(link)
+
+  const deadline = Date.now() + totalBudgetMs
+
+  // Loop the underlying RPC until terminal or until our budget runs out. Each
+  // RPC carries at most WAIT_FOR_PAYOUT_RPC_MAX_MS of wait. A REQUESTED reply
+  // means the server-side timer elapsed without a terminal event; we
+  // re-attempt with the remaining budget.
+  let lastResult: WaitForPayoutResultOutput | undefined
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now()
+    const sliceMs = Math.min(remaining, WAIT_FOR_PAYOUT_RPC_MAX_MS)
+    try {
+      const result = await client.checkout.waitForPayoutResult({
+        idempotencyKey: options.idempotencyKey,
+        paymentId: options.paymentId,
+        timeoutMs: sliceMs,
+      })
+      lastResult = result
+      if (result.status !== 'REQUESTED') {
+        return success(result)
+      }
+      // Still pending: loop with the remaining budget if any.
+    } catch (err) {
+      if (err instanceof ORPCError) {
+        return failure(classifyOrpcError(err))
+      }
+      return failure({
+        code: 'wait_for_payout_result_failed',
+        message: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      })
+    }
+  }
+
+  // Budget exhausted. Return the last observed snapshot (REQUESTED) so the
+  // caller can decide whether to loop or give up. The shape mirrors a normal
+  // server response.
+  return success(lastResult ?? { status: 'REQUESTED' })
 }
