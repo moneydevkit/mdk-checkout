@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import {
   QueryClient as ReactQueryClient,
   QueryClientProvider,
@@ -15,17 +15,34 @@ const DEFAULT_QUERY_CLIENT_CONFIG: QueryClientConfig = {
   },
 }
 
+// MdkTheme controls the checkout color palette. Defaults to 'dark'.
+export type MdkTheme = 'dark' | 'light'
+
+const MdkThemeContext = createContext<MdkTheme>('dark')
+
+// useMdkTheme reads the active theme from the surrounding MdkCheckoutProvider.
+export function useMdkTheme(): MdkTheme {
+  return useContext(MdkThemeContext)
+}
+
 export interface MdkCheckoutProviderProps {
   children: ReactNode
   queryClient?: QueryClient
+  theme?: MdkTheme
 }
 
-export function MdkCheckoutProvider({ children, queryClient }: MdkCheckoutProviderProps) {
+export function MdkCheckoutProvider({
+  children,
+  queryClient,
+  theme = 'dark',
+}: MdkCheckoutProviderProps) {
   const [client] = useState(() => queryClient ?? new ReactQueryClient(DEFAULT_QUERY_CLIENT_CONFIG))
 
   return (
     <QueryClientProvider client={client}>
-      <div className="mdk-checkout">{children}</div>
+      <MdkThemeContext.Provider value={theme}>
+        <div className="mdk-checkout" data-theme={theme}>{children}</div>
+      </MdkThemeContext.Provider>
     </QueryClientProvider>
   )
 }

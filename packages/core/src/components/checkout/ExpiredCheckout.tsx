@@ -21,7 +21,7 @@ export default function ExpiredCheckout({ checkout, onRestart, isRestarting = fa
   }
 
   const ClockIcon = () => (
-    <svg className="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+    <svg className="w-10 h-10 mdk-text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
       <circle cx="12" cy="12" r="10" />
       <polyline points="12,6 12,12 16,14" />
     </svg>
@@ -38,49 +38,49 @@ export default function ExpiredCheckout({ checkout, onRestart, isRestarting = fa
   return (
     <>
       <div className="text-center mb-6">
-        <div className="bg-red-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+        <div className="mdk-status-icon-frame is-error mb-4">
           <ClockIcon />
         </div>
 
-        <p className="text-gray-300">This checkout session has expired.</p>
+        <p className="mdk-body mdk-text-muted" style={{ fontWeight: 300 }}>This checkout session has expired.</p>
       </div>
 
-      <div className="bg-gray-700 rounded-lg p-4 mb-6">
-        <h3 className="text-sm text-center font-bold text-gray-300 mb-3">Payment Details</h3>
+      <div className="mdk-panel-inset p-4 mb-6">
+        <h3 className="mdk-label text-center mb-3">› Payment Details</h3>
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 mdk-mono" style={{ fontSize: '13px' }}>
           <div className="flex justify-between">
-            <span className="text-gray-400">Amount Fiat:</span>
-            <span className="text-white font-medium">
+            <span className="mdk-text-faint">Amount Fiat:</span>
+            <span className="mdk-text-fg">
               {checkout.invoice?.fiatAmount && checkout.currency &&
                 formatCurrency(checkout.invoice.fiatAmount, checkout.currency)}
             </span>
           </div>
 
           <div className="flex justify-between">
-            <span className="text-gray-400">Amount BTC:</span>
-            <span className="text-white font-medium">
-              {checkout.invoice?.amountSats && `${formatSats(checkout.invoice.amountSats)} sats`}
+            <span className="mdk-text-faint">Amount (₿):</span>
+            <span className="mdk-text-fg">
+              {checkout.invoice?.amountSats && `₿${formatSats(checkout.invoice.amountSats)}`}
             </span>
           </div>
 
           <div className="flex justify-between">
-            <span className="text-gray-400">Checkout ID:</span>
-            <span className="text-white font-medium">{checkout.id}</span>
+            <span className="mdk-text-faint">Checkout ID:</span>
+            <span className="mdk-text-fg" style={{ wordBreak: 'break-all', textAlign: 'right' }}>{checkout.id}</span>
           </div>
         </div>
       </div>
 
       <div className="text-center mb-6">
-        <p className="text-gray-300">Checkout sessions only last 15 minutes. Please restart the flow to proceed.</p>
+        <p className="mdk-body mdk-text-muted" style={{ fontSize: '14px' }}>Checkout sessions only last 15 minutes. Please restart the flow to proceed.</p>
       </div>
 
       <button
         onClick={handleRestart}
         disabled={isRestarting}
-        className="w-full bg-white hover:bg-gray-100 disabled:opacity-70 disabled:cursor-not-allowed text-gray-900 font-medium py-3 px-4 rounded-lg transition-colors"
+        className="mdk-button mdk-button-primary w-full"
       >
-        {isRestarting ? 'Restarting...' : 'Restart'}
+        {isRestarting ? 'Restarting…' : 'Restart'}
       </button>
     </>
   )

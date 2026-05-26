@@ -1,13 +1,13 @@
 import type { Checkout } from '@moneydevkit/api-contract'
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useState } from 'react'
 import { formatInterval } from '../../checkout-utils'
 import { clientPayInvoice } from '../../client-actions'
 import { is_preview_environment } from '../../preview'
-import { Button } from '../ui/button'
+import { StyledQRCode } from '../StyledQRCode'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
+import { CashAppIcon, StrikeIcon } from '../WalletIcons'
 
 type PendingPaymentCheckoutType = Extract<Checkout, { status: 'PENDING_PAYMENT' }>
 
@@ -18,6 +18,7 @@ export interface PendingPaymentCheckoutProps {
 export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheckoutProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
+  const [copyFlashKey, setCopyFlashKey] = useState<number>(0)
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false)
   const [markingPaid, setMarkingPaid] = useState<boolean>(false)
   const [markPaidError, setMarkPaidError] = useState<string | null>(null)
@@ -64,7 +65,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     if (price.priceAmount === null) return ''
 
     if (price.currency === 'SAT') {
-      return `${formatSats(price.priceAmount)} sats`
+      return `₿${formatSats(price.priceAmount)}`
     }
     // USD - stored in cents
     return formatCurrency(price.priceAmount, price.currency)
@@ -74,6 +75,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     // Don't copy real invoice in preview mode
     if (isPreview) {
       setCopySuccess(true)
+      setCopyFlashKey((k) => k + 1)
       setTimeout(() => setCopySuccess(false), 2000)
       return
     }
@@ -81,6 +83,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
       try {
         await navigator.clipboard.writeText(checkout.invoice.invoice)
         setCopySuccess(true)
+        setCopyFlashKey((k) => k + 1)
         setTimeout(() => setCopySuccess(false), 2000)
       } catch (error) {
         console.error('Failed to copy invoice:', error)
@@ -90,10 +93,11 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   const CopyIcon = () => (
     <svg
-      className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer transition-colors"
+      className="w-4 h-4 mdk-text-muted cursor-pointer transition-colors"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      style={{ transition: 'color 200ms' }}
     >
       <path
         strokeLinecap="round"
@@ -128,7 +132,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   const CheckmarkIcon = () => (
     <svg
-      className="w-4 h-4 text-green-500 cursor-pointer transition-colors"
+      className="w-4 h-4 mdk-text-teal cursor-pointer transition-colors"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -145,148 +149,275 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   return (
     <>
-      <div className="text-center mb-6 w-full">
+      <div className="text-center mb-3 w-full">
         {/* Subscription product info - shown prominently for recurring products */}
         {hasRecurringProduct && recurringProduct && (
           <div className="mb-5 px-2">
-            {/* Product name */}
-            <h3 className="text-lg font-medium text-white mb-2">
+            <h3 className="mdk-title mb-2" style={{ fontSize: '1.15rem' }}>
               {recurringProduct.name}
             </h3>
 
-            {/* Billing interval badge */}
             <div className="inline-flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
-                {formatInterval(recurringProduct.recurringInterval, 'label')} subscription
+              <span className="mdk-label" style={{ color: 'var(--mdk-teal)' }}>
+                › {formatInterval(recurringProduct.recurringInterval, 'label')} subscription
               </span>
             </div>
 
-            {/* Product description */}
             {recurringProduct.description && (
-              <p className="text-sm text-gray-400 mb-3 max-w-xs mx-auto">
+              <p className="mdk-body mdk-text-muted mb-3 max-w-xs mx-auto" style={{ fontSize: '14px' }}>
                 {recurringProduct.description}
               </p>
             )}
 
-            {/* Email reminder - subtle helper text */}
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="mdk-text-faint mb-4" style={{ fontSize: '12px' }}>
               You'll receive a renewal email before each billing period.
             </p>
           </div>
         )}
 
         {/* Amount display */}
-        <div className="mb-4 w-full">
-          <div className="text-2xl font-semibold mb-2 font-sans tracking-tight">
-            {checkout.invoice?.amountSats && `${formatSats(checkout.invoice.amountSats)} sats`}
-          </div>
-        </div>
+        {(() => {
+          const isFiatPriced = checkout.currency === 'USD'
+          const fiatAmount = checkout.invoice?.fiatAmount
+          const sats = checkout.invoice?.amountSats
+          const headline = isFiatPriced && fiatAmount != null
+            ? formatCurrency(fiatAmount, 'USD')
+            : sats != null
+              ? `₿${formatSats(sats)}`
+              : null
+          const fiatSecondary = !isFiatPriced && fiatAmount != null
+            ? formatCurrency(fiatAmount, 'USD')
+            : null
+          return (
+            <div
+              className="mb-2 w-full"
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'center',
+                gap: '1.5rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              {headline && (
+                <span
+                  className="mdk-display mdk-glow-teal"
+                  style={{ fontSize: 'clamp(2rem, 5vw, 2.6rem)' }}
+                >
+                  {headline}
+                </span>
+              )}
+              {fiatSecondary && (
+                <span
+                  className="mdk-display"
+                  style={{
+                    fontSize: 'clamp(2rem, 5vw, 2.6rem)',
+                    fontWeight: 300,
+                    color: 'var(--mdk-faint)',
+                  }}
+                >
+                  {fiatSecondary}
+                </span>
+              )}
+            </div>
+          )
+        })()}
 
-        <div className="w-full">
-          <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
-            <CollapsibleTrigger className="flex items-center justify-center gap-2 text-gray-400 hover:text-white transition-colors text-sm w-full font-medium">
-              View Details
-              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-in-out ${detailsOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">
-              <div className="mt-4 space-y-3 text-sm w-full">
-                {/* Product line items */}
-                {hasProducts && checkout.products!.map((product) => {
-                  const price = product.prices?.[0]
-                  return (
-                    <div key={product.id} className="flex justify-between w-full">
-                      <span className="text-gray-400">{product.name}</span>
-                      <span className="text-white">
-                        {price && formatProductPrice(price)}
-                        {product.recurringInterval && (
-                          <span className="text-gray-400">{formatInterval(product.recurringInterval, 'short')}</span>
-                        )}
-                      </span>
-                    </div>
-                  )
-                })}
-                {/* Separator after products */}
-                {hasProducts && <div className="border-t border-gray-600 my-2" />}
-                <div className="flex justify-between w-full">
-                  <span className="text-gray-400">Total Fiat</span>
-                  <span className="text-white">
-                    {checkout.invoice?.fiatAmount && checkout.currency &&
-                      formatCurrency(checkout.invoice.fiatAmount, checkout.currency)}
-                  </span>
-                </div>
-                <div className="flex justify-between w-full">
-                  <span className="text-gray-400">Exchange Rate</span>
-                  <span className="text-white">
-                    {checkout.invoice?.btcPrice && `$${new Intl.NumberFormat('en-US').format(checkout.invoice.btcPrice)}`}
-                  </span>
-                </div>
-                {timeRemaining && (
-                  <div className="flex justify-between w-full">
-                    <span className="text-gray-400">Expires in</span>
-                    <span className="text-white">{timeRemaining}</span>
-                  </div>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
       </div>
 
-      <div className="flex justify-center mb-4 w-full">
+      <div className="mb-4 w-full">
         <div
-          className="bg-white p-3 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow relative"
+          className="mdk-qr-frame cursor-pointer transition-shadow relative w-full"
           onClick={copyToClipboard}
           title="Click to copy invoice"
         >
-          <QRCodeSVG
+          <StyledQRCode
             value={isPreview ? 'SANDBOX_PREVIEW_MODE' : (checkout.invoice?.invoice ?? '')}
-            size={320}
-            bgColor="#ffffff"
-            fgColor="#000000"
-            level="Q"
+            size={240}
           />
+          {copyFlashKey > 0 && (
+            <div
+              key={copyFlashKey}
+              className="mdk-qr-flash"
+              aria-hidden="true"
+            />
+          )}
           {isPreview && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div
-                className="text-white font-bold text-lg px-4 py-2 rounded transform -rotate-12 shadow-lg"
-                style={{ backgroundColor: '#475569', opacity: 0.95 }}
+                className="mdk-label px-4 py-2 transform -rotate-12"
+                style={{
+                  background: 'var(--mdk-bg)',
+                  color: 'var(--mdk-teal)',
+                  border: '1px solid var(--mdk-teal)',
+                  opacity: 0.95,
+                  fontSize: '14px',
+                }}
               >
-                SANDBOX
+                › Sandbox
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {(checkout.invoice?.invoice || isPreview) && (
-        <div
-          className="flex items-center gap-2 mb-6 bg-gray-700 p-3 rounded-lg w-full"
-          data-lightning-invoice={isPreview ? '' : (checkout.invoice?.invoice ?? '')}
-          data-lightning-amount-sats={isPreview ? '' : (invoiceAmountSats ?? '')}
-          data-lightning-currency={isPreview ? '' : (checkout.currency ?? '')}
-        >
-          <code className="text-xs text-gray-300 font-mono flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-            {isPreview
-              ? 'lnbc1500n1pnxxx...sandbox_invoice...xxxyyyzzz'
-              : (checkout.invoice?.invoice ?? '')}
-          </code>
-          <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
-            {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}
+      {(() => {
+        const invoiceString = isPreview
+          ? 'lnbc1500n1pnxxx_sandbox_invoice'
+          : checkout.invoice?.invoice
+        if (!invoiceString) return null
+        return (
+          <div className="flex flex-col gap-2 mb-2 w-full">
+            <a
+              href={`https://cash.app/launch/lightning/${invoiceString}`}
+              className="mdk-wallet-button mdk-wallet-button-cashapp"
+            >
+              <CashAppIcon className="mdk-wallet-icon" />
+              <span>Pay with Cash App</span>
+            </a>
+            <a
+              href={`strike:${invoiceString}`}
+              className="mdk-wallet-button mdk-wallet-button-strike"
+            >
+              <StrikeIcon className="mdk-wallet-icon" />
+              <span>Pay with Strike</span>
+            </a>
           </div>
-        </div>
-      )}
+        )
+      })()}
+
+      {(checkout.invoice?.invoice || isPreview) && (() => {
+        const displayInvoice = isPreview
+          ? 'lnbc1500n1pnxxxsandboxinvoicexxxyyyzzz'
+          : (checkout.invoice?.invoice ?? '')
+        // Chunk display: [first 4 teal] [next 4 muted] … [pre-last 4 muted] [last 4 teal]
+        // Pulling the trailing chunks from the END of the string guarantees each is exactly
+        // 4 chars regardless of total length, so we never end up with a 1/2/3-char tail.
+        const showChunks = displayInvoice.length >= 16
+        const firstChunk = displayInvoice.slice(0, 4)
+        const secondChunk = displayInvoice.slice(4, 8)
+        const thirdChunk = displayInvoice.slice(-8, -4)
+        const fourthChunk = displayInvoice.slice(-4)
+        return (
+          <div
+            className="mdk-panel-inset flex items-center gap-2 mb-2 w-full"
+            style={{ padding: '0.75rem 1rem' }}
+            data-lightning-invoice={isPreview ? '' : (checkout.invoice?.invoice ?? '')}
+            data-lightning-amount-sats={isPreview ? '' : (invoiceAmountSats ?? '')}
+            data-lightning-currency={isPreview ? '' : (checkout.currency ?? '')}
+          >
+            <code
+              className="mdk-mono mdk-text-muted flex-1 min-w-0 overflow-hidden whitespace-nowrap"
+              style={{
+                fontSize: '12px',
+                display: showChunks ? 'flex' : undefined,
+                justifyContent: showChunks ? 'space-between' : undefined,
+                alignItems: 'baseline',
+              }}
+            >
+              {showChunks ? (
+                <>
+                  <span className="mdk-text-teal">{firstChunk}</span>
+                  <span className="mdk-text-muted">{secondChunk}</span>
+                  <span
+                    className="mdk-text-muted"
+                    style={{ display: 'inline-flex', gap: '0.25em' }}
+                    aria-hidden="true"
+                  >
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                  </span>
+                  <span className="mdk-text-muted">{thirdChunk}</span>
+                  <span className="mdk-text-teal">{fourthChunk}</span>
+                </>
+              ) : (
+                displayInvoice
+              )}
+            </code>
+            <div onClick={copyToClipboard} title="Copy invoice" className="flex-shrink-0">
+              {copySuccess ? <CheckmarkIcon /> : <CopyIcon />}
+            </div>
+          </div>
+        )
+      })()}
+
+      <div className="w-full mt-2">
+        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <CollapsibleTrigger
+            className="mdk-label flex items-center justify-center gap-1.5 w-full transition-colors"
+            style={{ fontSize: '11px' }}
+          >
+            View Details
+            <ChevronDown
+              className={`w-2.5 h-2.5 transition-transform duration-300 ease-in-out ${detailsOpen ? 'rotate-180' : ''}`}
+              style={{ color: 'var(--mdk-teal)' }}
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="w-full overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:animate-[collapsible-up_300ms_ease-in-out] data-[state=open]:animate-[collapsible-down_300ms_ease-in-out]">
+            <div className="mt-4 space-y-3 w-full mdk-mono" style={{ fontSize: '13px' }}>
+              {hasProducts && checkout.products!.map((product) => {
+                const price = product.prices?.[0]
+                return (
+                  <div key={product.id} className="flex justify-between w-full">
+                    <span className="mdk-text-faint">{product.name}</span>
+                    <span className="mdk-text-fg">
+                      {price && formatProductPrice(price)}
+                      {product.recurringInterval && (
+                        <span className="mdk-text-faint">{formatInterval(product.recurringInterval, 'short')}</span>
+                      )}
+                    </span>
+                  </div>
+                )
+              })}
+              {hasProducts && <div className="mdk-divider my-2" />}
+              {checkout.currency === 'USD' ? (
+                <div className="flex justify-between w-full">
+                  <span className="mdk-text-faint">Amount (₿)</span>
+                  <span className="mdk-text-fg">
+                    {checkout.invoice?.amountSats != null &&
+                      `₿${formatSats(checkout.invoice.amountSats)}`}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex justify-between w-full">
+                  <span className="mdk-text-faint">Total Fiat</span>
+                  <span className="mdk-text-fg">
+                    {checkout.invoice?.fiatAmount != null &&
+                      formatCurrency(checkout.invoice.fiatAmount, 'USD')}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between w-full">
+                <span className="mdk-text-faint">Exchange Rate</span>
+                <span className="mdk-text-fg">
+                  {checkout.invoice?.btcPrice && `$${new Intl.NumberFormat('en-US').format(checkout.invoice.btcPrice)}`}
+                </span>
+              </div>
+              {timeRemaining && (
+                <div className="flex justify-between w-full">
+                  <span className="mdk-text-faint">Expires in</span>
+                  <span className="mdk-text-teal">{timeRemaining}</span>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
 
       {isPreview && paymentHash && invoiceAmountSats && (
-        <div className="mt-4 flex justify-center">
-          <Button
+        <div className="mt-4 flex flex-col items-center">
+          <button
+            type="button"
             onClick={handleMarkAsPaid}
             disabled={markingPaid}
-            className="bg-gray-700 hover:bg-gray-900 text-gray-300"
+            className="mdk-button mdk-button-primary"
           >
-            {markingPaid ? 'Marking as paid...' : 'Mark as Paid (Sandbox)'}
-          </Button>
+            {markingPaid ? 'Marking as paid…' : 'Mark as Paid (Sandbox)'}
+          </button>
           {markPaidError && (
-            <p className="text-red-400 text-xs text-center mt-2">{markPaidError}</p>
+            <p className="mdk-text-amber text-center mt-2" style={{ fontSize: '12px' }}>{markPaidError}</p>
           )}
         </div>
       )}

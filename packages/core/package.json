@@ -51,7 +51,11 @@
     "test": "npm run build && tsx --tsconfig tsconfig.test.json --experimental-test-module-mocks --test $(find tests -name '*.test.ts')"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist-mono": "^5.2.8",
+    "@fontsource/source-serif-4": "^5.2.9",
     "@hookform/resolvers": "^5.0.1",
+    "@liquid-js/qr-code-styling": "^5.5.0",
     "@moneydevkit/api-contract": "workspace:*",
     "@moneydevkit/lightning-js": "0.1.84",
     "@orpc/client": "1.13.6",

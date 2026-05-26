@@ -5,53 +5,78 @@ import { CHECKOUT_ID_QUERY_PARAM } from '../constants'
 import '../mdk-styles.css'
 import { clientCreateCheckout, clientGetCheckout } from '../client-actions'
 import { log } from '../logging'
-import { MdkCheckoutProvider } from '../providers'
+import { MdkCheckoutProvider, type MdkTheme } from '../providers'
 import ExpiredCheckout from './checkout/ExpiredCheckout'
 import PaymentReceivedCheckout from './checkout/PaymentReceivedCheckout'
 import PendingPaymentCheckout from './checkout/PendingPaymentCheckout'
 import UnconfirmedCheckout from './checkout/UnconfirmedCheckout'
+import { MoneyDevKitLogo } from './MoneyDevKitLogo'
 
 const POLLING_STATUSES = new Set<CheckoutType['status']>(['UNCONFIRMED', 'CONFIRMED', 'PENDING_PAYMENT'])
 
 export interface CheckoutProps {
   id?: string
+  theme?: MdkTheme
 }
 
-interface CheckoutLayoutProps {
+export interface CheckoutLayoutProps {
   checkout?: CheckoutType
   children: ReactNode
 }
 
-function CheckoutLayout({ checkout, children }: CheckoutLayoutProps) {
+export function CheckoutLayout({ checkout, children }: CheckoutLayoutProps) {
   const title = checkout?.userMetadata?.title
   const description = checkout?.userMetadata?.description
   return (
-    <div className="w-fit mx-auto" style={{ width: '380px' }}>
-      {(title || description) && (
-        <div className="text-center mb-6">
-          {title && (
-            <h2 className="text-2xl font-semibold text-white mb-2 font-sans tracking-tight">
-              {title}
-            </h2>
-          )}
-          {description && (
-            <p className="text-gray-300">{description}</p>
-          )}
-        </div>
-      )}
-      <div className="bg-gray-800 rounded-2xl p-6 text-white font-sans">{children}</div>
-      <div className="text-center mt-6">
-        <p className="text-xs text-gray-500 font-sans">
-          Powered by{' '}
-          <a
-            href="https://www.moneydevkit.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-400 hover:text-white transition-colors underline decoration-gray-600 hover:decoration-white"
+    <div className="w-fit mx-auto" style={{ width: '100%', maxWidth: '327px' }}>
+      <div className="mdk-panel mdk-corner p-6">
+        {(title || description) && (
+          <div className="text-center mb-3">
+            {title && (
+              <h2
+                className="mdk-display mdk-glow-teal mb-2"
+                style={{ fontSize: 'clamp(1.15rem, 2.2vw, 1.45rem)' }}
+              >
+                {title}
+              </h2>
+            )}
+            {description && (
+              <p
+                className="mdk-body mdk-text-muted"
+                style={{ fontSize: '14px', fontWeight: 300 }}
+              >
+                {description}
+              </p>
+            )}
+          </div>
+        )}
+        {children}
+        <div className="text-center mt-4">
+          <p
+            className="mdk-text-faint"
+            style={{
+              fontFamily: 'var(--mdk-font-body)',
+              fontSize: '11px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              lineHeight: 1,
+            }}
           >
-            moneydevkit
-          </a>
-        </p>
+            <span>Powered by</span>
+            <a
+              href="https://www.moneydevkit.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mdk-link"
+              style={{ display: 'inline-flex', alignItems: 'center' }}
+              aria-label="moneydevkit"
+            >
+              <MoneyDevKitLogo style={{ height: '1.25em', width: 'auto', display: 'block' }} />
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -64,14 +89,17 @@ interface CheckoutUrlError {
 
 function CheckoutError({ error }: { error: CheckoutUrlError }) {
   return (
-    <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
+    <div className="mdk-page flex justify-center min-h-screen p-4 pt-8">
       <div className="w-full max-w-md">
-        <div className="w-fit mx-auto" style={{ width: '380px' }}>
-          <div className="bg-gray-800 rounded-2xl p-6 text-white font-sans">
+        <div className="w-fit mx-auto" style={{ width: '100%', maxWidth: '327px' }}>
+          <div className="mdk-panel mdk-corner p-6">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div
+                className="mdk-status-icon-frame is-error mb-4"
+                style={{ width: '64px', height: '64px' }}
+              >
                 <svg
-                  className="w-8 h-8 text-red-500"
+                  className="w-8 h-8 mdk-text-amber"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -84,22 +112,37 @@ function CheckoutError({ error }: { error: CheckoutUrlError }) {
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold mb-2">Unable to create checkout</h2>
-              <p className="text-gray-400">{error.message}</p>
+              <h2 className="mdk-title mb-2" style={{ fontSize: '1.4rem' }}>
+                Unable to create checkout
+              </h2>
+              <p className="mdk-body mdk-text-muted">{error.message}</p>
             </div>
-          </div>
-          <div className="text-center mt-6">
-            <p className="text-xs text-gray-500 font-sans">
-              Powered by{' '}
-              <a
-                href="https://www.moneydevkit.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors underline decoration-gray-600 hover:decoration-white"
+            <div className="text-center mt-4">
+              <p
+                className="mdk-text-faint"
+                style={{
+                  fontFamily: 'var(--mdk-font-body)',
+                  fontSize: '11px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  lineHeight: 1,
+                }}
               >
-                moneydevkit
-              </a>
-            </p>
+                <span>Powered by</span>
+                <a
+                  href="https://www.moneydevkit.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mdk-link"
+                  style={{ display: 'inline-flex', alignItems: 'center' }}
+                  aria-label="moneydevkit"
+                >
+                  <MoneyDevKitLogo style={{ height: '1.25em', width: 'auto', display: 'block' }} />
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -263,14 +306,17 @@ function CheckoutInternal({ id }: CheckoutProps) {
 
   if (!checkout) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+      <div className="mdk-page flex items-center justify-center min-h-screen">
+        <div
+          className="animate-spin rounded-full h-8 w-8 mdk-border-line"
+          style={{ borderStyle: 'solid', borderWidth: '2px', borderTopColor: 'var(--mdk-teal)' }}
+        />
       </div>
     )
   }
 
   return (
-    <div className="flex justify-center min-h-screen p-4 pt-8 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
+    <div className="mdk-page flex justify-center min-h-screen p-4 pt-8">
       <div className="w-full max-w-md">
         {(() => {
           if (paymentReceived) {
@@ -292,8 +338,11 @@ function CheckoutInternal({ id }: CheckoutProps) {
               return (
                 <CheckoutLayout checkout={checkout}>
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
-                    <p className="text-gray-300">Generating invoice...</p>
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 mx-auto mb-4"
+                      style={{ borderStyle: 'solid', borderWidth: '2px', borderColor: 'var(--mdk-line)', borderTopColor: 'var(--mdk-teal)' }}
+                    />
+                    <p className="mdk-label">Generating invoice…</p>
                   </div>
                 </CheckoutLayout>
               )
@@ -322,9 +371,9 @@ function CheckoutInternal({ id }: CheckoutProps) {
   )
 }
 
-export function Checkout(props: CheckoutProps) {
+export function Checkout({ theme, ...props }: CheckoutProps) {
   return (
-    <MdkCheckoutProvider>
+    <MdkCheckoutProvider theme={theme}>
       <CheckoutInternal {...props} />
     </MdkCheckoutProvider>
   )

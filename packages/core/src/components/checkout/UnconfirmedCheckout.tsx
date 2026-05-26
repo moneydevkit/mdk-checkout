@@ -12,7 +12,6 @@ import {
   validateCustomAmount,
   formatInterval,
 } from '../../checkout-utils'
-import { Button } from '../ui/button'
 import {
   Form,
   FormControl,
@@ -135,8 +134,11 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   if (isAutoSubmitting) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4" />
-        <p className="text-gray-300">Preparing checkout...</p>
+        <div
+          className="animate-spin rounded-full h-8 w-8 mx-auto mb-4"
+          style={{ borderStyle: 'solid', borderWidth: '2px', borderColor: 'var(--mdk-line)', borderTopColor: 'var(--mdk-teal)' }}
+        />
+        <p className="mdk-label">› Preparing checkout…</p>
       </div>
     )
   }
@@ -148,18 +150,18 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
           <div className="space-y-2">
             {checkout.products.map((product) => (
               <div key={product.id} className="text-left">
-                <h3 className="font-medium text-white">{product.name}</h3>
-                {product.description && <p className="text-sm text-gray-400">{product.description}</p>}
+                <h3 className="mdk-title" style={{ fontSize: '1.15rem' }}>{product.name}</h3>
+                {product.description && <p className="mdk-body mdk-text-muted" style={{ fontSize: '14px' }}>{product.description}</p>}
                 {product.prices?.[0] && (
-                  <div className="text-sm text-gray-300">
+                  <div className="mdk-mono mdk-text-muted" style={{ fontSize: '13px' }}>
                     {product.prices[0].amountType === 'FIXED' && product.prices[0].priceAmount && (
                       <span>{formatCurrency(product.prices[0].priceAmount, checkout.currency)}</span>
                     )}
                     {product.prices[0].amountType === 'CUSTOM' && (
-                      <span className="text-gray-400">Pay what you want</span>
+                      <span className="mdk-text-faint">Pay what you want</span>
                     )}
                     {product.recurringInterval && (
-                      <span className="text-gray-400">
+                      <span className="mdk-text-faint">
                         {formatInterval(product.recurringInterval, 'short')}
                       </span>
                     )}
@@ -170,21 +172,21 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
           </div>
         )}
         {checkout.type === 'AMOUNT' && checkout.providedAmount && (
-          <div className="text-sm font-medium text-white" />
+          <div className="text-sm font-medium mdk-text-fg" />
         )}
-        {checkout.type === 'TOP_UP' && <div className="text-lg text-white">Account Top-up</div>}
+        {checkout.type === 'TOP_UP' && <div className="mdk-title" style={{ fontSize: '1.25rem' }}>Account Top-up</div>}
       </div>
 
       {/* Custom price amount input */}
       {isCustomPrice && (
         <div className="mb-4">
-          <label htmlFor="customAmount" className="block text-sm font-medium text-gray-300 mb-2">
-            Enter Amount ({checkout.currency})
+          <label htmlFor="customAmount" className="mdk-label block mb-2">
+            › Enter Amount ({checkout.currency === 'SAT' ? '₿' : checkout.currency})
           </label>
           <div className="relative">
-            {checkout.currency === 'USD' && (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-            )}
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 mdk-text-faint mdk-mono">
+              {checkout.currency === 'SAT' ? '₿' : '$'}
+            </span>
             <Input
               id="customAmount"
               type="number"
@@ -196,15 +198,20 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
                 setCustomAmountError(null)
               }}
               placeholder={checkout.currency === 'SAT' ? '1000' : ''}
-              className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ paddingLeft: checkout.currency === 'USD' ? '1.75rem' : undefined, paddingRight: checkout.currency === 'SAT' ? '3.5rem' : undefined }}
+              className="mdk-panel-inset mdk-mono mdk-text-fg w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{
+                background: 'var(--mdk-bg)',
+                border: '1px solid var(--mdk-line-soft)',
+                color: 'var(--mdk-fg)',
+                borderRadius: 0,
+                padding: '0.6rem 0.75rem',
+                paddingLeft: '1.75rem',
+                paddingRight: '0.75rem',
+              }}
             />
-            {checkout.currency === 'SAT' && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">sats</span>
-            )}
           </div>
           {customAmountError && (
-            <p className="text-red-400 text-sm mt-1">{customAmountError}</p>
+            <p className="mdk-text-amber mt-1" style={{ fontSize: '13px' }}>{customAmountError}</p>
           )}
         </div>
       )}
@@ -218,13 +225,20 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
               name={field}
               render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel className="text-gray-300">{fieldToLabel(field)} *</FormLabel>
+                  <FormLabel className="mdk-label">{fieldToLabel(field)}*</FormLabel>
                   <FormControl>
                     <Input
                       {...formField}
                       type={field === 'email' ? 'email' : 'text'}
                       placeholder={`Enter your ${fieldToLabel(field).toLowerCase()}`}
-                      className="bg-gray-700 border-gray-600 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
+                      className="mdk-mono mdk-text-fg w-full"
+                      style={{
+                        background: 'var(--mdk-bg)',
+                        border: '1px solid var(--mdk-line-soft)',
+                        color: 'var(--mdk-fg)',
+                        borderRadius: 0,
+                        padding: '0.6rem 0.75rem',
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -234,23 +248,26 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
           ))}
 
           {form.formState.errors.root && (
-            <div className="text-red-400 text-sm">Error: {form.formState.errors.root.message}</div>
+            <div className="mdk-text-amber" style={{ fontSize: '13px' }}>Error: {form.formState.errors.root.message}</div>
           )}
 
-          <Button
+          <button
             type="submit"
             disabled={form.formState.isSubmitting || confirmMutation.isPending}
-            className="w-full bg-white hover:bg-gray-100 text-black font-medium py-3 px-4 rounded-lg transition-colors border border-gray-200"
+            className="mdk-button mdk-button-primary w-full"
           >
             {form.formState.isSubmitting || confirmMutation.isPending ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Generating invoice...
-              </div>
+              <span className="inline-flex items-center justify-center">
+                <span
+                  className="animate-spin rounded-full h-4 w-4 mr-2"
+                  style={{ borderStyle: 'solid', borderWidth: '2px', borderColor: 'var(--mdk-line)', borderTopColor: 'var(--mdk-teal)' }}
+                />
+                Generating invoice…
+              </span>
             ) : (
               'Proceed to Payment'
             )}
-          </Button>
+          </button>
         </form>
       </Form>
     </>

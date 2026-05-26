@@ -1,4 +1,8 @@
 export * from './components/Checkout'
+export { default as UnconfirmedCheckout } from './components/checkout/UnconfirmedCheckout'
+export { default as PendingPaymentCheckout } from './components/checkout/PendingPaymentCheckout'
+export { default as PaymentReceivedCheckout } from './components/checkout/PaymentReceivedCheckout'
+export { default as ExpiredCheckout } from './components/checkout/ExpiredCheckout'
 export * from './hooks/useCheckout'
 export * from './hooks/useCheckoutSuccess'
 export * from './hooks/useProducts'
