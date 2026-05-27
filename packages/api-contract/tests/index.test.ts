@@ -51,6 +51,7 @@ describe('API Contract Index', () => {
         customFieldData: null,
         currency: 'USD',
         allowDiscountCodes: false,
+        sandbox: false,
         requireCustomerData: null,
         successUrl: null,
         customer: null,

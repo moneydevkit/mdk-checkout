@@ -19,6 +19,7 @@ const baseCheckoutData = {
   customFieldData: null,
   currency: 'USD',
   allowDiscountCodes: false,
+  sandbox: false,
   requireCustomerData: null,
   successUrl: null,
   customer: null,
@@ -339,6 +340,40 @@ describe('CheckoutSchema', () => {
 
       const result = CheckoutSchema.safeParse(inconsistentCheckout)
       assert.equal(result.success, false)
+    })
+  })
+
+  // Regression guard: mdk.com mappers from before this contract version don't
+  // pass `sandbox` to CheckoutSchema.parse(...). Without the default, every
+  // checkout RPC would throw a Zod error during the deploy window between
+  // this contract being published and mdk.com's mapper being updated. The
+  // default keeps the old mappers working — they decode as non-sandbox.
+  describe('CheckoutSchema sandbox back-compat default', () => {
+    it('parses successfully when sandbox is omitted, defaulting to false', () => {
+      // Strip sandbox to simulate an old-mapper payload
+      const { sandbox: _omit, ...withoutSandbox } = baseCheckoutData
+      const checkout = {
+        ...withoutSandbox,
+        status: 'UNCONFIRMED' as const,
+        type: 'TOP_UP' as const,
+      }
+
+      const result = CheckoutSchema.safeParse(checkout)
+      assert.equal(result.success, true)
+      assert.equal(result.success && result.data.sandbox, false)
+    })
+
+    it('preserves explicit sandbox=true when provided', () => {
+      const checkout = {
+        ...baseCheckoutData,
+        sandbox: true,
+        status: 'UNCONFIRMED' as const,
+        type: 'TOP_UP' as const,
+      }
+
+      const result = CheckoutSchema.safeParse(checkout)
+      assert.equal(result.success, true)
+      assert.equal(result.success && result.data.sandbox, true)
     })
   })
 

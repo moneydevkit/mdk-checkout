@@ -58,17 +58,28 @@ export const CustomerInputSchema = z
 export type CustomerInput = z.infer<typeof CustomerInputSchema>;
 
 // Input schemas
-export const CreateCheckoutInputSchema = z.object({
-	nodeId: z.string(),
-	amount: z.number().optional(),
-	currency: CurrencySchema.optional(),
-	products: z.array(z.string()).optional(),
-	successUrl: z.string().optional(),
-	allowDiscountCodes: z.boolean().optional(),
-	metadata: z.record(z.string(), z.any()).optional(),
-	customer: CustomerInputSchema.optional(),
-	requireCustomerData: z.array(CustomerFieldSchema).optional(),
-});
+/**
+ * Public createCheckout input. Strict + refined so callers cannot spoof a
+ * server-managed field (notably `sandbox`, which is derived from the owning
+ * app's mode and must never be controlled by client input).
+ */
+export const CreateCheckoutInputSchema = z
+	.object({
+		nodeId: z.string(),
+		amount: z.number().optional(),
+		currency: CurrencySchema.optional(),
+		products: z.array(z.string()).optional(),
+		successUrl: z.string().optional(),
+		allowDiscountCodes: z.boolean().optional(),
+		metadata: z.record(z.string(), z.any()).optional(),
+		customer: CustomerInputSchema.optional(),
+		requireCustomerData: z.array(CustomerFieldSchema).optional(),
+	})
+	.strict()
+	.refine((data) => !("sandbox" in data), {
+		message: "sandbox is set server-side and cannot be supplied by caller",
+		path: ["sandbox"],
+	});
 
 export const ConfirmCheckoutInputSchema = z.object({
 	checkoutId: z.string(),

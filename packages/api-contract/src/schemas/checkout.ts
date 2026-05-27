@@ -47,6 +47,19 @@ const BaseCheckoutSchema = z.object({
 	currency: CurrencySchema,
 	allowDiscountCodes: z.boolean(),
 	/**
+	 * Whether this checkout was minted in sandbox mode (test mode).
+	 * Set server-side based on the owning app's mode at creation time.
+	 * Sandbox checkouts are routed to the platform's house node and do not
+	 * touch the merchant's real lightning channels.
+	 *
+	 * Defaults to `false` so the parser tolerates older mdk.com mappers that
+	 * predate this field — they emit responses without `sandbox` and we'd
+	 * rather treat them as live than reject the parse outright. New mappers
+	 * pass an explicit boolean. The post-parse output type is still
+	 * `boolean`, so consumers always see a defined value.
+	 */
+	sandbox: z.boolean().default(false),
+	/**
 	 * Array of customer fields required at checkout.
 	 * @example ['email'] - email required
 	 * @example ['email', 'name'] - both required
@@ -218,6 +231,14 @@ export const CheckoutListItemSchema = z.object({
 	expiresAt: z.date(),
 	createdAt: z.date(),
 	modifiedAt: z.date().nullable(),
+	/**
+	 * Whether this checkout was minted in sandbox mode (test mode).
+	 * Mirrors the field on the full CheckoutSchema so list consumers can
+	 * tag rows without fetching the detail view. Defaults to `false` for
+	 * back-compat with mappers that predate the field; see the same field
+	 * on CheckoutSchema above for the full rationale.
+	 */
+	sandbox: z.boolean().default(false),
 });
 export type CheckoutListItem = z.infer<typeof CheckoutListItemSchema>;
 
