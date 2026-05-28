@@ -53,6 +53,9 @@ export const listProductsPaginatedContract = oc
 export const CreateProductInputSchema = z.object({
 	name: z.string().min(1),
 	description: z.string().optional(),
+	// App this product belongs to (MDK-915). Required: the MCP/API context is
+	// org-scoped, so the caller must say which app the product belongs to.
+	appId: z.string().min(1),
 	price: ProductPriceInputSchema,
 	userMetadata: z.record(z.string(), z.string()).optional(),
 });
@@ -72,6 +75,10 @@ export type UpdateProductInput = z.infer<typeof UpdateProductInputSchema>;
 export const CreateProductToolInputSchema = z.object({
 	name: z.string().min(1).describe("Product name"),
 	description: z.string().optional().describe("Product description"),
+	appId: z
+		.string()
+		.min(1)
+		.describe("ID of the app this product belongs to (required)"),
 	priceAmount: z
 		.number()
 		.optional()
