@@ -68,6 +68,10 @@ export type DeleteCustomerInput = z.infer<typeof DeleteCustomerInputSchema>;
 export const CreateCustomerInputSchema = z.object({
 	name: z.string().min(1).describe("Customer name"),
 	email: z.string().email().describe("Customer email address"),
+	appId: z
+		.string()
+		.min(1)
+		.describe("ID of the app this customer belongs to (MDK-916)"),
 	externalId: z
 		.string()
 		.optional()
