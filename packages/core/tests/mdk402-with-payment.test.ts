@@ -1875,3 +1875,105 @@ describe('withDeferredSettlement', () => {
     })
   })
 })
+
+// =============================================================================
+// Contract conformance: the checkout.create payload that withPayment sends MUST
+// only contain keys accepted by the strict api-contract CreateCheckoutInputSchema.
+//
+// Regression guard for the bug where create402Response spread the full resolved
+// CreateCheckoutParams (carrying the SDK-only keys `type`/`title`/`description`)
+// into checkout.create. CreateCheckoutInputSchema is `.strict()`, so the server
+// rejected those keys with `unrecognized_keys` and no 402 invoice could be
+// minted. title/description are folded into `metadata`; the server infers
+// AMOUNT vs PRODUCTS from `amount` vs `products`, so `type` must not be sent.
+//
+// Kept self-contained (no api-contract import): ALLOWED_CREATE_KEYS mirrors the
+// object shape of CreateCheckoutInputSchema in
+// packages/api-contract/src/contracts/checkout.ts — keep them in sync.
+// =============================================================================
+describe('withPayment create payload conforms to the strict checkout.create contract', () => {
+  // Exact key set of CreateCheckoutInputSchema (`.strict()`). Anything outside
+  // this set is rejected server-side with `unrecognized_keys`.
+  const ALLOWED_CREATE_KEYS = new Set([
+    'nodeId',
+    'amount',
+    'currency',
+    'products',
+    'successUrl',
+    'allowDiscountCodes',
+    'metadata',
+    'customer',
+    'requireCustomerData',
+  ])
+
+  // Reconstruct the on-the-wire create input exactly as MoneyDevKitClient's
+  // `checkouts.create(fields, nodeId)` does in mdk-client.ts: destructure the
+  // singular `product` into a `products` array and attach nodeId. Whatever is
+  // left in `fields` goes straight onto the wire and must pass the strict schema.
+  // JSON serialization drops `undefined` values, so only keys with defined
+  // values actually reach the server — mirror that here.
+  function wirePayloadFromCreateCall(): Record<string, unknown> {
+    const create = currentMocks.fakeClient.checkouts.create
+    assert.equal(create.mock.calls.length, 1, 'checkout.create called exactly once')
+    const [fields, nodeId] = create.mock.calls[0].arguments as [Record<string, unknown>, string]
+    const { product, ...rest } = fields as { product?: string } & Record<string, unknown>
+    const raw: Record<string, unknown> = {
+      ...rest,
+      products: product ? [product] : undefined,
+      nodeId,
+    }
+    return Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined))
+  }
+
+  function assertContractValid(wire: Record<string, unknown>) {
+    // The three SDK-only keys must never reach the wire.
+    for (const forbidden of ['type', 'title', 'description']) {
+      assert.ok(
+        !(forbidden in wire),
+        `create payload must not contain SDK-only key '${forbidden}': ${JSON.stringify(wire)}`,
+      )
+    }
+    // Every remaining key must be one the strict contract accepts.
+    const offending = Object.keys(wire).filter((k) => !ALLOWED_CREATE_KEYS.has(k))
+    assert.deepEqual(
+      offending,
+      [],
+      `create payload has keys rejected by strict contract: ${JSON.stringify(offending)} in ${JSON.stringify(wire)}`,
+    )
+  }
+
+  it('AMOUNT mode with title/description/metadata sends a contract-valid payload', async () => {
+    const wrapped = withPayment(
+      {
+        amount: 100,
+        currency: 'SAT',
+        title: 'Premium pairing',
+        description: 'AI-generated wine pairing',
+        metadata: { tier: 'pro' },
+      },
+      innerHandler,
+    )
+    const res = await wrapped(makeRequest())
+    assert.equal(res.status, 402)
+
+    const wire = wirePayloadFromCreateCall()
+    assertContractValid(wire)
+
+    // title/description survive as metadata, not top-level fields.
+    assert.equal((wire.metadata as Record<string, string>).title, 'Premium pairing')
+    assert.equal((wire.metadata as Record<string, string>).description, 'AI-generated wine pairing')
+  })
+
+  it('PRODUCTS mode sends a contract-valid payload', async () => {
+    const wrapped = withPayment(
+      { type: 'PRODUCTS', product: FAKE_PRODUCT_ID },
+      innerHandler,
+    )
+    const res = await wrapped(makeRequest())
+    assert.equal(res.status, 402)
+
+    const wire = wirePayloadFromCreateCall()
+    assertContractValid(wire)
+    assert.deepEqual(wire.products, [FAKE_PRODUCT_ID])
+  })
+})

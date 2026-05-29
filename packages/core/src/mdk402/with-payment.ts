@@ -508,12 +508,28 @@ async function create402Response(
       isSandbox: isPreview,
     })
 
-    // resolved is already a CreateCheckoutParams. Spread it and override
-    // metadata with the composed (system-keys-on-top) version.
-    const checkout = await client.checkouts.create(
-      { ...resolved, metadata },
-      nodeId,
-    )
+    // Build the wire payload explicitly rather than spreading `resolved`.
+    // CreateCheckoutInputSchema is `.strict()` and rejects the SDK-only fields
+    // `type`, `title`, and `description` (the server infers AMOUNT vs PRODUCTS
+    // from the presence of `amount` vs `products`, and title/description are
+    // already folded into `metadata` by composeCheckoutMetadata above). This
+    // mirrors how actions.ts `createCheckout` constructs the call.
+    const createParams =
+      resolved.type === 'PRODUCTS'
+        ? {
+            product: resolved.product,
+            metadata,
+            customer: resolved.customer,
+            requireCustomerData: resolved.requireCustomerData,
+          }
+        : {
+            amount: resolved.amount,
+            currency: resolved.currency,
+            metadata,
+            customer: resolved.customer,
+            requireCustomerData: resolved.requireCustomerData,
+          }
+    const checkout = await client.checkouts.create(createParams, nodeId)
 
     if (checkout.status !== 'CONFIRMED') {
       return errorResponse(502, {
