@@ -347,8 +347,15 @@ async function verifyCredential(
   const priceError = await verifyCurrentPrice(credentialResult, config, req)
   if (priceError) return priceError
 
-  // Verify payment proof (skip in preview/sandbox mode)
-  if (!is_preview_environment()) {
+  // Verify payment proof. Skipped when either:
+  //   - the merchant runtime is a preview environment (legacy behavior), OR
+  //   - the credential carries the signed sandbox flag (set by create402Response
+  //     when the underlying checkout was minted in sandbox mode, e.g. the
+  //     owning App is in AppMode.sandbox even though merchant runtime is prod).
+  // Without the credential-side check, sandbox-mode checkouts produced by
+  // prod-runtime merchants would emit unpayable placeholder invoices that
+  // could never satisfy the 402 challenge.
+  if (!is_preview_environment() && !credentialResult.sandbox) {
     if (!verifyPreimage(parsed.preimage, credentialResult.paymentHash)) {
       return errorResponse(401, {
         code: 'invalid_payment_proof',
@@ -542,6 +549,13 @@ async function create402Response(
       ? pendingCheckout.currency ?? 'SAT'
       : resolved.currency
 
+    // Sandbox is true when EITHER the merchant runtime is a preview env OR
+    // the returned checkout was minted in sandbox mode server-side (set by
+    // mdk.com when AppMode.sandbox is in effect or metadata.sandbox is "true").
+    // Drives three signals: the signed credential's sandbox flag (verify-side
+    // preimage skip), the WWW-Authenticate header, and the JSON body.
+    const isSandbox = isPreview || pendingCheckout.sandbox === true
+
     const macaroon = createL402Credential({
       paymentHash: invoiceFromDb.paymentHash,
       amountSats,
@@ -550,9 +564,10 @@ async function create402Response(
       resource,
       amount: credentialAmount,
       currency: credentialCurrency,
+      sandbox: isSandbox,
     })
 
-    const wwwAuthenticate = isPreview
+    const wwwAuthenticate = isSandbox
       ? `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}", sandbox="true"`
       : `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
 
@@ -564,7 +579,7 @@ async function create402Response(
         paymentHash: invoiceFromDb.paymentHash,
         amountSats,
         expiresAt,
-        ...(isPreview ? { sandbox: true } : {}),
+        ...(isSandbox ? { sandbox: true } : {}),
       }),
       {
         status: 402,

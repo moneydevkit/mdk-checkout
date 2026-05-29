@@ -10,6 +10,14 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   })
 }
 
+// RPC adapter for markInvoicePaidPreview. Gated to preview-runtime: outside
+// preview, the endpoint returns 403 regardless of payload. The merchant's
+// `paymentReceived` RPC is currently merchant-asserted (server trusts the
+// client-supplied `sandbox` flag and the claimed paymentHash). Exposing this
+// route on a real prod deployment lets any same-origin caller with a CSRF
+// token fake-mark a checkout as paid, firing the `checkout.completed`
+// webhook and potentially triggering autopayout against real merchant
+// balance. The preview gate keeps the dev-only path off the public surface.
 export async function handlePreviewPayInvoice(request: Request): Promise<Response> {
   if (!is_preview_environment()) {
     return jsonResponse(403, { error: 'pay_invoice is only available in preview mode' })

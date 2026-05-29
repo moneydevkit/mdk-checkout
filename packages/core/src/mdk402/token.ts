@@ -15,13 +15,33 @@ export interface CreateL402CredentialParams {
   resource: string // method:pathname identifier (e.g. "GET:/api/premium")
   amount: number // pre-conversion amount from PaymentConfig
   currency: string // currency code (e.g. "SAT", "USD")
+  // True when the underlying checkout is in sandbox mode. Signed into the
+  // credential so the verify path can skip preimage verification without
+  // re-querying the server. Driven by either `is_preview_environment()` on
+  // the merchant runtime OR the server-side `Checkout.sandbox` column (which
+  // mdk.com flips when the owning App is in AppMode.sandbox).
+  // Optional with default `false` so existing call sites that don't care
+  // about sandbox continue to compile; production code in
+  // with-payment.ts always passes an explicit boolean.
+  sandbox?: boolean
 }
 
 /**
  * Result of verifying an L402 credential.
  */
 export type VerifyL402CredentialResult =
-  | { valid: true; paymentHash: string; amountSats: number; expiresAt: number; resource: string; amount: number; currency: string }
+  | {
+      valid: true
+      paymentHash: string
+      amountSats: number
+      expiresAt: number
+      resource: string
+      amount: number
+      currency: string
+      // Mirrors CreateL402CredentialParams.sandbox; used by the verify path to
+      // skip preimage verification on sandbox-mode credentials.
+      sandbox: boolean
+    }
   | { valid: false; reason: 'invalid_format' | 'invalid_signature' }
 
 /**
@@ -41,6 +61,11 @@ const credentialPayloadSchema = z.object({
   resource: z.string(),
   amount: z.number(),
   currency: z.string(),
+  // Defaults to false so credentials emitted by older mdk-checkout builds
+  // (pre-sandbox-credential) still parse — they decode as non-sandbox and
+  // continue to require a real preimage on verify, which matches their
+  // original behavior. New emissions always include the field explicitly.
+  sandbox: z.boolean().default(false),
   sig: z.string(),
 })
 
@@ -72,14 +97,20 @@ export function deriveL402Key(accessToken: string): Buffer {
  */
 export function createL402Credential(params: CreateL402CredentialParams): string {
   const { paymentHash, amountSats, expiresAt, accessToken, resource, amount, currency } = params
+  const sandbox = params.sandbox ?? false
 
   const key = deriveL402Key(accessToken)
-  const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}`
+  // Sandbox is appended to the signed message so the verify path can trust it
+  // without a server round-trip. Note: appending changes the HMAC for every
+  // credential, including non-sandbox ones — credentials issued by builds prior
+  // to this change will fail signature verification. Acceptable because L402
+  // credentials are short-lived (5-min agent expiry; minutes for human payers).
+  const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}\0${sandbox ? '1' : '0'}`
   const sig = createHmac('sha256', key)
     .update(message)
     .digest('hex')
 
-  const tokenObj = { paymentHash, amountSats, expiresAt, resource, amount, currency, sig }
+  const tokenObj = { paymentHash, amountSats, expiresAt, resource, amount, currency, sandbox, sig }
   return Buffer.from(JSON.stringify(tokenObj)).toString('base64')
 }
 
@@ -96,16 +127,17 @@ export function verifyL402Credential(credential: string, accessToken: string): V
       return { valid: false, reason: 'invalid_format' }
     }
 
-    const { paymentHash, amountSats, expiresAt, resource, amount, currency, sig } = parsed.data
+    const { paymentHash, amountSats, expiresAt, resource, amount, currency, sandbox, sig } = parsed.data
 
     // Reject malformed hex before doing crypto work
     if (!/^[0-9a-f]{64}$/.test(sig)) {
       return { valid: false, reason: 'invalid_signature' }
     }
 
-    // Verify HMAC with constant-time comparison
+    // Verify HMAC with constant-time comparison. Message format must match
+    // createL402Credential exactly — sandbox is the last field.
     const key = deriveL402Key(accessToken)
-    const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}`
+    const message = `${paymentHash}\0${amountSats}\0${expiresAt}\0${resource}\0${amount}\0${currency}\0${sandbox ? '1' : '0'}`
     const expectedSig = createHmac('sha256', key)
       .update(message)
       .digest('hex')
@@ -117,7 +149,7 @@ export function verifyL402Credential(credential: string, accessToken: string): V
       return { valid: false, reason: 'invalid_signature' }
     }
 
-    return { valid: true, paymentHash, amountSats, expiresAt, resource, amount, currency }
+    return { valid: true, paymentHash, amountSats, expiresAt, resource, amount, currency, sandbox }
   } catch {
     return { valid: false, reason: 'invalid_format' }
   }

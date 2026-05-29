@@ -296,6 +296,19 @@ export async function createCheckout(
   }
 }
 
+// Marks an invoice as paid without touching the Lightning network. Gated to
+// preview-runtime callers (Replit dev / MDK_PREVIEW=true) because the
+// underlying mdk.com endpoint (`paymentReceived`) is merchant-asserted: anyone
+// who can invoke this function can fake-mark any of the merchant's pending
+// invoices as paid, which fires `checkout.completed` webhooks and (without
+// further server-side cross-checks) triggers autopayout against the merchant's
+// real balance. The preview gate scopes blast radius to non-prod runtimes
+// where this dev-only convenience is safe.
+//
+// A prod-runtime merchant with App.mode='sandbox' cannot use this path today;
+// the dashboard surface for that case is tracked separately and should call a
+// server-authoritative endpoint that derives sandbox state from App.mode
+// rather than trusting a client-supplied flag.
 export async function markInvoicePaidPreview(paymentHash: string, amountSats: number) {
   if (!is_preview_environment()) {
     throw new Error('markInvoicePaidPreview can only be used in preview environments.')

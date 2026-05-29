@@ -100,7 +100,7 @@ function futureTimestamp(seconds: number): number {
 }
 
 /** Create a mock checkout object as returned by client.checkouts.create */
-function makeFakeConfirmedCheckout(amountSats: number) {
+function makeFakeConfirmedCheckout(amountSats: number, sandbox = false) {
   return {
     id: FAKE_CHECKOUT_ID,
     status: 'CONFIRMED' as const,
@@ -131,13 +131,17 @@ function makeFakeConfirmedCheckout(amountSats: number) {
     taxAmount: 0,
     btcPrice: 50000,
     invoice: null,
+    // sandbox flag from the api-contract Checkout schema; required field set
+    // server-side by mdk.com. Default false; pass true to simulate the
+    // AppMode.sandbox / metadata.sandbox-driven path.
+    sandbox,
   }
 }
 
-/** Create a mock pending payment checkout as returned by registerInvoice */
-function makeFakePendingCheckout(amountSats: number) {
+/** Create a mock pending payment checkout as returned by mintInvoice. */
+function makeFakePendingCheckout(amountSats: number, sandbox = false) {
   return {
-    ...makeFakeConfirmedCheckout(amountSats),
+    ...makeFakeConfirmedCheckout(amountSats, sandbox),
     status: 'PENDING_PAYMENT' as const,
     invoice: {
       invoice: FAKE_INVOICE,
@@ -861,6 +865,94 @@ describe('withPayment', () => {
       const wwwAuth = res.headers.get('www-authenticate')
       assert.ok(wwwAuth)
       assert.ok(!wwwAuth.includes('sandbox'), `WWW-Authenticate must not contain sandbox in production, got: ${wwwAuth}`)
+    })
+  })
+
+  // Path B coverage: merchant runtime is NOT a preview env, but the server-side
+  // checkout was minted in sandbox mode (driven by AppMode.sandbox on mdk.com
+  // even when metadata.sandbox isn't set by the SDK). Without this fix the
+  // sandbox signals would all be dropped, leaving the client with an unpayable
+  // placeholder invoice and no way to satisfy the 402.
+  describe('sandbox via server-side Checkout.sandbox column (AppMode.sandbox path)', () => {
+    beforeEach(() => {
+      previewMode = false
+      currentMocks.fakeClient.checkouts.mintInvoice = mock.fn(async () =>
+        makeFakePendingCheckout(100, true),
+      )
+    })
+
+    it('emits sandbox="true" in WWW-Authenticate when checkout.sandbox=true (prod runtime)', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth, 'WWW-Authenticate header must be present')
+      assert.ok(
+        wwwAuth.includes('sandbox="true"'),
+        `expected sandbox="true" in header, got: ${wwwAuth}`,
+      )
+    })
+
+    it('emits sandbox: true in JSON body when checkout.sandbox=true (prod runtime)', async () => {
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.sandbox, true)
+    })
+
+    it('verify path accepts any preimage when credential carries sandbox=true (prod runtime)', async () => {
+      // Reproduce the exact failure path: prod runtime + sandbox-mode checkout.
+      // A naive client would have no real preimage; the fix is that the
+      // signed sandbox flag on the credential allows the server to skip
+      // preimage verification just like in a preview environment.
+      const macaroon = createL402Credential({
+        paymentHash: TEST_PAYMENT_HASH,
+        amountSats: 100,
+        expiresAt: futureTimestamp(900),
+        accessToken: TEST_ACCESS_TOKEN,
+        resource: 'GET:/api/premium',
+        amount: 100,
+        currency: 'SAT',
+        sandbox: true,
+      })
+      const fakePreimage = 'ff'.repeat(32)
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${fakePreimage}`),
+      )
+
+      assert.equal(res.status, 200, 'sandbox credential should bypass preimage check')
+      const body = await res.json()
+      assert.equal(body.success, true)
+    })
+
+    it('verify path STILL rejects bogus preimage when credential is sandbox=false (regression guard)', async () => {
+      // Mirror of the above with sandbox=false to lock in that the preimage
+      // skip is gated on the credential field, not unconditional.
+      const macaroon = createL402Credential({
+        paymentHash: TEST_PAYMENT_HASH,
+        amountSats: 100,
+        expiresAt: futureTimestamp(900),
+        accessToken: TEST_ACCESS_TOKEN,
+        resource: 'GET:/api/premium',
+        amount: 100,
+        currency: 'SAT',
+        sandbox: false,
+      })
+      const fakePreimage = 'ff'.repeat(32)
+
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(
+        makeRequest('http://localhost/api/premium', `L402 ${macaroon}:${fakePreimage}`),
+      )
+
+      assert.equal(res.status, 401)
+      const body = await res.json()
+      assert.equal(body.error.code, 'invalid_payment_proof')
     })
   })
 

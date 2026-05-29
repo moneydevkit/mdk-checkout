@@ -11,6 +11,14 @@ import { CashAppIcon, StrikeIcon } from '../WalletIcons'
 
 type PendingPaymentCheckoutType = Extract<Checkout, { status: 'PENDING_PAYMENT' }>
 
+// Single BOLT11-shaped placeholder used everywhere the sandbox UX surfaces a
+// payment string (QR value, wallet deep-link URLs, chunked display). Shaped
+// like a real invoice so the UI looks normal, but the HRP and body are
+// deliberately invalid — wallets reject decode, no HTLC can route. Keep this
+// in sync visually with mdk.com's APP_HEALTH_CONFIG.sandboxPlaceholderInvoice
+// (the server stores its own internal-flag string; the FE renders this one).
+const SANDBOX_PLACEHOLDER_INVOICE = 'lnbcsandbox1pnxxxsandboxonlyxxxnotpayablexxxyyyzzz'
+
 export interface PendingPaymentCheckoutProps {
   checkout: PendingPaymentCheckoutType
 }
@@ -23,7 +31,11 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   const [markingPaid, setMarkingPaid] = useState<boolean>(false)
   const [markPaidError, setMarkPaidError] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const isPreview = is_preview_environment()
+  // Render sandbox UX (placeholder QR, Mark-as-Paid button, emptied E2E data
+  // attributes) when either the merchant runtime is preview (Replit dev,
+  // MDK_PREVIEW=true) or the checkout is server-stamped sandbox
+  // (App.mode='sandbox', even in a prod runtime).
+  const showSandbox = is_preview_environment() || checkout.sandbox === true
   useEffect(() => {
     const updateTimer = () => {
       if (!checkout.invoice?.expiresAt) return
@@ -73,7 +85,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
 
   const copyToClipboard = async () => {
     // Don't copy real invoice in preview mode
-    if (isPreview) {
+    if (showSandbox) {
       setCopySuccess(true)
       setCopyFlashKey((k) => k + 1)
       setTimeout(() => setCopySuccess(false), 2000)
@@ -112,7 +124,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
   const paymentHash = checkout.invoice?.paymentHash
 
   const handleMarkAsPaid = useCallback(async () => {
-    if (!isPreview || !paymentHash || !invoiceAmountSats) {
+    if (!showSandbox || !paymentHash || !invoiceAmountSats) {
       setMarkPaidError('Missing invoice details for preview payment.')
       return
     }
@@ -128,7 +140,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
     } finally {
       setMarkingPaid(false)
     }
-  }, [checkout.id, invoiceAmountSats, isPreview, paymentHash, queryClient])
+  }, [checkout.id, invoiceAmountSats, showSandbox, paymentHash, queryClient])
 
   const CheckmarkIcon = () => (
     <svg
@@ -232,7 +244,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
           title="Click to copy invoice"
         >
           <StyledQRCode
-            value={isPreview ? 'SANDBOX_PREVIEW_MODE' : (checkout.invoice?.invoice ?? '')}
+            value={showSandbox ? SANDBOX_PLACEHOLDER_INVOICE : (checkout.invoice?.invoice ?? '')}
             size={240}
           />
           {copyFlashKey > 0 && (
@@ -242,7 +254,7 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
               aria-hidden="true"
             />
           )}
-          {isPreview && (
+          {showSandbox && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div
                 className="mdk-label px-4 py-2 transform -rotate-12"
@@ -262,8 +274,8 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
       </div>
 
       {(() => {
-        const invoiceString = isPreview
-          ? 'lnbc1500n1pnxxx_sandbox_invoice'
+        const invoiceString = showSandbox
+          ? SANDBOX_PLACEHOLDER_INVOICE
           : checkout.invoice?.invoice
         if (!invoiceString) return null
         return (
@@ -286,9 +298,9 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
         )
       })()}
 
-      {(checkout.invoice?.invoice || isPreview) && (() => {
-        const displayInvoice = isPreview
-          ? 'lnbc1500n1pnxxxsandboxinvoicexxxyyyzzz'
+      {(checkout.invoice?.invoice || showSandbox) && (() => {
+        const displayInvoice = showSandbox
+          ? SANDBOX_PLACEHOLDER_INVOICE
           : (checkout.invoice?.invoice ?? '')
         // Chunk display: [first 4 teal] [next 4 muted] … [pre-last 4 muted] [last 4 teal]
         // Pulling the trailing chunks from the END of the string guarantees each is exactly
@@ -302,9 +314,9 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
           <div
             className="mdk-panel-inset flex items-center gap-2 mb-2 w-full"
             style={{ padding: '0.75rem 1rem' }}
-            data-lightning-invoice={isPreview ? '' : (checkout.invoice?.invoice ?? '')}
-            data-lightning-amount-sats={isPreview ? '' : (invoiceAmountSats ?? '')}
-            data-lightning-currency={isPreview ? '' : (checkout.currency ?? '')}
+            data-lightning-invoice={showSandbox ? '' : (checkout.invoice?.invoice ?? '')}
+            data-lightning-amount-sats={showSandbox ? '' : (invoiceAmountSats ?? '')}
+            data-lightning-currency={showSandbox ? '' : (checkout.currency ?? '')}
           >
             <code
               className="mdk-mono mdk-text-muted flex-1 min-w-0 overflow-hidden whitespace-nowrap"
@@ -406,7 +418,13 @@ export default function PendingPaymentCheckout({ checkout }: PendingPaymentCheck
         </Collapsible>
       </div>
 
-      {isPreview && paymentHash && invoiceAmountSats && (
+      {/* Mark-as-Paid button gates on is_preview_environment() — narrower than
+          `showSandbox` — because the underlying chain
+          clientPayInvoice → /pay_invoice → markInvoicePaidPreview is preview-only
+          (see actions.ts / client-actions.ts). Rendering it on a prod-runtime
+          sandbox checkout would surface a button whose click always throws.
+          Visual sandbox cues (placeholder QR, banner) still use `showSandbox`. */}
+      {is_preview_environment() && paymentHash && invoiceAmountSats && (
         <div className="mt-4 flex flex-col items-center">
           <button
             type="button"

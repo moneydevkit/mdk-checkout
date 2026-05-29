@@ -125,6 +125,12 @@ export async function clientConfirmCheckout(confirm: ConfirmCheckout): Promise<C
   return result.data
 }
 
+// Browser-side trigger for the merchant's `/pay_invoice` route. Gated to
+// preview-runtime for the same reason as markInvoicePaidPreview: the chain
+// `clientPayInvoice → /pay_invoice → markInvoicePaidPreview → paymentReceived`
+// is merchant-asserted and can fake-mark any of the merchant's pending
+// invoices. Refusing to even send the request from prod runtime narrows the
+// reachable surface to dev/preview deployments.
 export async function clientPayInvoice(paymentHash: string, amountSats: number) {
   if (!is_preview_environment()) {
     throw new Error('clientPayInvoice is only available in preview environments.')
