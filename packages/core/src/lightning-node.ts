@@ -94,6 +94,7 @@ export interface MoneyDevKitNodeOptions {
 
 const RECEIVE_PAYMENTS_MIN_THRESHOLD_MS = 6000
 const RECEIVE_PAYMENTS_QUIET_THRESHOLD_MS = 4000
+const MAX_SENDABLE_FEE_BUFFER_BPS = 40
 
 export class MoneyDevKitNode {
   private node: LightningNodeInstance
@@ -122,6 +123,7 @@ export class MoneyDevKitNode {
       lspNodeId: options.nodeOptions?.lspNodeId ?? defaultNodeOptions.lspNodeId!,
       lspAddress: options.nodeOptions?.lspAddress ?? defaultNodeOptions.lspAddress!,
       scoringParamOverrides: options.nodeOptions?.scoringParamOverrides ?? defaultNodeOptions.scoringParamOverrides,
+      maxSendable: { feeBufferBps: MAX_SENDABLE_FEE_BUFFER_BPS },
     })
   }
 
