@@ -27,12 +27,23 @@ export interface StyledQRCodeProps {
 // StyledQRCode renders a Money Dev Kit-branded QR via @liquid-js/qr-code-styling.
 // Small-square dots with a 45deg MDK teal gradient. Background and gradient flip
 // with the surrounding MdkCheckoutProvider's theme; pass bgColor to override.
+//
+// Density optimisation: BOLT11/BOLT12 invoices are bech32 (case-insensitive but
+// single-case). Uppercasing lets the QR encoder pick alphanumeric mode (~5.5
+// bits/char) instead of byte mode (8 bits/char). Combined with the lowest error
+// correction level (L), this materially shrinks the module count.
+const QR_OPTIONS = {
+  mode: 'alphanumeric',
+  errorCorrectionLevel: 'L',
+} as const
+
 export function StyledQRCode({ value, size = 240, bgColor }: StyledQRCodeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const qrRef = useRef<QRCodeStyling | null>(null)
   const theme = useMdkTheme()
 
   const effectiveBg = bgColor ?? THEMED_BG[theme]
+  const encoded = value.toUpperCase()
 
   const gradient = useMemo(() => {
     const [stop0, stop1] = THEMED_STOPS[theme]
@@ -51,7 +62,8 @@ export function StyledQRCode({ value, size = 240, bgColor }: StyledQRCodeProps) 
 
     qrRef.current = new QRCodeStyling({
       size,
-      data: value,
+      data: encoded,
+      qrOptions: QR_OPTIONS,
       dotsOptions: {
         type: 'small-square',
         gradient,
@@ -80,13 +92,14 @@ export function StyledQRCode({ value, size = 240, bgColor }: StyledQRCodeProps) 
   useEffect(() => {
     qrRef.current?.update({
       size,
-      data: value,
+      data: encoded,
+      qrOptions: QR_OPTIONS,
       dotsOptions: { gradient },
       cornersSquareOptions: { gradient },
       cornersDotOptions: { gradient },
       backgroundOptions: { color: effectiveBg },
     })
-  }, [value, size, effectiveBg, gradient])
+  }, [encoded, size, effectiveBg, gradient])
 
   return (
     <div
