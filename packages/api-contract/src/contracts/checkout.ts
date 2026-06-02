@@ -59,27 +59,25 @@ export type CustomerInput = z.infer<typeof CustomerInputSchema>;
 
 // Input schemas
 /**
- * Public createCheckout input. Strict + refined so callers cannot spoof a
- * server-managed field (notably `sandbox`, which is derived from the owning
- * app's mode and must never be controlled by client input).
+ * Public createCheckout input. Uses Zod's default object behavior to strip
+ * unknown keys, preserving compatibility with legacy SDKs that sent SDK-only
+ * fields such as `type`, `title`, and `description`.
+ *
+ * `sandbox` is accepted as explicit caller intent and is reconciled server-side
+ * with legacy metadata sandbox signals and App.mode.
  */
-export const CreateCheckoutInputSchema = z
-	.object({
-		nodeId: z.string(),
-		amount: z.number().optional(),
-		currency: CurrencySchema.optional(),
-		products: z.array(z.string()).optional(),
-		successUrl: z.string().optional(),
-		allowDiscountCodes: z.boolean().optional(),
-		metadata: z.record(z.string(), z.any()).optional(),
-		customer: CustomerInputSchema.optional(),
-		requireCustomerData: z.array(CustomerFieldSchema).optional(),
-	})
-	.strict()
-	.refine((data) => !("sandbox" in data), {
-		message: "sandbox is set server-side and cannot be supplied by caller",
-		path: ["sandbox"],
-	});
+export const CreateCheckoutInputSchema = z.object({
+	nodeId: z.string(),
+	amount: z.number().optional(),
+	currency: CurrencySchema.optional(),
+	products: z.array(z.string()).optional(),
+	successUrl: z.string().optional(),
+	allowDiscountCodes: z.boolean().optional(),
+	metadata: z.record(z.string(), z.any()).optional(),
+	customer: CustomerInputSchema.optional(),
+	requireCustomerData: z.array(CustomerFieldSchema).optional(),
+	sandbox: z.boolean().optional(),
+});
 
 export const ConfirmCheckoutInputSchema = z.object({
 	checkoutId: z.string(),

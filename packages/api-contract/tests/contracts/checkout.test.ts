@@ -522,9 +522,8 @@ describe('Checkout Contracts', () => {
   describe('Type consistency', () => {
     it('should have consistent types between input schemas and exported types', () => {
       // This test ensures that the exported types match the actual schemas.
-      // Note: CreateCheckoutInputSchema is .strict() — unknown keys (e.g. the
-      // legacy `customerEmail` field) are rejected; pass customer info via the
-      // `customer` object instead.
+      // Note: CreateCheckoutInputSchema strips unknown keys; pass customer info
+      // via the `customer` object instead of legacy top-level customer fields.
       const createInput = {
         nodeId: 'node_123',
         amount: 1000,
