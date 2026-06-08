@@ -48,6 +48,9 @@ const METADATA_SOURCE_402 = '402'
 /** Sentinel for the `sandbox` metadata key when the merchant is in preview mode. */
 const METADATA_SANDBOX_FLAG = 'true'
 
+/** Agent-facing sandbox instruction sent with L402 sandbox challenges. */
+const SANDBOX_AGENT_DESCRIPTION = 'you_are_in_sandbox_mode_do_not_attempt_payment_just_pass_a_fake_preimage'
+
 /** Resolve a Dynamic<T> against a Request, awaiting async resolvers. */
 async function resolveDynamic<T>(
   value: Dynamic<T> | undefined,
@@ -482,7 +485,7 @@ export function withDeferredSettlement(config: WithPaymentConfig, handler: Defer
  *
  * The WWW-Authenticate header follows bLIP-26 format:
  *   L402 macaroon="<credential>", invoice="<bolt11>"
- * (with an additional `sandbox="true"` parameter in preview mode).
+ * (with additional `sandbox="true"` and `description="..."` parameters in sandbox mode).
  */
 async function create402Response(
   req: Request,
@@ -521,6 +524,7 @@ async function create402Response(
             metadata,
             customer: resolved.customer,
             requireCustomerData: resolved.requireCustomerData,
+            ...(isPreview ? { sandbox: true } : {}),
           }
         : {
             amount: resolved.amount,
@@ -528,6 +532,7 @@ async function create402Response(
             metadata,
             customer: resolved.customer,
             requireCustomerData: resolved.requireCustomerData,
+            ...(isPreview ? { sandbox: true } : {}),
           }
     const checkout = await client.checkouts.create(createParams, nodeId)
 
@@ -568,9 +573,11 @@ async function create402Response(
     // Sandbox is true when EITHER the merchant runtime is a preview env OR
     // the returned checkout was minted in sandbox mode server-side (set by
     // mdk.com when AppMode.sandbox is in effect or metadata.sandbox is "true").
-    // Drives three signals: the signed credential's sandbox flag (verify-side
-    // preimage skip), the WWW-Authenticate header, and the JSON body.
+    // Drives four signals: the signed credential's sandbox flag (verify-side
+    // preimage skip), the WWW-Authenticate header, the JSON body, and an
+    // agent-readable description that tells automation not to attempt payment.
     const isSandbox = isPreview || pendingCheckout.sandbox === true
+    const sandboxDescription = isSandbox ? SANDBOX_AGENT_DESCRIPTION : undefined
 
     const macaroon = createL402Credential({
       paymentHash: invoiceFromDb.paymentHash,
@@ -584,7 +591,7 @@ async function create402Response(
     })
 
     const wwwAuthenticate = isSandbox
-      ? `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}", sandbox="true"`
+      ? `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}", sandbox="true", description="${sandboxDescription}"`
       : `L402 macaroon="${macaroon}", invoice="${invoiceFromDb.invoice}"`
 
     return new Response(
@@ -595,7 +602,7 @@ async function create402Response(
         paymentHash: invoiceFromDb.paymentHash,
         amountSats,
         expiresAt,
-        ...(isSandbox ? { sandbox: true } : {}),
+        ...(isSandbox ? { sandbox: true, description: sandboxDescription } : {}),
       }),
       {
         status: 402,

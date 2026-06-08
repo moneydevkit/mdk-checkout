@@ -25,6 +25,10 @@ function deriveShowSandbox(checkout: { sandbox?: boolean | null | undefined }): 
   return is_preview_environment() || checkout.sandbox === true
 }
 
+function deriveShowMarkAsPaid(checkout: { sandbox?: boolean | null | undefined }): boolean {
+  return is_preview_environment() || checkout.sandbox === true
+}
+
 const ENV_KEYS = [
   'NEXT_PUBLIC_MDK_PREVIEW',
   'MDK_PREVIEW',
@@ -68,6 +72,11 @@ describe('PendingPaymentCheckout showSandbox gate', () => {
     assert.equal(deriveShowSandbox({ sandbox: true }), true)
   })
 
+  it('shows Mark-as-Paid when checkout.sandbox=true even if the browser cannot see MDK_PREVIEW', () => {
+    assert.equal(is_preview_environment(), false)
+    assert.equal(deriveShowMarkAsPaid({ sandbox: true }), true)
+  })
+
   it('returns false when checkout.sandbox=false in a production env', () => {
     assert.equal(is_preview_environment(), false)
     assert.equal(deriveShowSandbox({ sandbox: false }), false)
@@ -75,6 +84,12 @@ describe('PendingPaymentCheckout showSandbox gate', () => {
 
   it('returns true when is_preview_environment() is true even if checkout.sandbox=false (preserves legacy preview path)', () => {
     process.env.NEXT_PUBLIC_MDK_PREVIEW = '1'
+    assert.equal(is_preview_environment(), true)
+    assert.equal(deriveShowSandbox({ sandbox: false }), true)
+  })
+
+  it('treats MDK_PREVIEW=True as preview mode', () => {
+    process.env.MDK_PREVIEW = 'True'
     assert.equal(is_preview_environment(), true)
     assert.equal(deriveShowSandbox({ sandbox: false }), true)
   })

@@ -21,7 +21,8 @@ function getEnvFlag(key: string): string | undefined {
 }
 
 function isTruthyFlag(value: string | undefined): boolean {
-  return value === '1' || value === 'true'
+  const normalized = value?.trim().toLowerCase()
+  return normalized === '1' || normalized === 'true'
 }
 
 export function is_preview_environment(): boolean {

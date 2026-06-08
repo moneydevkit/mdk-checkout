@@ -190,6 +190,7 @@ type CommonCheckoutFields = {
   metadata?: Record<string, unknown>
   customer?: CustomerInput
   requireCustomerData?: string[]
+  sandbox?: boolean
 }
 
 type AmountCheckoutParams = CommonCheckoutFields & {
@@ -242,6 +243,7 @@ export async function createCheckout(
   const isProductCheckout = params.type === 'PRODUCTS'
   const currency = params.currency
   const metadataOverrides = params.metadata ?? {}
+  const sandbox = params.sandbox === true || is_preview_environment()
 
   const product = isProductCheckout ? params.product : undefined
   const amount = isProductCheckout ? undefined : params.amount
@@ -270,6 +272,7 @@ export async function createCheckout(
         },
         customer: cleanCustomerInput(params.customer),
         requireCustomerData: normalizeRequireCustomerData(params.requireCustomerData),
+        ...(sandbox ? { sandbox: true } : {}),
       },
       nodeId,
     )

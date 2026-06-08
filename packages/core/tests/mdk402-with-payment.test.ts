@@ -1478,6 +1478,8 @@ describe('withPayment', () => {
   })
 
   describe('sandbox body + WWW-Authenticate signals', () => {
+    const SANDBOX_AGENT_DESCRIPTION = 'you_are_in_sandbox_mode_do_not_attempt_payment_just_pass_a_fake_preimage'
+
     it('includes "sandbox": true in 402 JSON body when in preview mode', async () => {
       previewMode = true
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
@@ -1486,6 +1488,16 @@ describe('withPayment', () => {
       assert.equal(res.status, 402)
       const body = await res.json()
       assert.equal(body.sandbox, true)
+    })
+
+    it('includes sandbox agent description in 402 JSON body when in preview mode', async () => {
+      previewMode = true
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      assert.equal(res.status, 402)
+      const body = await res.json()
+      assert.equal(body.description, SANDBOX_AGENT_DESCRIPTION)
     })
 
     it('includes sandbox="true" parameter in WWW-Authenticate header when in preview mode', async () => {
@@ -1501,6 +1513,19 @@ describe('withPayment', () => {
       assert.ok(wwwAuth.includes('invoice="'))
     })
 
+    it('includes sandbox agent description in WWW-Authenticate header when in preview mode', async () => {
+      previewMode = true
+      const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
+      const res = await wrapped(makeRequest())
+
+      const wwwAuth = res.headers.get('www-authenticate')
+      assert.ok(wwwAuth)
+      assert.ok(
+        wwwAuth.includes(`description="${SANDBOX_AGENT_DESCRIPTION}"`),
+        `expected sandbox description in header, got: ${wwwAuth}`,
+      )
+    })
+
     it('omits sandbox signals in 402 response when NOT in preview mode (regression guard)', async () => {
       previewMode = false
       const wrapped = withPayment({ amount: 100, currency: 'SAT' }, innerHandler)
@@ -1509,15 +1534,16 @@ describe('withPayment', () => {
       assert.equal(res.status, 402)
       const body = await res.json()
       assert.equal(body.sandbox, undefined)
+      assert.equal(body.description, undefined)
 
       const wwwAuth = res.headers.get('www-authenticate')
       assert.ok(wwwAuth)
       assert.ok(!wwwAuth.includes('sandbox'), `WWW-Authenticate must not contain sandbox in production, got: ${wwwAuth}`)
+      assert.ok(!wwwAuth.includes('description='), `WWW-Authenticate must not contain sandbox description in production, got: ${wwwAuth}`)
     })
 
-    // EXTENSION GAP-FILL: all three sandbox signals (body, header, checkout
-    // metadata) must fire in PRODUCTS mode just like AMOUNT mode. Locks in
-    // sandbox-mode parity across both config shapes.
+    // EXTENSION GAP-FILL: all four sandbox signals (body, header, description,
+    // checkout persistence metadata) must hold for PRODUCTS mode too.
     it('emits all sandbox signals in PRODUCTS mode (body + header + checkout metadata)', async () => {
       previewMode = true
       // Match the PRODUCTS-mode mint mock pattern from the issuance describe block.
@@ -1540,13 +1566,15 @@ describe('withPayment', () => {
       assert.equal(res.status, 402)
       const body = await res.json()
       assert.equal(body.sandbox, true)
+      assert.equal(body.description, SANDBOX_AGENT_DESCRIPTION)
 
       const wwwAuth = res.headers.get('www-authenticate')
       assert.ok(wwwAuth)
       assert.ok(wwwAuth.includes('sandbox="true"'))
+      assert.ok(wwwAuth.includes(`description="${SANDBOX_AGENT_DESCRIPTION}"`))
 
-      // The metadata.sandbox='true' string flag is what mdk.com reads to force
-      // the BOLT11 sentinel description — must be set in PRODUCTS mode too.
+      // The metadata.sandbox='true' string flag is what mdk.com reads to persist
+      // the checkout as sandbox — must be set in PRODUCTS mode too.
       const md = currentMocks.fakeClient.checkouts.create.mock.calls[0].arguments[0].metadata
       assert.equal(md.sandbox, 'true')
     })

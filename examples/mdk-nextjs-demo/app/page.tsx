@@ -18,6 +18,8 @@ const chips = [
   { label: "Deploy target", value: "Vercel" },
 ];
 
+const e2eProductId = process.env.NEXT_PUBLIC_MDK_E2E_PRODUCT_ID ?? "prod_e2e_nextjs_demo";
+
 export default function HomePage() {
   const [customerName, setCustomerName] = useState("Satoshi Nakamoto");
   const [note, setNote] = useState("Fast IBD snapshot with hosted checkout.");
@@ -44,6 +46,28 @@ export default function HomePage() {
       currency: "USD",
       successUrl: "/checkout/success",
       metadata,
+      checkoutPath: "/checkout",
+    });
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    window.location.href = result.data.checkoutUrl;
+  };
+
+  const handleProductCheckout = async () => {
+    setError(null);
+
+    const result = await createCheckout({
+      type: "PRODUCTS",
+      product: e2eProductId,
+      successUrl: "/checkout/success",
+      metadata: {
+        ...metadata,
+        checkoutKind: "product",
+      },
       checkoutPath: "/checkout",
     });
 
@@ -113,6 +137,15 @@ export default function HomePage() {
                 data-test="start-checkout"
               >
                 {isLoading ? "Creating checkout…" : "Launch checkout"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleProductCheckout}
+                disabled={isLoading}
+                data-test="start-product-checkout"
+              >
+                {isLoading ? "Creating checkout…" : "Launch product checkout"}
               </Button>
               <p className="hint">
                 We create a checkout session with the values above and redirect to

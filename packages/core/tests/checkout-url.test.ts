@@ -291,6 +291,13 @@ describe('parseCheckoutQueryParams', () => {
     assert.strictEqual(typeof result.amount, 'number')
   })
 
+  it('parses sandbox=true as boolean true', () => {
+    const params = new URLSearchParams('sandbox=true')
+    const result = parseCheckoutQueryParams(params)
+    assert.strictEqual(result.sandbox, true)
+    assert.strictEqual(typeof result.sandbox, 'boolean')
+  })
+
   it('parses metadata as JSON object', () => {
     const params = new URLSearchParams('metadata={"orderId":"123"}')
     const result = parseCheckoutQueryParams(params)

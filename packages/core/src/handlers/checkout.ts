@@ -30,9 +30,10 @@ const commonCheckoutFields = {
           })
         }
       }
-    }),
+  }),
   customer: customerInputSchema.optional(),
   requireCustomerData: z.array(z.string()).optional(),
+  sandbox: z.boolean().optional(),
 }
 
 const amountCheckoutSchema = z.object({
@@ -297,6 +298,8 @@ export function parseCheckoutQueryParams(params: URLSearchParams): Record<string
     } else if (key === 'amount') {
       // Parse amount as number
       raw[key] = Number(value)
+    } else if (key === 'sandbox') {
+      raw[key] = value === 'true'
     } else {
       raw[key] = value
     }

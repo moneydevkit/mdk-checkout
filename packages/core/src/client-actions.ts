@@ -106,7 +106,14 @@ async function postToMdk<T>(handler: string, payload: Record<string, unknown>): 
 }
 
 export async function clientCreateCheckout(params: CreateCheckoutParams): Promise<Result<CheckoutType>> {
-  return postToMdk<CheckoutType>('create_checkout', { params })
+  const sandbox = params.sandbox === true || is_preview_environment()
+
+  return postToMdk<CheckoutType>('create_checkout', {
+    params: {
+      ...params,
+      ...(sandbox ? { sandbox: true } : {}),
+    },
+  })
 }
 
 export async function clientGetCheckout(checkoutId: string): Promise<CheckoutType> {
