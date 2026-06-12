@@ -29,6 +29,10 @@ export { POST } from "@moneydevkit/nextjs/server/route";
 
 See [packages/nextjs/README.md](packages/nextjs/README.md) for full setup instructions.
 
+## Testing against staging
+
+See [STAGING-TESTING.md](STAGING-TESTING.md) for how to test these packages against the staging environment (signet/Mutinynet).
+
 ## Workspace scripts
 Run commands from the repo root using npm workspaces:
 
