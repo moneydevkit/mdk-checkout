@@ -1,7 +1,8 @@
 import * as http from 'node:http'
 import { createRequire } from 'node:module'
 import { decode as decodeBolt11 } from 'light-bolt11-decoder'
-import { loadConfig, savePayment, updatePayment, findPayment, loadPayments, type WalletConfig, type StoredPayment } from './config.js'
+import { loadConfig, saveFeeClaim, savePayment, updatePayment, findPayment, loadPayments, type WalletConfig, type StoredPayment } from './config.js'
+import { cachedClaimFor, fetchFeeClaim } from './fee-claim.js'
 import { getNodeOptions } from './mdk-config.js'
 import { saveDaemonPid, removeDaemonPid } from './daemon.js'
 
@@ -97,7 +98,43 @@ class WalletServer {
     this.server = http.createServer((req, res) => this.handleRequest(req, res))
   }
 
+  /**
+   * Fetch and cache the agent-wallet fee claim if we don't hold one for the
+   * node we are about to boot. Must run before the node is constructed: the
+   * claim is node config, presented during LSPS4 registration. Best-effort by
+   * design; on failure the wallet runs at the standard rate and the next
+   * daemon start retries.
+   *
+   * The cache is keyed by node_id, not by "a claim exists": MDK_WALLET_MNEMONIC
+   * can change the effective node under a config file whose cached claim
+   * belongs to a different node, and a mismatched claim is worse than none
+   * (the LSP rejects it and the wallet still pays the standard rate).
+   */
+  private async ensureFeeClaim(): Promise<void> {
+    // An operator-supplied claim is authoritative; never second-guess it.
+    if (process.env.MDK_WALLET_FEE_CLAIM) return
+    try {
+      const { deriveNodeId } = loadLightningModule()
+      const nodeId = deriveNodeId(this.config.mnemonic, this.config.network)
+      if (cachedClaimFor(this.config, nodeId)) return
+      // Stale-or-absent: never present a claim bound to another node.
+      this.config = { ...this.config, feeClaim: undefined, feeClaimNodeId: undefined }
+      const claim = await fetchFeeClaim(nodeId, getNodeOptions(this.config.network).mintFeeClaimUrl)
+      if (!claim) return
+      this.config = { ...this.config, feeClaim: claim, feeClaimNodeId: nodeId }
+      // Persist only when the mnemonic came from the config file; under an
+      // env override the claim belongs to a node the file does not describe.
+      if (!process.env.MDK_WALLET_MNEMONIC) {
+        saveFeeClaim(claim, nodeId)
+      }
+      console.log('[fee-claim] minted and cached agent-wallet fee claim')
+    } catch (err) {
+      console.error(`[fee-claim] skipping fee claim: ${err}`)
+    }
+  }
+
   async start(port: number): Promise<void> {
+    await this.ensureFeeClaim()
     return new Promise((resolve) => {
       this.server.listen(port, '127.0.0.1', () => {
         console.log(`[wallet] Server listening on http://127.0.0.1:${port}`)
@@ -150,6 +187,7 @@ class WalletServer {
           lspNodeId: nodeOptions.lspNodeId,
           lspAddress: nodeOptions.lspAddress,
           scoringParamOverrides: nodeOptions.scoringParamOverrides,
+          feeClaim: this.config.feeClaim,
         })
 
         console.log(`[wallet] Node initialized, id=${this.node.getNodeId()}`)

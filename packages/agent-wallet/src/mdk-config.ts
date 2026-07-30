@@ -5,6 +5,7 @@ export const MAINNET_NODE_OPTIONS = {
   rgsUrl: 'https://rapidsync.lightningdevkit.org/snapshot/v2',
   lspNodeId: '02a63339cc6b913b6330bd61b2f469af8785a6011a6305bb102298a8e76697473b',
   lspAddress: 'lsp.moneydevkit.com:9735',
+  mintFeeClaimUrl: 'https://moneydevkit.com/api/mint-fee-claim',
   scoringParamOverrides: {
     // 100x default. Willing to spend 102.4 sats to avoid an extra hop
     basePenaltyMsat: 102400,
@@ -29,6 +30,7 @@ export const SIGNET_NODE_OPTIONS = {
   rgsUrl: 'https://rgs.mutinynet.com/snapshot',
   lspNodeId: '03fd9a377576df94cc7e458471c43c400630655083dee89df66c6ad38d1b7acffd',
   lspAddress: 'lsp.staging.moneydevkit.com:9735',
+  mintFeeClaimUrl: 'https://staging.moneydevkit.com/api/mint-fee-claim',
   scoringParamOverrides: {},
 }
 

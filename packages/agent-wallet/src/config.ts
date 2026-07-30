@@ -8,12 +8,26 @@ export interface WalletConfig {
   mnemonic: string
   network: Network
   walletId: string
+  /**
+   * Signed LSPS4 fee claim granting this node the agent-wallet rate,
+   * minted once by moneydevkit.com and cached here permanently. Absent
+   * means the wallet pays the LSP's standard rate.
+   */
+  feeClaim?: string
+  /**
+   * The node_id the cached claim was minted for. Claims are node-bound, so
+   * the cache is only valid while this matches the mnemonic-derived node
+   * (MDK_WALLET_MNEMONIC can change the effective node under the same file).
+   */
+  feeClaimNodeId?: string
 }
 
 export interface PartialConfig {
   mnemonic?: string
   network?: Network
   walletId?: string
+  feeClaim?: string
+  feeClaimNodeId?: string
 }
 
 const CONFIG_DIR = path.join(os.homedir(), '.mdk-wallet')
@@ -60,12 +74,16 @@ export function loadConfig(): WalletConfig | null {
     const mnemonic = process.env.MDK_WALLET_MNEMONIC ?? parsed.mnemonic
     const network = (process.env.MDK_WALLET_NETWORK as Network) ?? parsed.network ?? 'mainnet'
     const walletId = parsed.walletId
+    const envClaim = process.env.MDK_WALLET_FEE_CLAIM
+    const feeClaim = envClaim ?? parsed.feeClaim
+    // The stored node binding describes the stored claim, not an env one.
+    const feeClaimNodeId = envClaim ? undefined : parsed.feeClaimNodeId
 
     if (!mnemonic || !walletId) {
       return null
     }
 
-    return { mnemonic, network, walletId }
+    return { mnemonic, network, walletId, feeClaim, feeClaimNodeId }
   } catch {
     return null
   }
@@ -74,6 +92,28 @@ export function loadConfig(): WalletConfig | null {
 export function saveConfig(config: WalletConfig): void {
   ensureConfigDir()
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 })
+}
+
+/**
+ * Persist a freshly minted fee claim by patching the raw config file rather
+ * than re-serializing the loaded config, so env-var overrides (mnemonic,
+ * network) never get baked into config.json as a side effect.
+ */
+export function saveFeeClaim(
+  feeClaim: string,
+  feeClaimNodeId: string,
+  configFile: string = CONFIG_FILE,
+): boolean {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configFile, 'utf-8')) as PartialConfig
+    parsed.feeClaim = feeClaim
+    parsed.feeClaimNodeId = feeClaimNodeId
+    fs.writeFileSync(configFile, JSON.stringify(parsed, null, 2), { mode: 0o600 })
+    return true
+  } catch (err) {
+    console.error(`[fee-claim] failed to persist claim to ${configFile}: ${err}`)
+    return false
+  }
 }
 
 export function generateWalletId(): string {
