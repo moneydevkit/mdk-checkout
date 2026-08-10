@@ -21,7 +21,7 @@ npx @moneydevkit/agent-wallet@latest send user@getalby.com 500
 ## How It Works
 
 The CLI automatically starts a daemon on first command. The daemon:
-- Runs a local HTTP server on `localhost:3456`
+- Runs a local HTTP server on `localhost:3456`, gated by a bearer token (see [Local API security](#local-api-security))
 - Connects to MDK's Lightning infrastructure (LSP, VSS)
 - Polls for incoming payments every 30 seconds (15-second polling windows)
 - Persists payment history to `~/.mdk-wallet/`
@@ -108,6 +108,22 @@ Environment overrides:
 - `MDK_WALLET_MNEMONIC` - Override mnemonic
 - `MDK_WALLET_NETWORK` - `mainnet` or `signet`
 - `MDK_WALLET_PORT` - Server port (default: 3456)
+
+## Local API security
+
+The daemon's local HTTP API is authenticated. A 256-bit token is minted on first
+use and stored in `~/.mdk-wallet/auth.token` (mode `0600`); every route requires
+it as `Authorization: Bearer <token>`, and requests that do not come from local
+tooling are refused with `401 UNAUTHORIZED`. The CLI handles all of this.
+
+Treat `auth.token` like the mnemonic: whoever can read it can spend the balance.
+It is not a boundary against code running as your own user - that code can read
+the mnemonic in the same directory.
+
+After upgrading, restart the daemon so the new binary is the one serving the
+API: `npx @moneydevkit/agent-wallet@latest restart`. If commands start failing
+with `UNAUTHORIZED` (for example because `auth.token` was deleted while the
+daemon was running), `restart` resyncs the CLI and the daemon.
 
 ## For AI Agents
 

@@ -34,6 +34,7 @@ const CONFIG_DIR = path.join(os.homedir(), '.mdk-wallet')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
 const PID_FILE = path.join(CONFIG_DIR, 'daemon.pid')
 const PAYMENTS_FILE = path.join(CONFIG_DIR, 'payments.json')
+const TOKEN_FILE = path.join(CONFIG_DIR, 'auth.token')
 
 export function getConfigDir(): string {
   return CONFIG_DIR
@@ -51,9 +52,117 @@ export function getPaymentsFile(): string {
   return PAYMENTS_FILE
 }
 
+export function getTokenFile(): string {
+  return TOKEN_FILE
+}
+
+/** Shape of a minted API token: 32 random bytes, lowercase hex. */
+const TOKEN_PATTERN = /^[0-9a-f]{64}$/
+
+/**
+ * Read the stored API token, or null when the file is absent or does not hold a
+ * token. Never returns a value it would not accept later: an empty or partial
+ * file must not become a credential. Surrounding whitespace is tolerated so a
+ * hand-managed file (which usually gains a trailing newline) still works.
+ *
+ * Throws when the path exists but is not a regular file, rather than reading
+ * whatever it points at.
+ */
+function readApiToken(): string | null {
+  let fd: number
+  try {
+    // O_NOFOLLOW plus fstat/fchmod/read on the open descriptor: every check and
+    // the read itself apply to the same object, so the pathname cannot be
+    // swapped for a symlink between the check and the use.
+    fd = fs.openSync(TOKEN_FILE, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') return null
+    if (code === 'ELOOP') throw new Error(`${TOKEN_FILE} is a symlink; remove it and retry`)
+    throw err
+  }
+
+  try {
+    const stat = fs.fstatSync(fd)
+    if (!stat.isFile()) {
+      throw new Error(`${TOKEN_FILE} is not a regular file; remove it and retry`)
+    }
+
+    // A loosened mode (umask, a restored backup, a copied home directory) must
+    // not silently persist: whoever can read this file can spend the balance.
+    if ((stat.mode & 0o077) !== 0) {
+      fs.fchmodSync(fd, 0o600)
+    }
+
+    const token = fs.readFileSync(fd, 'utf-8').trim()
+    return TOKEN_PATTERN.test(token) ? token : null
+  } finally {
+    fs.closeSync(fd)
+  }
+}
+
+/**
+ * Read the bearer token that guards the daemon's HTTP API, minting it on first
+ * use. It lives in its own 0600 file rather than in config.json so publishing
+ * it is one indivisible step: the CLI and the daemon it spawns race here, and a
+ * read-modify-write of config.json would let one clobber the other's token and
+ * lock itself out.
+ *
+ * Publication is write-to-temp then link(), not create-then-write. A plain
+ * 'wx' create publishes the *name* atomically but not the contents, so a racing
+ * reader could observe an empty file and go mint a second, conflicting token.
+ * link() refuses to replace a token another process has already handed out.
+ *
+ * An existing file that is not a valid token is reported, never repaired. There
+ * is nothing to gain from repairing it: a running daemon holds its token in
+ * memory, so a freshly minted one would be rejected anyway, and "delete the bad
+ * file" is racy in exactly the way link() exists to avoid.
+ */
+export function ensureApiToken(): string {
+  ensureConfigDir()
+
+  const existing = readApiToken()
+  if (existing) return existing
+
+  const temp = `${TOKEN_FILE}.${process.pid}.${crypto.randomBytes(6).toString('hex')}`
+  try {
+    // 'wx' on the temp too, so an EEXIST from this write is never mistaken for
+    // the one below (which means another process published first).
+    fs.writeFileSync(temp, crypto.randomBytes(32).toString('hex'), { mode: 0o600, flag: 'wx' })
+    try {
+      fs.linkSync(temp, TOKEN_FILE)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    }
+  } finally {
+    try {
+      fs.unlinkSync(temp)
+    } catch {
+      // Never let cleanup of a temp file mask the outcome, or leave a secret
+      // behind if the write itself failed.
+    }
+  }
+
+  const published = readApiToken()
+  if (published) return published
+
+  throw new Error(
+    `${TOKEN_FILE} exists but holds no valid API token. Delete it, then run ` +
+      '`agent-wallet restart` so the daemon and the CLI agree on a new one.',
+  )
+}
+
 export function ensureConfigDir(): void {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
+    return
+  }
+
+  // An existing directory carrying group or other bits lets someone else read
+  // or swap what is inside it, and what is inside it is the mnemonic and the
+  // API token. Clamp it rather than trusting how it got there.
+  if ((fs.statSync(CONFIG_DIR).mode & 0o077) !== 0) {
+    fs.chmodSync(CONFIG_DIR, 0o700)
   }
 }
 

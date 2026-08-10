@@ -1,3 +1,4 @@
+import { ensureApiToken } from './config.js'
 import type { PaymentStatus, StoredPayment } from './payment-store.js'
 
 export interface ApiResponse<T = unknown> {
@@ -8,15 +9,21 @@ export interface ApiResponse<T = unknown> {
 
 export class WalletClient {
   private baseUrl: string
+  private apiToken: string
 
-  constructor(port: number) {
+  /** `apiToken` defaults to the shared token file, which the daemon reads too. */
+  constructor(port: number, apiToken: string = ensureApiToken()) {
     this.baseUrl = `http://127.0.0.1:${port}`
+    this.apiToken = apiToken
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: {
+        Authorization: `Bearer ${this.apiToken}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
       body: body ? JSON.stringify(body) : undefined,
     })
 
@@ -29,7 +36,7 @@ export class WalletClient {
     return data.data as T
   }
 
-  async health(): Promise<{ status: string; nodeRunning: boolean }> {
+  async health(): Promise<{ status: string; nodeRunning: boolean; pid: number }> {
     return this.request('GET', '/health')
   }
 

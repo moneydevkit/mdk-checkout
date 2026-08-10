@@ -1,6 +1,6 @@
 import { stopDaemon, getDaemonStatus } from '../daemon.js'
 
-export function stop(): void {
+export async function stop(): Promise<void> {
   const status = getDaemonStatus()
 
   if (!status.running) {
@@ -8,6 +8,6 @@ export function stop(): void {
     return
   }
 
-  const stopped = stopDaemon()
-  console.log(JSON.stringify({ stopped }))
+  const result = await stopDaemon()
+  console.log(JSON.stringify({ ...result, ...(result.stopped ? {} : { pid: status.pid }) }))
 }

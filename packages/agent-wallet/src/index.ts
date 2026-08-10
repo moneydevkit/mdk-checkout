@@ -72,7 +72,7 @@ async function main(): Promise<void> {
       break
 
     case 'stop':
-      stop()
+      await stop()
       break
 
     case 'start':
