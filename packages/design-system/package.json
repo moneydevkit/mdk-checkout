@@ -69,6 +69,7 @@
     "react-dom": "^19.2.3",
     "storybook": "^8.6.15",
     "tailwindcss": "^4",
+    "vite": "^7.3.6",
     "tsup": "^8.4.0",
     "typescript": "^5"
   },
