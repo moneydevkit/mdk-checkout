@@ -18,7 +18,7 @@ const customerInputSchema = z.object({
 const commonCheckoutFields = {
   successUrl: z.string().optional(),
   checkoutPath: z.string().optional(),
-  metadata: z.record(z.string()).optional()
+	metadata: z.record(z.string(), z.string()).optional()
     .superRefine((metadata, ctx) => {
       const validation = validateMetadata(metadata)
       if (!validation.ok) {

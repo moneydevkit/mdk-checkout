@@ -37,7 +37,7 @@ describe('GetCustomerInputSchema', () => {
     const result = GetCustomerInputSchema.safeParse({})
     assert.strictEqual(result.success, false)
     if (!result.success) {
-      assert.ok(result.error.errors[0].message.includes('Exactly one'))
+      assert.ok(result.error.issues[0].message.includes('Exactly one'))
     }
   })
 
@@ -48,7 +48,7 @@ describe('GetCustomerInputSchema', () => {
     })
     assert.strictEqual(result.success, false)
     if (!result.success) {
-      assert.ok(result.error.errors[0].message.includes('Exactly one'))
+      assert.ok(result.error.issues[0].message.includes('Exactly one'))
     }
   })
 

@@ -1,4 +1,4 @@
-import { experimental_RPCHandler as RPCHandler } from '@orpc/server/ws'
+import { RPCHandler } from '@orpc/server/ws'
 import { WebSocket } from 'ws'
 
 import { nodeControlRouter } from './handlers'

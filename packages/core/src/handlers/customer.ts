@@ -19,7 +19,7 @@ export async function handleGetCustomer(request: Request): Promise<Response> {
   const parsed = GetCustomerInputSchema.safeParse(body)
   if (!parsed.success) {
     return jsonResponse(400, {
-      error: parsed.error.errors[0]?.message || 'Invalid input',
+      error: parsed.error.issues[0]?.message || 'Invalid input',
     })
   }
 
