@@ -42,8 +42,8 @@ const BaseCheckoutSchema = z.object({
 	]),
 	organizationId: z.string(),
 	expiresAt: z.date(),
-	userMetadata: z.record(z.any()).nullable(),
-	customFieldData: z.record(z.any()).nullable(),
+	userMetadata: z.record(z.string(), z.any()).nullable(),
+	customFieldData: z.record(z.string(), z.any()).nullable(),
 	currency: CurrencySchema,
 	allowDiscountCodes: z.boolean(),
 	/**
@@ -70,7 +70,7 @@ const BaseCheckoutSchema = z.object({
 	 * Customer data associated with this checkout.
 	 */
 	customer: CustomerOutputSchema.nullable(),
-	customerBillingAddress: z.record(z.any()).nullable(),
+	customerBillingAddress: z.record(z.string(), z.any()).nullable(),
 	products: z.array(CheckoutProductSchema).nullable(),
 	/**
 	 * The selected product ID (from the products array).
@@ -244,7 +244,7 @@ export type CheckoutListItem = z.infer<typeof CheckoutListItemSchema>;
 
 // Detail schema (includes additional fields beyond list item)
 export const CheckoutDetailSchema = CheckoutListItemSchema.extend({
-	userMetadata: z.record(z.unknown()).nullable(),
+	userMetadata: z.record(z.string(), z.unknown()).nullable(),
 	successUrl: z.string().nullable(),
 	discountAmount: z.number().nullable(),
 	netAmount: z.number().nullable(),

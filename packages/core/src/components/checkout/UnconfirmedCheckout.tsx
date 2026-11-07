@@ -52,7 +52,7 @@ export default function UnconfirmedCheckout({ checkout }: UnconfirmedCheckoutPro
   const hasEmail = Boolean(checkout.customer?.email)
 
   // Build dynamic schema based on missing required fields
-  const schemaShape: Record<string, z.ZodTypeAny> = {}
+  const schemaShape: Record<string, z.ZodString> = {}
   for (const field of missingFields) {
     if (field === 'email') {
       schemaShape[field] = z.string().email('Please enter a valid email address')
